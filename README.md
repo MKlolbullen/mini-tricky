@@ -1,7 +1,7 @@
 # mini-tricky
 
 <p align="center">
-  <img src="docs/images/mini-tricky-ui-preview.png" alt="mini-tricky UI preview" width="100%" />
+  <img src="docs/images/mini-tricky-ui-preview-2.png" alt="mini-tricky UI preview" width="100%" />
 </p>
 
 <p align="center">
