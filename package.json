@@ -1,0 +1,20 @@
+{
+  "name": "mini-tricky",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Electron shell for a Trickest-style bug bounty workflow builder.",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "cd backend && python -m uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
+    "electron:dev": "concurrently -k \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 && electron .\"",
+    "electron:start": "electron ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "electron": "^33.2.1",
+    "wait-on": "^8.0.1"
+  }
+}
