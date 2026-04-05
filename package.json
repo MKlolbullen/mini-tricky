@@ -10,7 +10,9 @@
     "frontend:build": "npm --prefix frontend run build",
     "backend:dev": "cd backend && python -m uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
     "electron:dev": "concurrently -k \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 && electron .\"",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "desktop:dev": "npm run electron:dev",
+    "desktop:start": "npm run electron:start"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",

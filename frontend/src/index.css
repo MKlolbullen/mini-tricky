@@ -12,7 +12,7 @@ button, input { font: inherit; }
 
 .app-shell {
   display: grid;
-  grid-template-rows: 64px 1fr 240px;
+  grid-template-rows: 64px 60px 1fr 240px;
   height: 100%;
 }
 
@@ -25,35 +25,47 @@ button, input { font: inherit; }
   background: #0d1627;
 }
 
-.brand { font-size: 24px; font-weight: 800; }
+.brand { font-size: 24px; font-weight: 800; letter-spacing: 0.02em; }
 nav { display: flex; gap: 8px; }
-.nav-btn, .console-tab {
+
+.nav-btn,
+.console-tab,
+.action-btn {
   background: transparent;
   color: #9fb2d9;
   border: 1px solid transparent;
   padding: 10px 14px;
   border-radius: 10px;
+  cursor: pointer;
 }
-.nav-btn.active, .console-tab.active { background: #122038; color: #fff; border-color: #2b4d82; }
+
+.nav-btn.active,
+.console-tab.active,
+.action-btn {
+  background: #122038;
+  color: #fff;
+  border-color: #2b4d82;
+}
+
+.action-btn.primary {
+  background: #184a7a;
+  border-color: #4b8fe0;
+}
+
 .status-pill { padding: 8px 12px; border-radius: 999px; font-size: 13px; }
 .status-pill.ok { background: #14381f; color: #79f2a3; }
 .status-pill.warn { background: #402618; color: #ffc17a; }
 
-.workspace {
-  display: grid;
-  grid-template-columns: 290px 1fr 320px;
-  min-height: 0;
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #1a2740;
+  background: #0b1322;
 }
-.sidebar {
-  padding: 16px;
-  border-right: 1px solid #1a2740;
-  background: #0c1423;
-  overflow: auto;
-}
-.sidebar.right {
-  border-right: 0;
-  border-left: 1px solid #1a2740;
-}
+
+.name-input,
 .search {
   width: 100%;
   background: #101b2d;
@@ -61,8 +73,28 @@ nav { display: flex; gap: 8px; }
   border: 1px solid #223455;
   border-radius: 12px;
   padding: 12px 14px;
-  margin-bottom: 16px;
 }
+
+.name-input { max-width: 320px; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: 320px 1fr 340px;
+  min-height: 0;
+}
+
+.sidebar {
+  padding: 16px;
+  border-right: 1px solid #1a2740;
+  background: #0c1423;
+  overflow: auto;
+}
+
+.sidebar.right {
+  border-right: 0;
+  border-left: 1px solid #1a2740;
+}
+
 .section-title {
   font-size: 12px;
   text-transform: uppercase;
@@ -70,6 +102,7 @@ nav { display: flex; gap: 8px; }
   color: #7f91b3;
   margin: 18px 0 10px;
 }
+
 .palette-item {
   width: 100%;
   text-align: left;
@@ -80,32 +113,107 @@ nav { display: flex; gap: 8px; }
   border-radius: 12px;
   padding: 12px;
 }
+
 .palette-item.tool {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  cursor: pointer;
 }
-.palette-item span { color: #8fa5d2; font-size: 13px; }
 
-.canvas-wrap { background: radial-gradient(circle at center, #0f1a2f 0%, #09111f 65%); min-height: 0; }
-.inspector-card, .empty-state {
+.palette-item span,
+.empty-mini {
+  color: #8fa5d2;
+  font-size: 13px;
+}
+
+.canvas-wrap {
+  background: radial-gradient(circle at center, #0f1a2f 0%, #09111f 65%);
+  min-height: 0;
+}
+
+.flow-node {
+  position: relative;
+  min-width: 220px;
+  min-height: 90px;
+  padding: 14px 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #28416c;
+  background: linear-gradient(180deg, #11203a 0%, #0c1628 100%);
+  color: #e7f0ff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.flow-node.variable { border-color: #2f7450; }
+.flow-node.output { border-color: #7a5a27; }
+.flow-node.selected { box-shadow: 0 0 0 2px #65a6ff; }
+
+.flow-node-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(181, 206, 255, 0.12);
+}
+
+.flow-node-header small {
+  color: #95acd8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.socket-list {
+  position: relative;
+  min-height: 26px;
+}
+
+.socket-row {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #bfd0f5;
+}
+
+.socket-row.left { left: -6px; }
+.socket-row.right { right: -6px; }
+
+.socket-row .react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #0b1220;
+  background: #63a2ff;
+}
+
+.socket-row.left .react-flow__handle { left: -6px; }
+.socket-row.right .react-flow__handle { right: -6px; }
+
+.inspector-card,
+.empty-state {
   background: #101b2d;
   border: 1px solid #223455;
   border-radius: 16px;
   padding: 16px;
 }
-.meta-block ul { margin: 8px 0 0 18px; padding: 0; }
+
+.meta-block ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+}
 
 .console {
   border-top: 1px solid #1a2740;
   background: #0c1423;
   padding: 0 16px 16px;
 }
+
 .console-tabs {
   display: flex;
   gap: 8px;
   padding: 12px 0;
 }
+
 .console-output {
   margin: 0;
   background: #09111f;
@@ -115,4 +223,5 @@ nav { display: flex; gap: 8px; }
   color: #bfe1c7;
   height: 170px;
   overflow: auto;
+  white-space: pre-wrap;
 }

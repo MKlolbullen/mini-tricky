@@ -1,21 +1,31 @@
 tools:
-  - id: httpx
-    name: HTTPX
-    category: Recon
-    inputs: [targets]
-    outputs: [live_urls]
-  - id: nuclei
-    name: Nuclei
-    category: Vulnerability
-    inputs: [targets, templates]
-    outputs: [findings]
-  - id: ffuf
-    name: FFUF
-    category: Fuzzing
-    inputs: [url, wordlist]
-    outputs: [matches]
   - id: subfinder
     name: Subfinder
     category: Recon
     inputs: [domain]
-    outputs: [subdomains]
+    outputs: [targets]
+  - id: httpx
+    name: HTTPX
+    category: Recon
+    inputs: [targets]
+    outputs: [targets]
+  - id: nuclei
+    name: Nuclei
+    category: Vulnerability
+    inputs: [targets]
+    outputs: [findings]
+  - id: ffuf
+    name: FFUF
+    category: Fuzzing
+    inputs: [targets, wordlist]
+    outputs: [findings]
+  - id: katana
+    name: Katana
+    category: Crawling
+    inputs: [targets]
+    outputs: [targets]
+  - id: gau
+    name: GAU
+    category: Archive
+    inputs: [domain]
+    outputs: [targets]
