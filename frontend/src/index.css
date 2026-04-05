@@ -8,7 +8,7 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body { background: #09111f; }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 
 .app-shell {
   display: grid;
@@ -66,7 +66,9 @@ nav { display: flex; gap: 8px; }
 }
 
 .name-input,
-.search {
+.search,
+.parallel-input,
+.inspector-textarea {
   width: 100%;
   background: #101b2d;
   color: #d6e2ff;
@@ -76,6 +78,17 @@ nav { display: flex; gap: 8px; }
 }
 
 .name-input { max-width: 320px; }
+.parallel-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9fb2d9;
+}
+.parallel-input { width: 90px; }
+.inspector-textarea {
+  min-height: 92px;
+  resize: vertical;
+}
 
 .workspace {
   display: grid;
@@ -122,9 +135,11 @@ nav { display: flex; gap: 8px; }
 }
 
 .palette-item span,
-.empty-mini {
+.empty-mini,
+.path-line {
   color: #8fa5d2;
   font-size: 13px;
+  word-break: break-all;
 }
 
 .canvas-wrap {
@@ -134,8 +149,8 @@ nav { display: flex; gap: 8px; }
 
 .flow-node {
   position: relative;
-  min-width: 220px;
-  min-height: 90px;
+  min-width: 230px;
+  min-height: 110px;
   padding: 14px 14px 16px;
   border-radius: 16px;
   border: 1px solid #28416c;
@@ -147,6 +162,10 @@ nav { display: flex; gap: 8px; }
 .flow-node.variable { border-color: #2f7450; }
 .flow-node.output { border-color: #7a5a27; }
 .flow-node.selected { box-shadow: 0 0 0 2px #65a6ff; }
+.flow-node.state-success { border-color: #2f7450; }
+.flow-node.state-failed,
+.flow-node.state-blocked { border-color: #8c3b3b; }
+.flow-node.state-running { border-color: #4b8fe0; }
 
 .flow-node-header {
   display: flex;
@@ -161,6 +180,22 @@ nav { display: flex; gap: 8px; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+.node-state-pill {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #1b2740;
+  color: #9fb2d9;
+}
+.node-state-pill.success { background: #14381f; color: #79f2a3; }
+.node-state-pill.failed,
+.node-state-pill.blocked { background: #4d1f1f; color: #ffabab; }
+.node-state-pill.running { background: #17385c; color: #8ac5ff; }
 
 .socket-list {
   position: relative;
@@ -190,11 +225,18 @@ nav { display: flex; gap: 8px; }
 .socket-row.right .react-flow__handle { right: -6px; }
 
 .inspector-card,
-.empty-state {
+.empty-state,
+.code-block {
   background: #101b2d;
   border: 1px solid #223455;
   border-radius: 16px;
   padding: 16px;
+}
+
+.code-block {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #bfe1c7;
 }
 
 .meta-block ul {

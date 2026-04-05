@@ -4,28 +4,51 @@ tools:
     category: Recon
     inputs: [domain]
     outputs: [targets]
+    command: [subfinder, -silent, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
   - id: httpx
     name: HTTPX
     category: Recon
     inputs: [targets]
     outputs: [targets]
+    command: [httpx, -silent, -l, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 300
+
   - id: nuclei
     name: Nuclei
     category: Vulnerability
     inputs: [targets]
     outputs: [findings]
+    command: [nuclei, -silent, -l, '{targets_file}', -jsonl]
+    output_mode: stdout
+    timeout_seconds: 600
+
   - id: ffuf
     name: FFUF
     category: Fuzzing
     inputs: [targets, wordlist]
     outputs: [findings]
+    command: [ffuf, -w, '{wordlist_file}', -u, '{targets}', -of, json]
+    output_mode: stdout
+    timeout_seconds: 600
+
   - id: katana
     name: Katana
     category: Crawling
     inputs: [targets]
     outputs: [targets]
+    command: [katana, -silent, -list, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 600
+
   - id: gau
     name: GAU
     category: Archive
     inputs: [domain]
     outputs: [targets]
+    command: [gau, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300

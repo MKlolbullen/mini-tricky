@@ -21,6 +21,8 @@ type Tool = {
   category: string;
   inputs: string[];
   outputs: string[];
+  command?: string[];
+  timeout_seconds?: number;
 };
 
 type Health = { status: string };
@@ -32,6 +34,9 @@ type WorkflowNodePayload = {
   variableType?: string;
   inputs: string[];
   outputs: string[];
+  value?: string;
+  params?: Record<string, string>;
+  runState?: string;
 };
 
 type WorkflowRecord = {
@@ -44,6 +49,8 @@ type WorkflowRecord = {
       label: string;
       tool_id?: string | null;
       variable_type?: string | null;
+      value?: string | null;
+      params?: Record<string, string> | null;
       position?: { x: number; y: number };
     }>;
     edges: Array<{
@@ -56,6 +63,20 @@ type WorkflowRecord = {
   };
 };
 
+type NodeRunResult = {
+  node_id: string;
+  status: string;
+  command: string[];
+  exit_code: number | null;
+  artifact_paths: string[];
+  outputs: Record<string, string>;
+  stdout_preview: string;
+  stderr_preview: string;
+  stdout_path: string;
+  stderr_path: string;
+  logs: string[];
+};
+
 type RunRecord = {
   id: string;
   workflow_id: string | null;
@@ -63,6 +84,8 @@ type RunRecord = {
   status: string;
   parallel_groups: string[][];
   node_states: Record<string, string>;
+  node_results: Record<string, NodeRunResult>;
+  artifact_root: string;
   logs: string[];
 };
 
@@ -76,17 +99,20 @@ const outputCatalog = [{ label: 'Artifacts', type: 'any' }];
 
 function SocketNode({ data, selected }: NodeProps<Node<WorkflowNodePayload>>) {
   const payload = data as WorkflowNodePayload;
+  const stateClass = payload.runState ? `state-${payload.runState}` : '';
   return (
-    <div className={`flow-node ${payload.kind} ${selected ? 'selected' : ''}`}>
+    <div className={`flow-node ${payload.kind} ${stateClass} ${selected ? 'selected' : ''}`}>
       <div className="flow-node-header">
         <span>{payload.label}</span>
         <small>{payload.kind === 'tool' ? payload.toolId : payload.kind}</small>
       </div>
 
+      {payload.runState && <div className={`node-state-pill ${payload.runState}`}>{payload.runState}</div>}
+
       {payload.inputs.length > 0 && (
         <div className="socket-list left">
           {payload.inputs.map((input, index) => (
-            <div key={input} className="socket-row left" style={{ top: 46 + index * 26 }}>
+            <div key={input} className="socket-row left" style={{ top: 52 + index * 26 }}>
               <Handle type="target" position={Position.Left} id={`in:${input}`} />
               <span>{input}</span>
             </div>
@@ -97,7 +123,7 @@ function SocketNode({ data, selected }: NodeProps<Node<WorkflowNodePayload>>) {
       {payload.outputs.length > 0 && (
         <div className="socket-list right">
           {payload.outputs.map((output, index) => (
-            <div key={output} className="socket-row right" style={{ top: 46 + index * 26 }}>
+            <div key={output} className="socket-row right" style={{ top: 52 + index * 26 }}>
               <span>{output}</span>
               <Handle type="source" position={Position.Right} id={`out:${output}`} />
             </div>
@@ -117,31 +143,31 @@ const initialNodes: Node<WorkflowNodePayload>[] = [
     id: 'variable-1',
     position: { x: 80, y: 120 },
     type: 'socketNode',
-    data: { kind: 'variable', label: 'Domain Input', variableType: 'domain', inputs: [], outputs: ['domain'] },
+    data: { kind: 'variable', label: 'Domain Input', variableType: 'domain', value: '', params: {}, inputs: [], outputs: ['domain'] },
   },
   {
     id: 'tool-1',
     position: { x: 360, y: 120 },
     type: 'socketNode',
-    data: { kind: 'tool', label: 'Subfinder', toolId: 'subfinder', inputs: ['domain'], outputs: ['targets'] },
+    data: { kind: 'tool', label: 'Subfinder', toolId: 'subfinder', params: {}, inputs: ['domain'], outputs: ['targets'] },
   },
   {
     id: 'tool-2',
     position: { x: 660, y: 120 },
     type: 'socketNode',
-    data: { kind: 'tool', label: 'HTTPX', toolId: 'httpx', inputs: ['targets'], outputs: ['targets'] },
+    data: { kind: 'tool', label: 'HTTPX', toolId: 'httpx', params: {}, inputs: ['targets'], outputs: ['targets'] },
   },
   {
     id: 'tool-3',
     position: { x: 960, y: 120 },
     type: 'socketNode',
-    data: { kind: 'tool', label: 'Nuclei', toolId: 'nuclei', inputs: ['targets'], outputs: ['findings'] },
+    data: { kind: 'tool', label: 'Nuclei', toolId: 'nuclei', params: {}, inputs: ['targets'], outputs: ['findings'] },
   },
   {
     id: 'output-1',
     position: { x: 1260, y: 120 },
     type: 'socketNode',
-    data: { kind: 'output', label: 'Artifacts', inputs: ['any'], outputs: [] },
+    data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
   },
 ];
 
@@ -160,6 +186,8 @@ function formatGraph(nodes: Node<WorkflowNodePayload>[], edges: Edge[]) {
       label: node.data.label,
       tool_id: node.data.toolId ?? null,
       variable_type: node.data.variableType ?? null,
+      value: node.data.value ?? null,
+      params: node.data.params ?? {},
       position: node.position,
     })),
     edges: edges.map((edge) => ({
@@ -182,8 +210,11 @@ function graphToNodes(workflow: WorkflowRecord): Node<WorkflowNodePayload>[] {
       label: node.label,
       toolId: node.tool_id || undefined,
       variableType: node.variable_type || undefined,
+      value: node.value || '',
+      params: node.params || {},
       inputs: node.kind === 'tool' ? [] : node.kind === 'output' ? ['any'] : [],
       outputs: node.kind === 'variable' ? [node.variable_type || 'targets'] : [],
+      runState: undefined,
     },
   }));
 }
@@ -209,6 +240,13 @@ function graphToEdges(workflow: WorkflowRecord): Edge[] {
   }));
 }
 
+function applyRunState(nodes: Node<WorkflowNodePayload>[], nodeStates: Record<string, string>) {
+  return nodes.map((node) => ({
+    ...node,
+    data: { ...node.data, runState: nodeStates[node.id] },
+  }));
+}
+
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -221,9 +259,10 @@ export default function App() {
   const [consoleTab, setConsoleTab] = useState<'stdout' | 'stderr' | 'stdin' | 'artifacts'>('stdout');
   const [consoleLines, setConsoleLines] = useState<string[]>([
     '[+] Ready.',
-    '[+] Save a workflow, validate socket wiring, or launch a queued run.',
+    '[+] Set a variable value, validate socket wiring, or launch a real local run.',
   ]);
   const [lastRun, setLastRun] = useState<RunRecord | null>(null);
+  const [maxParallel, setMaxParallel] = useState(2);
   const counterRef = useRef(20);
 
   useEffect(() => {
@@ -244,6 +283,10 @@ export default function App() {
   }, [setNodes]);
 
   const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) || null, [nodes, selectedNodeId]);
+  const selectedRunNode = useMemo(() => {
+    if (!selectedNodeId || !lastRun?.node_results) return null;
+    return lastRun.node_results[selectedNodeId] || null;
+  }, [selectedNodeId, lastRun]);
 
   const filteredTools = useMemo(() => {
     return tools.filter((tool) => `${tool.name} ${tool.category}`.toLowerCase().includes(search.toLowerCase()));
@@ -263,6 +306,14 @@ export default function App() {
     }
   }
 
+  function updateNodeData(nodeId: string, patch: Partial<WorkflowNodePayload>) {
+    setNodes((current) => current.map((node) => (
+      node.id === nodeId
+        ? { ...node, data: { ...node.data, ...patch } }
+        : node
+    )));
+  }
+
   function getNextPosition() {
     counterRef.current += 1;
     const offset = counterRef.current * 24;
@@ -277,7 +328,7 @@ export default function App() {
         id,
         position: getNextPosition(),
         type: 'socketNode',
-        data: { kind: 'variable', label, variableType, inputs: [], outputs: [variableType] },
+        data: { kind: 'variable', label, variableType, value: '', params: {}, inputs: [], outputs: [variableType] },
       },
     ]);
   }
@@ -290,7 +341,7 @@ export default function App() {
         id,
         position: getNextPosition(),
         type: 'socketNode',
-        data: { kind: 'output', label: 'Artifacts', inputs: ['any'], outputs: [] },
+        data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
       },
     ]);
   }
@@ -303,7 +354,7 @@ export default function App() {
         id,
         position: getNextPosition(),
         type: 'socketNode',
-        data: { kind: 'tool', label: tool.name, toolId: tool.id, inputs: tool.inputs, outputs: tool.outputs },
+        data: { kind: 'tool', label: tool.name, toolId: tool.id, params: {}, inputs: tool.inputs, outputs: tool.outputs },
       },
     ]);
   }
@@ -381,20 +432,38 @@ export default function App() {
     const response = await fetch(`${apiBase}/api/runs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: workflowName, workflow: formatGraph(nodes, edges) }),
+      body: JSON.stringify({ name: workflowName, workflow: formatGraph(nodes, edges), max_parallel: maxParallel }),
     });
     const result = await response.json();
     setLastRun(result);
     setConsoleTab('stdout');
+    if (result.node_states) {
+      setNodes((current) => applyRunState(current, result.node_states));
+    }
     appendConsole(result.logs || ['[+] Run started.']);
   }
 
   function loadWorkflow(workflow: WorkflowRecord) {
     setWorkflowName(workflow.name);
-    setNodes(hydrateNodesWithTools(graphToNodes(workflow), tools));
+    const hydrated = hydrateNodesWithTools(graphToNodes(workflow), tools);
+    setNodes(hydrated);
     setEdges(graphToEdges(workflow));
+    setLastRun(null);
     appendConsole([`[+] Loaded workflow "${workflow.name}".`]);
   }
+
+  function selectedToolDefinition() {
+    if (!selectedNode?.data.toolId) return null;
+    return tools.find((tool) => tool.id === selectedNode.data.toolId) || null;
+  }
+
+  const selectedTool = selectedToolDefinition();
+
+  const stdoutView = selectedRunNode?.stdout_preview || consoleLines.join('\n');
+  const stderrView = selectedRunNode?.stderr_preview || '[-] No stderr captured for the selected node.';
+  const artifactsView = selectedRunNode
+    ? (selectedRunNode.artifact_paths.join('\n') || '[+] No artifacts produced for the selected node.')
+    : (lastRun ? lastRun.logs.filter((line) => line.includes('artifact://')).join('\n') || '[+] No artifact paths emitted yet.' : '[+] No completed run yet.');
 
   return (
     <div className="app-shell">
@@ -416,6 +485,17 @@ export default function App() {
           onChange={(event) => setWorkflowName(event.target.value)}
           placeholder="Workflow name"
         />
+        <label className="parallel-wrap">
+          <span>Workers</span>
+          <input
+            className="parallel-input"
+            type="number"
+            min={1}
+            max={16}
+            value={maxParallel}
+            onChange={(event) => setMaxParallel(Math.max(1, Number(event.target.value) || 1))}
+          />
+        </label>
         <button className="action-btn" onClick={saveWorkflow}>Save Workflow</button>
         <button className="action-btn" onClick={validateWorkflow}>Validate Graph</button>
         <button className="action-btn primary" onClick={runWorkflow}>Run Queue</button>
@@ -497,15 +577,40 @@ export default function App() {
                 <ul>{selectedNode.data.outputs.map((value) => <li key={value}>{value}</li>)}</ul>
               </div>
 
-              {selectedNode.data.variableType && (
+              {selectedNode.data.kind === 'variable' && (
                 <div className="meta-block">
-                  <strong>Variable Type</strong>
-                  <div>{selectedNode.data.variableType}</div>
+                  <strong>Value</strong>
+                  <textarea
+                    className="inspector-textarea"
+                    value={selectedNode.data.value || ''}
+                    placeholder="example.com"
+                    onChange={(event) => updateNodeData(selectedNode.id, { value: event.target.value })}
+                  />
+                </div>
+              )}
+
+              {selectedNode.data.kind === 'tool' && selectedTool && (
+                <>
+                  <div className="meta-block">
+                    <strong>Command Template</strong>
+                    <pre className="code-block">{(selectedTool.command || []).join(' ') || 'No command configured.'}</pre>
+                  </div>
+                  <div className="meta-block">
+                    <strong>Timeout</strong>
+                    <div>{selectedTool.timeout_seconds || 0}s</div>
+                  </div>
+                </>
+              )}
+
+              {selectedNode.data.runState && (
+                <div className="meta-block">
+                  <strong>Last Run State</strong>
+                  <div>{selectedNode.data.runState}</div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="empty-state">Select a node to inspect its typed sockets and metadata.</div>
+            <div className="empty-state">Select a node to inspect its typed sockets, values, and last-run output.</div>
           )}
 
           <div className="section-title">Last Run</div>
@@ -513,6 +618,10 @@ export default function App() {
             <div className="inspector-card">
               <h3>{lastRun.name}</h3>
               <p>Status: {lastRun.status}</p>
+              <div className="meta-block">
+                <strong>Artifact Root</strong>
+                <div className="path-line">{lastRun.artifact_root}</div>
+              </div>
               <div className="meta-block">
                 <strong>Parallel Groups</strong>
                 <ul>{lastRun.parallel_groups.map((group, index) => <li key={index}>[{group.join(', ')}]</li>)}</ul>
@@ -541,10 +650,10 @@ export default function App() {
           ))}
         </div>
         <pre className="console-output">
-          {consoleTab === 'stdout' && consoleLines.join('\n')}
-          {consoleTab === 'stderr' && '[-] No stderr captured yet.'}
-          {consoleTab === 'stdin' && '[>] No stdin prompts in the simulated queue yet.'}
-          {consoleTab === 'artifacts' && (lastRun ? lastRun.logs.filter((line) => line.includes('artifact')).join('\n') || '[+] No artifact paths emitted yet.' : '[+] No completed run yet.')}
+          {consoleTab === 'stdout' && stdoutView}
+          {consoleTab === 'stderr' && stderrView}
+          {consoleTab === 'stdin' && '[>] No interactive stdin handling yet. That comes after the basic subprocess runner is stable.'}
+          {consoleTab === 'artifacts' && artifactsView}
         </pre>
       </section>
     </div>
