@@ -1,0 +1,21 @@
+tools:
+  - id: httpx
+    name: HTTPX
+    category: Recon
+    inputs: [targets]
+    outputs: [live_urls]
+  - id: nuclei
+    name: Nuclei
+    category: Vulnerability
+    inputs: [targets, templates]
+    outputs: [findings]
+  - id: ffuf
+    name: FFUF
+    category: Fuzzing
+    inputs: [url, wordlist]
+    outputs: [matches]
+  - id: subfinder
+    name: Subfinder
+    category: Recon
+    inputs: [domain]
+    outputs: [subdomains]
