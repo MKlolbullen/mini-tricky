@@ -1,0 +1,118 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #09111f;
+  color: #d6e2ff;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: #09111f; }
+button, input { font: inherit; }
+
+.app-shell {
+  display: grid;
+  grid-template-rows: 64px 1fr 240px;
+  height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid #1a2740;
+  background: #0d1627;
+}
+
+.brand { font-size: 24px; font-weight: 800; }
+nav { display: flex; gap: 8px; }
+.nav-btn, .console-tab {
+  background: transparent;
+  color: #9fb2d9;
+  border: 1px solid transparent;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+.nav-btn.active, .console-tab.active { background: #122038; color: #fff; border-color: #2b4d82; }
+.status-pill { padding: 8px 12px; border-radius: 999px; font-size: 13px; }
+.status-pill.ok { background: #14381f; color: #79f2a3; }
+.status-pill.warn { background: #402618; color: #ffc17a; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: 290px 1fr 320px;
+  min-height: 0;
+}
+.sidebar {
+  padding: 16px;
+  border-right: 1px solid #1a2740;
+  background: #0c1423;
+  overflow: auto;
+}
+.sidebar.right {
+  border-right: 0;
+  border-left: 1px solid #1a2740;
+}
+.search {
+  width: 100%;
+  background: #101b2d;
+  color: #d6e2ff;
+  border: 1px solid #223455;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7f91b3;
+  margin: 18px 0 10px;
+}
+.palette-item {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 10px;
+  border: 1px solid #1f3153;
+  background: #101b2d;
+  color: #d6e2ff;
+  border-radius: 12px;
+  padding: 12px;
+}
+.palette-item.tool {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.palette-item span { color: #8fa5d2; font-size: 13px; }
+
+.canvas-wrap { background: radial-gradient(circle at center, #0f1a2f 0%, #09111f 65%); min-height: 0; }
+.inspector-card, .empty-state {
+  background: #101b2d;
+  border: 1px solid #223455;
+  border-radius: 16px;
+  padding: 16px;
+}
+.meta-block ul { margin: 8px 0 0 18px; padding: 0; }
+
+.console {
+  border-top: 1px solid #1a2740;
+  background: #0c1423;
+  padding: 0 16px 16px;
+}
+.console-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+}
+.console-output {
+  margin: 0;
+  background: #09111f;
+  border: 1px solid #1a2740;
+  border-radius: 16px;
+  padding: 16px;
+  color: #bfe1c7;
+  height: 170px;
+  overflow: auto;
+}
