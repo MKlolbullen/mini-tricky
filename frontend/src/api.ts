@@ -1,4 +1,4 @@
-import type { Tool, WorkflowRecord, RunRecord, TemplateRecord, ArtifactItem, ArtifactPreview, Health, WsEvent } from './types';
+import type { Tool, WorkflowRecord, WorkflowVersion, RunRecord, TemplateRecord, ArtifactItem, ArtifactPreview, Health, WsEvent } from './types';
 
 export const apiBase = (window as any).miniTrickyDesktop?.apiBase || 'http://127.0.0.1:5000';
 const wsBase = apiBase.replace(/^http/, 'ws');
@@ -86,6 +86,16 @@ export async function replayNode(runId: string, nodeId: string): Promise<any> {
 
 export async function fetchTemplates(): Promise<TemplateRecord[]> {
   const r = await fetch(`${apiBase}/api/templates`);
+  return r.json();
+}
+
+export async function fetchWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions`);
+  return r.json();
+}
+
+export async function restoreWorkflowVersion(workflowId: string, version: number): Promise<WorkflowRecord> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions/${version}/restore`, { method: 'POST' });
   return r.json();
 }
 

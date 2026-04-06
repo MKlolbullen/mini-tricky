@@ -1010,3 +1010,75 @@ nav { display: flex; gap: 8px; }
   0%, 100% { box-shadow: 0 0 0 0 rgba(91, 220, 255, 0.3); }
   50% { box-shadow: 0 0 0 6px rgba(91, 220, 255, 0); }
 }
+
+/* ── Module Node ───────────────────────────────────────────── */
+
+.flow-node.module {
+  border-left: 3px solid #b47cff;
+  background: linear-gradient(135deg, #0c1423 0%, #1a1040 100%);
+}
+
+/* ── Animated Edge Glow ────────────────────────────────────── */
+
+.react-flow__edge-path {
+  filter: drop-shadow(0 0 3px rgba(91, 220, 255, 0.3));
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 8 4;
+  animation: edge-flow 0.6s linear infinite;
+}
+
+@keyframes edge-flow {
+  to { stroke-dashoffset: -12; }
+}
+
+/* ── Version History ───────────────────────────────────────── */
+
+.version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.version-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(91, 220, 255, 0.1);
+}
+
+.version-item:last-child {
+  border-bottom: none;
+}
+
+.version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.version-info strong {
+  color: #9ae7ff;
+}
+
+.version-info span {
+  color: #7a8da8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Enhanced MiniMap ──────────────────────────────────────── */
+
+.react-flow__minimap {
+  border: 1px solid var(--cyan-border);
+  border-radius: 8px;
+  overflow: hidden;
+}

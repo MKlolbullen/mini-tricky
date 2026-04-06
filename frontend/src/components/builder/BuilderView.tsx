@@ -54,6 +54,7 @@ function formatGraph(nodes: FlowNode[], edges: Edge[]) {
       value: n.data.value ?? null, params: n.data.params ?? {}, position: n.position,
       script_language: n.data.scriptLanguage ?? null,
       script_body: n.data.scriptBody ?? null,
+      module_workflow_id: n.data.moduleWorkflowId ?? null,
     })),
     edges: edges.map((e) => ({
       id: e.id, source: e.source, target: e.target,
@@ -69,11 +70,12 @@ function graphToNodes(workflow: WorkflowRecord): FlowNode[] {
       kind: n.kind, label: n.label, toolId: n.tool_id || undefined,
       variableType: n.variable_type || undefined, value: n.value || '',
       params: n.params || {},
-      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'script' ? ['targets'] : [],
-      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'script' ? ['targets'] : [],
+      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
+      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
       runState: undefined,
       scriptLanguage: (n.script_language as 'bash' | 'python') || undefined,
       scriptBody: n.script_body || undefined,
+      moduleWorkflowId: n.module_workflow_id || undefined,
     },
   }));
 }
@@ -115,6 +117,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [isReplaying, setIsReplaying] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [maxParallel, setMaxParallel] = useState(2);
+  const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const counterRef = useRef(20);
   const hydratedRef = useRef(false);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -221,6 +224,17 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           params: {}, inputs: ['targets'], outputs: ['targets'],
           scriptLanguage: lang, scriptBody: lang === 'python' ? '# Read input from stdin, write to stdout\nimport sys\nfor line in sys.stdin:\n    print(line.strip())\n' : '#!/bin/bash\n# Read input from stdin, write to stdout\ncat\n',
           category: 'Script',
+        },
+      }]);
+    } else if (type === 'module') {
+      const id = nextId('module');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'module', label: data.label || 'Sub-Workflow',
+          params: {}, inputs: ['targets'], outputs: ['targets'],
+          moduleWorkflowId: data.workflowId,
+          category: 'Module',
         },
       }]);
     }
@@ -349,9 +363,10 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   }
 
   async function handleSave() {
-    const result = await api.saveWorkflow({ name: workflowName, graph: formatGraph(nodes, edges) });
+    const result = await api.saveWorkflow({ id: currentWorkflowId || undefined, name: workflowName, graph: formatGraph(nodes, edges) });
+    setCurrentWorkflowId(result.id);
     onRefreshWorkflows();
-    setConsoleLines([`[+] Saved workflow "${result.name}" (${result.id}).`]);
+    setConsoleLines([`[+] Saved workflow "${result.name}" (${result.id}) v${result.version || 1}.`]);
   }
 
   async function handleValidate() {
@@ -387,6 +402,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
 
   function handleLoadWorkflow(wf: WorkflowRecord) {
     setWorkflowName(wf.name);
+    setCurrentWorkflowId(wf.id);
     const hydrated = hydrateNodesWithTools(graphToNodes(wf), tools);
     setNodes(hydrated);
     setEdges(graphToEdges(wf));
@@ -482,6 +498,8 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onSelectArtifact={setSelectedArtifactPath}
           artifactPreview={artifactPreview}
           artifactLoading={artifactLoading}
+          currentWorkflowId={currentWorkflowId}
+          onRestoreVersion={handleLoadWorkflow}
         />
       </div>
       <Console

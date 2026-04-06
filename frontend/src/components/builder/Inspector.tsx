@@ -1,5 +1,6 @@
-import type { FlowNode, Tool, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload } from '../../types';
-import { artifactRawUrl } from '../../api';
+import { useEffect, useState } from 'react';
+import type { FlowNode, Tool, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion } from '../../types';
+import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion } from '../../api';
 
 type Props = {
   selectedNode: FlowNode | null;
@@ -15,6 +16,8 @@ type Props = {
   onSelectArtifact: (path: string) => void;
   artifactPreview: ArtifactPreview | null;
   artifactLoading: boolean;
+  currentWorkflowId?: string | null;
+  onRestoreVersion?: (wf: any) => void;
 };
 
 export default function Inspector({
@@ -31,9 +34,20 @@ export default function Inspector({
   onSelectArtifact,
   artifactPreview,
   artifactLoading,
+  currentWorkflowId,
+  onRestoreVersion,
 }: Props) {
   const selectedArtifact = selectedArtifactPath ? artifactItems.find((i) => i.path === selectedArtifactPath) || null : null;
   const rawUrl = lastRun?.id && selectedArtifact ? artifactRawUrl(lastRun.id, selectedArtifact.path) : null;
+  const [versions, setVersions] = useState<WorkflowVersion[]>([]);
+
+  useEffect(() => {
+    if (currentWorkflowId) {
+      fetchWorkflowVersions(currentWorkflowId).then(setVersions).catch(() => setVersions([]));
+    } else {
+      setVersions([]);
+    }
+  }, [currentWorkflowId]);
 
   return (
     <aside className="sidebar right">
@@ -97,6 +111,14 @@ export default function Inspector({
             </>
           )}
 
+          {selectedNode.data.kind === 'module' && (
+            <div className="meta-block">
+              <strong>Sub-Workflow Module</strong>
+              <div className="path-line">Workflow ID: {selectedNode.data.moduleWorkflowId || 'none'}</div>
+              <div className="path-line">Executes the referenced workflow as a nested sub-graph.</div>
+            </div>
+          )}
+
           {selectedNode.data.runState && (
             <div className="meta-block">
               <strong>Last Run State</strong>
@@ -154,6 +176,37 @@ export default function Inspector({
         </div>
       ) : (
         <div className="empty-state">No runs yet.</div>
+      )}
+
+      {versions.length > 0 && (
+        <>
+          <div className="section-title">Version History</div>
+          <div className="inspector-card">
+            <div className="version-list">
+              {versions.map((v) => (
+                <div key={v.version} className="version-item">
+                  <div className="version-info">
+                    <strong>v{v.version}</strong>
+                    <span>{v.name} &middot; {v.node_count} nodes, {v.edge_count} edges</span>
+                    <span className="path-line">{v.updated_at ? new Date(v.updated_at).toLocaleString() : ''}</span>
+                  </div>
+                  {onRestoreVersion && currentWorkflowId && (
+                    <button
+                      className="action-btn small"
+                      onClick={() => {
+                        restoreWorkflowVersion(currentWorkflowId, v.version)
+                          .then((wf) => onRestoreVersion(wf))
+                          .catch(() => {});
+                      }}
+                    >
+                      Restore
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       <div className="section-title">Artifact Explorer</div>
