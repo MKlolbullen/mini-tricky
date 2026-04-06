@@ -63,6 +63,8 @@ class WorkflowNode(BaseModel):
     script_language: str | None = None
     script_body: str | None = None
     module_workflow_id: str | None = None
+    condition_expr: str | None = None
+    loop_mode: str | None = None
 
 
 class WorkflowEdge(BaseModel):
@@ -144,6 +146,10 @@ def node_contract(node: WorkflowNode, tools_by_id: dict[str, Tool]) -> tuple[lis
         return ['targets'], ['targets']
     if node.kind == 'module':
         return ['targets'], ['targets']
+    if node.kind == 'condition':
+        return ['targets'], ['pass', 'fail']
+    if node.kind == 'loop':
+        return ['targets'], ['item']
     raise ValueError(f'Unknown node kind: {node.kind}')
 
 
@@ -536,6 +542,162 @@ def execute_script_node(
     }
 
 
+def execute_condition_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate a condition expression against upstream data. Outputs to 'pass' or 'fail' sockets."""
+    expr = (node.condition_expr or '').strip()
+    if not expr:
+        return failed_node_result(node, node_dir, f'Condition node {node.id} has no expression.')
+
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+
+    # Gather upstream data
+    upstream_data = ''
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value:
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                upstream_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                upstream_data += str(source_value) + '\n'
+
+    # Evaluate expression: supports simple conditions
+    # - "has_lines" / "not_empty": true if upstream has content
+    # - "line_count > N": compare line count
+    # - "contains:PATTERN": true if pattern is found
+    # - "exit_code == 0": check upstream exit code
+    lines = [l for l in upstream_data.strip().split('\n') if l.strip()] if upstream_data.strip() else []
+    line_count = len(lines)
+    passed = False
+
+    try:
+        if expr in ('has_lines', 'not_empty'):
+            passed = line_count > 0
+        elif expr == 'empty':
+            passed = line_count == 0
+        elif expr.startswith('contains:'):
+            pattern = expr[len('contains:'):]
+            passed = pattern in upstream_data
+        elif expr.startswith('not_contains:'):
+            pattern = expr[len('not_contains:'):]
+            passed = pattern not in upstream_data
+        elif expr.startswith('line_count'):
+            # e.g. "line_count > 10", "line_count >= 5", "line_count == 0"
+            import re
+            m = re.match(r'line_count\s*(>=|<=|>|<|==|!=)\s*(\d+)', expr)
+            if m:
+                op, threshold = m.group(1), int(m.group(2))
+                ops = {'>=': lambda a, b: a >= b, '<=': lambda a, b: a <= b, '>': lambda a, b: a > b, '<': lambda a, b: a < b, '==': lambda a, b: a == b, '!=': lambda a, b: a != b}
+                passed = ops[op](line_count, threshold)
+            else:
+                return failed_node_result(node, node_dir, f'Invalid line_count expression: {expr}')
+        elif expr.startswith('min_lines:'):
+            threshold = int(expr.split(':')[1])
+            passed = line_count >= threshold
+        else:
+            return failed_node_result(node, node_dir, f'Unknown condition expression: {expr}. Supported: has_lines, empty, contains:PATTERN, line_count > N, min_lines:N')
+    except Exception as e:
+        return failed_node_result(node, node_dir, f'Condition evaluation error: {e}')
+
+    # Write data to the appropriate output socket
+    pass_file = node_dir / 'pass.txt'
+    fail_file = node_dir / 'fail.txt'
+    result_text = f'Condition "{expr}": {"PASS" if passed else "FAIL"} (lines={line_count})'
+
+    if passed:
+        write_text(pass_file, upstream_data)
+        write_text(fail_file, '')
+    else:
+        write_text(pass_file, '')
+        write_text(fail_file, upstream_data)
+
+    write_text(stdout_path, result_text + '\n')
+    write_text(stderr_path, '')
+
+    return {
+        'node_id': node.id,
+        'status': 'success',
+        'command': [],
+        'exit_code': 0,
+        'artifact_paths': [str(pass_file if passed else fail_file)],
+        'outputs': {
+            'pass': str(pass_file) if passed else '',
+            'fail': str(fail_file) if not passed else '',
+        },
+        'stdout_preview': result_text,
+        'stderr_preview': '',
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': [f'[>] Condition {node.id}: {expr} => {"PASS" if passed else "FAIL"} ({line_count} lines)'],
+    }
+
+
+def execute_loop_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Iterate over upstream data line-by-line (or chunk-by-chunk), emitting each item."""
+    loop_mode = node.loop_mode or 'line'
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+
+    # Gather upstream data
+    upstream_data = ''
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value:
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                upstream_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                upstream_data += str(source_value) + '\n'
+
+    if not upstream_data.strip():
+        return failed_node_result(node, node_dir, f'Loop node {node.id} received no data to iterate over.')
+
+    if loop_mode == 'line':
+        items = [line for line in upstream_data.strip().split('\n') if line.strip()]
+    else:
+        # chunk mode: split by double newlines
+        items = [chunk.strip() for chunk in upstream_data.split('\n\n') if chunk.strip()]
+
+    # Write all items as output (downstream nodes process the aggregated list)
+    # Each item written on its own line for downstream consumption
+    item_file = node_dir / 'item.txt'
+    output_text = '\n'.join(items) + '\n'
+    write_text(item_file, output_text)
+
+    summary = f'Loop ({loop_mode}): {len(items)} items from upstream'
+    write_text(stdout_path, summary + '\n' + output_text)
+    write_text(stderr_path, '')
+
+    return {
+        'node_id': node.id,
+        'status': 'success',
+        'command': [],
+        'exit_code': 0,
+        'artifact_paths': [str(item_file)],
+        'outputs': {'item': str(item_file)},
+        'stdout_preview': truncate_text(summary + '\n' + output_text),
+        'stderr_preview': '',
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': [f'[>] Loop {node.id}: emitted {len(items)} items ({loop_mode} mode)'],
+    }
+
+
 def execute_module_node(
     run_id: str,
     node: WorkflowNode,
@@ -671,6 +833,10 @@ def execute_node(
         return execute_script_node(run_id, node, node_dir, incoming_edges, output_values)
     if node.kind == 'module':
         return execute_module_node(run_id, node, node_dir, tools_by_id, incoming_edges, output_values)
+    if node.kind == 'condition':
+        return execute_condition_node(run_id, node, node_dir, incoming_edges, output_values)
+    if node.kind == 'loop':
+        return execute_loop_node(run_id, node, node_dir, incoming_edges, output_values)
     return failed_node_result(node, node_dir, f'Unsupported node kind {node.kind}.')
 
 
@@ -1559,6 +1725,68 @@ def toggle_schedule(schedule_id: str) -> dict[str, Any]:
             _sync_scheduler_jobs()
             return s
     return {'ok': False, 'error': 'Schedule not found'}
+
+
+# ── Parameter Presets ──────────────────────────────────────────────────────────
+
+PRESETS_FILE = STATE_DIR / 'presets.json'
+
+
+class PresetPayload(BaseModel):
+    tool_id: str
+    name: str
+    params: dict[str, str] = Field(default_factory=dict)
+
+
+def load_presets() -> list[dict[str, Any]]:
+    ensure_state()
+    if not PRESETS_FILE.exists():
+        PRESETS_FILE.write_text('[]')
+        return []
+    try:
+        return json.loads(PRESETS_FILE.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+def save_presets(presets: list[dict[str, Any]]) -> None:
+    ensure_state()
+    PRESETS_FILE.write_text(json.dumps(presets, indent=2))
+
+
+@app.get('/api/presets')
+def list_presets(tool_id: str | None = None) -> list[dict[str, Any]]:
+    presets = load_presets()
+    if tool_id:
+        return [p for p in presets if p.get('tool_id') == tool_id]
+    return presets
+
+
+@app.post('/api/presets')
+def create_preset(payload: PresetPayload) -> dict[str, Any]:
+    presets = load_presets()
+    preset_id = f'preset-{uuid4().hex[:10]}'
+    item = {
+        'id': preset_id,
+        'tool_id': payload.tool_id,
+        'name': payload.name,
+        'params': payload.params,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    presets.insert(0, item)
+    save_presets(presets)
+    return item
+
+
+@app.delete('/api/presets/{preset_id}')
+def delete_preset(preset_id: str) -> dict[str, Any]:
+    presets = load_presets()
+    before = len(presets)
+    presets = [p for p in presets if p.get('id') != preset_id]
+    if len(presets) == before:
+        return {'ok': False, 'error': 'Preset not found'}
+    save_presets(presets)
+    return {'ok': True, 'deleted': preset_id}
 
 
 # Sync scheduler on startup

@@ -108,6 +108,30 @@ export async function saveAsTemplate(payload: { name: string; description: strin
   return r.json();
 }
 
+// ── Parameter Presets ───────────────────────────────────────
+
+export type Preset = { id: string; tool_id: string; name: string; params: Record<string, string>; created_at: string };
+
+export async function fetchPresets(toolId?: string): Promise<Preset[]> {
+  const url = toolId ? `${apiBase}/api/presets?tool_id=${encodeURIComponent(toolId)}` : `${apiBase}/api/presets`;
+  const r = await fetch(url);
+  return r.json();
+}
+
+export async function savePreset(payload: { tool_id: string; name: string; params: Record<string, string> }): Promise<Preset> {
+  const r = await fetch(`${apiBase}/api/presets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
+export async function deletePreset(presetId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/presets/${presetId}`, { method: 'DELETE' });
+  return r.json();
+}
+
 // ── WebSocket streaming run ─────────────────────────────────
 
 export function streamRun(

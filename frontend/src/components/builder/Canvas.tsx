@@ -18,6 +18,8 @@ function minimapNodeColor(node: Node<WorkflowNodePayload>): string {
   if (payload.kind === 'output') return '#ff9f43';
   if (payload.kind === 'script') return payload.scriptLanguage === 'python' ? '#ffcf5b' : '#43d9ad';
   if (payload.kind === 'module') return '#b47cff';
+  if (payload.kind === 'condition') return '#ff9f43';
+  if (payload.kind === 'loop') return '#ffcf5b';
   if (payload.category && CATEGORY_COLORS[payload.category]) return CATEGORY_COLORS[payload.category];
   return '#5bdcff';
 }

@@ -16,6 +16,11 @@ export default function App() {
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(null);
 
   useEffect(() => {
+    // Request notification permission for run alerts
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     api.fetchHealth()
       .then(setHealth)
       .catch(() => setHealth({ status: 'offline' }));
