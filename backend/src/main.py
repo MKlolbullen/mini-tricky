@@ -70,7 +70,7 @@ class RunPayload(BaseModel):
     max_parallel: int = 2
 
 
-app = FastAPI(title='mini-tricky API', version='0.3.0')
+app = FastAPI(title='mini-tricky API', version='0.4.0')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -209,6 +209,13 @@ def workflow_records() -> list[dict[str, Any]]:
 
 def run_records() -> list[dict[str, Any]]:
     return read_json(RUNS_FILE)
+
+
+def persist_run_record(updated_run: dict[str, Any]) -> None:
+    runs = run_records()
+    runs = [run for run in runs if run.get('id') != updated_run.get('id')]
+    runs.insert(0, updated_run)
+    write_json(RUNS_FILE, runs)
 
 
 def truncate_text(value: str, limit: int = 6000) -> str:
@@ -448,6 +455,19 @@ def execute_node(
     return failed_node_result(node, node_dir, f'Unsupported node kind {node.kind}.')
 
 
+def reconstruct_output_values(node_results: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    output_values: dict[str, dict[str, Any]] = {}
+    for node_id, result in node_results.items():
+        outputs = result.get('outputs') or {}
+        if outputs:
+            output_values[node_id] = outputs
+    return output_values
+
+
+def find_run(run_id: str) -> dict[str, Any] | None:
+    return next((run for run in run_records() if run.get('id') == run_id), None)
+
+
 @app.get('/api/health')
 def health() -> dict[str, str]:
     return {'status': 'ok'}
@@ -500,9 +520,9 @@ def list_runs() -> list[dict[str, Any]]:
 
 @app.get('/api/runs/{run_id}')
 def get_run(run_id: str) -> dict[str, Any]:
-    for run in run_records():
-        if run['id'] == run_id:
-            return run
+    found = find_run(run_id)
+    if found:
+        return found
     return {'error': 'Run not found'}
 
 
@@ -596,15 +616,85 @@ def run_workflow(payload: RunPayload) -> dict[str, Any]:
         'name': payload.name,
         'status': overall_status,
         'created_at': datetime.now(timezone.utc).isoformat(),
+        'graph': graph.model_dump(),
         'parallel_groups': validation['parallel_groups'],
         'node_states': node_states,
         'node_results': node_results,
         'artifact_root': str(run_dir),
+        'replays': [],
         'logs': logs,
     }
 
-    runs = run_records()
-    runs.insert(0, result)
-    write_json(RUNS_FILE, runs)
+    persist_run_record(result)
     write_text(run_dir / 'run.json', json.dumps(result, indent=2))
     return result
+
+
+@app.post('/api/runs/{run_id}/replay/{node_id}')
+def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+    if 'graph' not in run:
+        workflow_id = run.get('workflow_id')
+        if workflow_id:
+            workflow = next((item for item in workflow_records() if item.get('id') == workflow_id), None)
+            if workflow and 'graph' in workflow:
+                run['graph'] = workflow['graph']
+        if 'graph' not in run:
+            return {'ok': False, 'error': 'This run does not include a stored graph. Save the workflow or execute a fresh run, then replay nodes from the newer run.'}
+
+    graph = WorkflowGraph(**run['graph'])
+    validation = validate_graph(graph)
+    if not validation.get('ok'):
+        return {'ok': False, 'error': validation.get('error', 'Stored graph is invalid')}
+
+    tools_by_id = {tool.id: tool for tool in load_tools()}
+    nodes_by_id = {node.id: node for node in graph.nodes}
+    if node_id not in nodes_by_id:
+        return {'ok': False, 'error': f'Node {node_id} not found in stored graph'}
+
+    parents_by_node, _, incoming_edges_by_target = build_graph_indexes(graph)
+    parent_ids = parents_by_node.get(node_id, [])
+    node_states = run.get('node_states', {})
+    blocked_parents = [parent_id for parent_id in parent_ids if node_states.get(parent_id) != 'success']
+    if blocked_parents:
+        return {'ok': False, 'error': f'Node {node_id} cannot be replayed because parent node(s) are not successful: {", ".join(blocked_parents)}'}
+
+    replay_id = f'replay-{uuid4().hex[:8]}'
+    replay_root = Path(run['artifact_root']) / 'replays' / replay_id
+    replay_root.mkdir(parents=True, exist_ok=True)
+
+    output_values = reconstruct_output_values(run.get('node_results', {}))
+    result = execute_node(
+        run_id,
+        nodes_by_id[node_id],
+        tools_by_id,
+        incoming_edges_by_target.get(node_id, []),
+        output_values,
+        replay_root,
+    )
+
+    replay_record = {
+        'id': replay_id,
+        'node_id': node_id,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'used_cached_upstream_from': parent_ids,
+        'result': result,
+    }
+
+    run.setdefault('replays', []).insert(0, replay_record)
+    run.setdefault('logs', []).append(f'[+] Replay {replay_id} executed for node {node_id}.')
+    run.setdefault('graph', graph.model_dump())
+    persist_run_record(run)
+    write_text(replay_root / 'replay.json', json.dumps(replay_record, indent=2))
+
+    return {
+        'ok': result.get('status') == 'success',
+        'run_id': run_id,
+        'replay_id': replay_id,
+        'node_id': node_id,
+        'parent_ids': parent_ids,
+        'cached_output_nodes': sorted(output_values.keys()),
+        'result': result,
+    }
