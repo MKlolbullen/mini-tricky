@@ -959,3 +959,54 @@ nav { display: flex; gap: 8px; }
   min-width: 80px;
   text-align: center;
 }
+
+/* ── Drag and Drop ──────────────────────────────────────────── */
+
+.draggable-item {
+  cursor: grab;
+  user-select: none;
+}
+
+.draggable-item:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+/* ── Script Nodes ───────────────────────────────────────────── */
+
+.flow-node.script {
+  border-color: rgba(67, 217, 173, 0.55);
+}
+
+.script-editor {
+  font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 180px;
+  background: #070e1a;
+  color: #bfe1c7;
+  tab-size: 4;
+  white-space: pre;
+}
+
+.script-lang-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: #1b3a2a;
+  color: #67e09d;
+}
+
+/* ── Running state animation ────────────────────────────────── */
+
+.flow-node.state-running {
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91, 220, 255, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(91, 220, 255, 0); }
+}

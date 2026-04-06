@@ -78,6 +78,25 @@ export default function Inspector({
             </>
           )}
 
+          {selectedNode.data.kind === 'script' && (
+            <>
+              <div className="meta-block">
+                <strong>Language</strong>
+                <div className="script-lang-badge">{selectedNode.data.scriptLanguage || 'bash'}</div>
+              </div>
+              <div className="meta-block">
+                <strong>Script Body</strong>
+                <textarea
+                  className="inspector-textarea script-editor"
+                  value={selectedNode.data.scriptBody || ''}
+                  placeholder={selectedNode.data.scriptLanguage === 'python' ? '# Python script...' : '#!/bin/bash\n# Bash script...'}
+                  onChange={(e) => onUpdateNodeData(selectedNode.id, { scriptBody: e.target.value })}
+                  spellCheck={false}
+                />
+              </div>
+            </>
+          )}
+
           {selectedNode.data.runState && (
             <div className="meta-block">
               <strong>Last Run State</strong>

@@ -15,7 +15,7 @@ export type Tool = {
 export type Health = { status: string };
 
 export type WorkflowNodePayload = {
-  kind: 'tool' | 'variable' | 'output';
+  kind: 'tool' | 'variable' | 'output' | 'script';
   label: string;
   toolId?: string;
   variableType?: string;
@@ -25,7 +25,17 @@ export type WorkflowNodePayload = {
   params?: Record<string, string>;
   runState?: string;
   category?: string;
+  scriptLanguage?: 'bash' | 'python';
+  scriptBody?: string;
 };
+
+export type WsEvent =
+  | { type: 'run_started'; run_id: string; node_states: Record<string, string> }
+  | { type: 'node_started'; run_id: string; node_id: string }
+  | { type: 'node_log'; run_id: string; node_id: string; line: string }
+  | { type: 'node_finished'; run_id: string; node_id: string; status: string; result: NodeRunResult }
+  | { type: 'run_finished'; run_id: string; status: string; run: RunRecord }
+  | { type: 'run_error'; run_id: string; error: string };
 
 export type WorkflowRecord = {
   id: string;
@@ -33,13 +43,15 @@ export type WorkflowRecord = {
   graph: {
     nodes: Array<{
       id: string;
-      kind: 'tool' | 'variable' | 'output';
+      kind: 'tool' | 'variable' | 'output' | 'script';
       label: string;
       tool_id?: string | null;
       variable_type?: string | null;
       value?: string | null;
       params?: Record<string, string> | null;
       position?: { x: number; y: number };
+      script_language?: string | null;
+      script_body?: string | null;
     }>;
     edges: Array<{
       id?: string;

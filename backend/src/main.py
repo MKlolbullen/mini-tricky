@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import mimetypes
+import shutil
 import subprocess
+import tempfile
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -12,7 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -56,6 +59,8 @@ class WorkflowNode(BaseModel):
     value: str | None = None
     params: dict[str, str] = Field(default_factory=dict)
     position: dict[str, float] | None = None
+    script_language: str | None = None
+    script_body: str | None = None
 
 
 class WorkflowEdge(BaseModel):
@@ -133,6 +138,8 @@ def node_contract(node: WorkflowNode, tools_by_id: dict[str, Tool]) -> tuple[lis
         return [], [node.variable_type or 'targets']
     if node.kind == 'output':
         return ['any'], []
+    if node.kind == 'script':
+        return ['targets'], ['targets']
     raise ValueError(f'Unknown node kind: {node.kind}')
 
 
@@ -447,6 +454,84 @@ def execute_tool_node(
     }
 
 
+def execute_script_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    language = node.script_language or 'bash'
+    script_body = node.script_body or ''
+    if not script_body.strip():
+        return failed_node_result(node, node_dir, f'Script node {node.id} has no script body.')
+
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+    artifact_file = node_dir / 'targets.txt'
+
+    # Gather stdin from upstream
+    stdin_data = ''
+    for edge in incoming_edges:
+        input_name = edge.target_handle.removeprefix('in:') if edge.target_handle else 'input'
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value and input_name != 'any':
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                stdin_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                stdin_data += str(source_value) + '\n'
+
+    # Write script to temp file and execute
+    ext = '.py' if language == 'python' else '.sh'
+    script_file = node_dir / f'script{ext}'
+    write_text(script_file, script_body)
+
+    cmd = ['python3', str(script_file)] if language == 'python' else ['bash', str(script_file)]
+
+    try:
+        completed = subprocess.run(
+            cmd,
+            input=stdin_data,
+            cwd=str(node_dir),
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+    except FileNotFoundError:
+        return failed_node_result(node, node_dir, f'{language} interpreter not found.', command=cmd)
+    except subprocess.TimeoutExpired as exc:
+        write_text(stdout_path, exc.stdout or '')
+        write_text(stderr_path, exc.stderr or 'Timeout after 300s')
+        return failed_node_result(node, node_dir, 'Script timed out.', command=cmd)
+
+    stdout_text = completed.stdout or ''
+    stderr_text = completed.stderr or ''
+    write_text(stdout_path, stdout_text)
+    write_text(stderr_path, stderr_text)
+    write_text(artifact_file, stdout_text)
+
+    success = completed.returncode == 0
+    return {
+        'node_id': node.id,
+        'status': 'success' if success else 'failed',
+        'command': cmd,
+        'exit_code': completed.returncode,
+        'artifact_paths': [str(artifact_file)] if success else [],
+        'outputs': {'targets': str(artifact_file)} if success else {},
+        'stdout_preview': truncate_text(stdout_text),
+        'stderr_preview': truncate_text(stderr_text),
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': [
+            f'[>] {node.id}: {" ".join(cmd)}',
+            f'[+] Script node {node.id} {"succeeded" if success else f"failed (exit {completed.returncode})"}.',
+        ] + ([f'[+] artifact://{run_id}/{node.id}/targets.txt'] if success else []),
+    }
+
+
 def execute_node(
     run_id: str,
     node: WorkflowNode,
@@ -466,6 +551,8 @@ def execute_node(
         if not node.tool_id or node.tool_id not in tools_by_id:
             return failed_node_result(node, node_dir, f'Unknown tool for node {node.id}.')
         return execute_tool_node(run_id, node, node_dir, tools_by_id[node.tool_id], incoming_edges, output_values)
+    if node.kind == 'script':
+        return execute_script_node(run_id, node, node_dir, incoming_edges, output_values)
     return failed_node_result(node, node_dir, f'Unsupported node kind {node.kind}.')
 
 
@@ -722,7 +809,7 @@ def get_artifact_preview(run_id: str, path: str = Query(...)) -> dict[str, Any]:
 
 
 @app.get('/api/runs/{run_id}/artifact-raw')
-def get_artifact_raw(run_id: str, path: str = Query(...)) -> FileResponse | dict[str, Any]:
+def get_artifact_raw(run_id: str, path: str = Query(...)) -> Any:
     run = find_run(run_id)
     if not run:
         return {'ok': False, 'error': f'Run {run_id} not found'}
@@ -992,3 +1079,315 @@ def save_template(payload: TemplatePayload) -> dict[str, Any]:
     templates.insert(0, item)
     USER_TEMPLATES_FILE.write_text(json.dumps(templates, indent=2))
     return item
+
+
+# ── Active run tracking (for cancellation) ───────────────────────────────────
+
+_active_runs: dict[str, bool] = {}
+
+
+@app.post('/api/runs/{run_id}/cancel')
+def cancel_run(run_id: str) -> dict[str, Any]:
+    if run_id in _active_runs:
+        _active_runs[run_id] = True
+        return {'ok': True, 'message': f'Run {run_id} cancellation requested.'}
+    return {'ok': False, 'error': f'Run {run_id} is not active.'}
+
+
+# ── WebSocket streaming run endpoint ─────────────────────────────────────────
+
+@app.websocket('/ws/run')
+async def ws_run(websocket: WebSocket) -> None:
+    await websocket.accept()
+
+    try:
+        raw = await websocket.receive_text()
+        payload_data = json.loads(raw)
+    except (WebSocketDisconnect, json.JSONDecodeError):
+        return
+
+    payload = RunPayload(
+        name=payload_data.get('name', 'Streamed Run'),
+        workflow=WorkflowGraph(**payload_data['workflow']) if 'workflow' in payload_data else None,
+        workflow_id=payload_data.get('workflow_id'),
+        max_parallel=payload_data.get('max_parallel', 2),
+    )
+
+    graph: WorkflowGraph | None = payload.workflow
+    if graph is None and payload.workflow_id:
+        stored = next((item for item in workflow_records() if item['id'] == payload.workflow_id), None)
+        if stored:
+            graph = WorkflowGraph(**stored['graph'])
+
+    if graph is None:
+        await websocket.send_json({'type': 'run_error', 'run_id': '', 'error': 'No workflow graph supplied'})
+        await websocket.close()
+        return
+
+    validation = validate_graph(graph)
+    if not validation.get('ok'):
+        await websocket.send_json({'type': 'run_error', 'run_id': '', 'error': validation.get('error', 'Invalid graph')})
+        await websocket.close()
+        return
+
+    ensure_state()
+    run_id = f'run-{uuid4().hex[:10]}'
+    run_dir = ARTIFACTS_DIR / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    _active_runs[run_id] = False
+
+    tools_by_id = {tool.id: tool for tool in load_tools()}
+    nodes_by_id = {node.id: node for node in graph.nodes}
+    parents_by_node, _, incoming_edges_by_target = build_graph_indexes(graph)
+    node_states = {node.id: 'queued' for node in graph.nodes}
+    node_results: dict[str, Any] = {}
+    output_values: dict[str, dict[str, Any]] = {}
+    logs: list[str] = [f'[+] Run {run_id} accepted for "{payload.name}".']
+
+    await websocket.send_json({'type': 'run_started', 'run_id': run_id, 'node_states': node_states})
+
+    max_workers = max(1, payload.max_parallel)
+    cancelled = False
+
+    for group_index, group in enumerate(validation['parallel_groups'], start=1):
+        if _active_runs.get(run_id):
+            cancelled = True
+            break
+
+        # Check for cancel messages (non-blocking)
+        try:
+            while True:
+                msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.01)
+                data = json.loads(msg)
+                if data.get('type') == 'cancel':
+                    cancelled = True
+                    break
+        except (asyncio.TimeoutError, WebSocketDisconnect, json.JSONDecodeError):
+            pass
+
+        if cancelled:
+            break
+
+        logs.append(f'[+] Parallel group {group_index}: {", ".join(group)}')
+        runnable: list[WorkflowNode] = []
+
+        for node_id in group:
+            blocked_parents = [pid for pid in parents_by_node.get(node_id, []) if node_states.get(pid) != 'success']
+            if blocked_parents:
+                node_states[node_id] = 'blocked'
+                node_results[node_id] = {
+                    'node_id': node_id, 'status': 'blocked', 'command': [], 'exit_code': None,
+                    'artifact_paths': [], 'outputs': {}, 'stdout_preview': '', 'stderr_preview': '',
+                    'stdout_path': '', 'stderr_path': '',
+                    'logs': [f'[-] Node {node_id} blocked by: {", ".join(blocked_parents)}'],
+                }
+                logs.extend(node_results[node_id]['logs'])
+                try:
+                    await websocket.send_json({'type': 'node_finished', 'run_id': run_id, 'node_id': node_id, 'status': 'blocked', 'result': node_results[node_id]})
+                except WebSocketDisconnect:
+                    cancelled = True
+                    break
+                continue
+            node_states[node_id] = 'running'
+            runnable.append(nodes_by_id[node_id])
+            try:
+                await websocket.send_json({'type': 'node_started', 'run_id': run_id, 'node_id': node_id})
+            except WebSocketDisconnect:
+                cancelled = True
+                break
+
+        if cancelled or not runnable:
+            continue
+
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(runnable))) as executor:
+            futures = {
+                loop.run_in_executor(
+                    executor,
+                    execute_node,
+                    run_id, node, tools_by_id,
+                    incoming_edges_by_target.get(node.id, []),
+                    output_values, run_dir,
+                ): node.id
+                for node in runnable
+            }
+            for coro in asyncio.as_completed(futures):
+                result = await coro
+                nid = result['node_id']
+                node_states[nid] = result['status']
+                node_results[nid] = result
+                if result['status'] == 'success':
+                    output_values[nid] = result.get('outputs', {})
+                logs.extend(result.get('logs', []))
+                try:
+                    await websocket.send_json({'type': 'node_finished', 'run_id': run_id, 'node_id': nid, 'status': result['status'], 'result': result})
+                except WebSocketDisconnect:
+                    cancelled = True
+                    break
+
+    if cancelled:
+        for nid, state in node_states.items():
+            if state in ('queued', 'running'):
+                node_states[nid] = 'cancelled'
+        overall_status = 'cancelled'
+    else:
+        overall_status = 'completed' if all(s == 'success' for s in node_states.values()) else 'failed'
+
+    run_record = {
+        'id': run_id,
+        'workflow_id': payload.workflow_id,
+        'name': payload.name,
+        'status': overall_status,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'graph': graph.model_dump(),
+        'parallel_groups': validation['parallel_groups'],
+        'node_states': node_states,
+        'node_results': node_results,
+        'artifact_root': str(run_dir),
+        'replays': [],
+        'logs': logs,
+    }
+
+    persist_run_record(run_record)
+    write_text(run_dir / 'run.json', json.dumps(run_record, indent=2))
+    _active_runs.pop(run_id, None)
+
+    try:
+        await websocket.send_json({'type': 'run_finished', 'run_id': run_id, 'status': overall_status, 'run': run_record})
+    except WebSocketDisconnect:
+        pass
+
+    try:
+        await websocket.close()
+    except Exception:
+        pass
+
+
+# ── Workflow Scheduling ──────────────────────────────────────────────────────
+
+SCHEDULES_FILE = STATE_DIR / 'schedules.json'
+
+
+class SchedulePayload(BaseModel):
+    workflow_id: str
+    name: str = 'Scheduled Run'
+    cron: str = '0 * * * *'
+    max_parallel: int = 2
+    enabled: bool = True
+
+
+def load_schedules() -> list[dict[str, Any]]:
+    ensure_state()
+    if not SCHEDULES_FILE.exists():
+        SCHEDULES_FILE.write_text('[]')
+        return []
+    try:
+        return json.loads(SCHEDULES_FILE.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+def save_schedules(schedules: list[dict[str, Any]]) -> None:
+    ensure_state()
+    SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
+
+
+def execute_scheduled_run(schedule: dict[str, Any]) -> None:
+    """Execute a workflow run from a schedule (called by APScheduler)."""
+    workflow_id = schedule.get('workflow_id')
+    if not workflow_id:
+        return
+    stored = next((item for item in workflow_records() if item['id'] == workflow_id), None)
+    if not stored or 'graph' not in stored:
+        return
+    payload = RunPayload(
+        workflow_id=workflow_id,
+        name=schedule.get('name', 'Scheduled Run'),
+        workflow=WorkflowGraph(**stored['graph']),
+        max_parallel=schedule.get('max_parallel', 2),
+    )
+    run_workflow(payload)
+
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    _scheduler = BackgroundScheduler()
+    _scheduler.start()
+    _scheduler_available = True
+except ImportError:
+    _scheduler = None
+    _scheduler_available = False
+
+
+def _sync_scheduler_jobs() -> None:
+    if not _scheduler_available or not _scheduler:
+        return
+    # Remove all existing jobs and re-add from schedules
+    for job in _scheduler.get_jobs():
+        job.remove()
+    for schedule in load_schedules():
+        if schedule.get('enabled', True):
+            try:
+                _scheduler.add_job(
+                    execute_scheduled_run,
+                    trigger=CronTrigger.from_crontab(schedule['cron']),
+                    args=[schedule],
+                    id=schedule['id'],
+                    replace_existing=True,
+                )
+            except Exception:
+                pass
+
+
+@app.get('/api/schedules')
+def list_schedules() -> list[dict[str, Any]]:
+    return load_schedules()
+
+
+@app.post('/api/schedules')
+def create_schedule(payload: SchedulePayload) -> dict[str, Any]:
+    schedules = load_schedules()
+    schedule_id = f'sched-{uuid4().hex[:10]}'
+    item = {
+        'id': schedule_id,
+        'workflow_id': payload.workflow_id,
+        'name': payload.name,
+        'cron': payload.cron,
+        'max_parallel': payload.max_parallel,
+        'enabled': payload.enabled,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    schedules.insert(0, item)
+    save_schedules(schedules)
+    _sync_scheduler_jobs()
+    return item
+
+
+@app.delete('/api/schedules/{schedule_id}')
+def delete_schedule(schedule_id: str) -> dict[str, Any]:
+    schedules = load_schedules()
+    before = len(schedules)
+    schedules = [s for s in schedules if s.get('id') != schedule_id]
+    if len(schedules) == before:
+        return {'ok': False, 'error': 'Schedule not found'}
+    save_schedules(schedules)
+    _sync_scheduler_jobs()
+    return {'ok': True, 'deleted': schedule_id}
+
+
+@app.patch('/api/schedules/{schedule_id}')
+def toggle_schedule(schedule_id: str) -> dict[str, Any]:
+    schedules = load_schedules()
+    for s in schedules:
+        if s.get('id') == schedule_id:
+            s['enabled'] = not s.get('enabled', True)
+            save_schedules(schedules)
+            _sync_scheduler_jobs()
+            return s
+    return {'ok': False, 'error': 'Schedule not found'}
+
+
+# Sync scheduler on startup
+_sync_scheduler_jobs()
