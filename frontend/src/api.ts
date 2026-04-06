@@ -1,4 +1,4 @@
-import type { Tool, WorkflowRecord, RunRecord, TemplateRecord, ArtifactItem, ArtifactPreview, Health, WsEvent } from './types';
+import type { Tool, WorkflowRecord, WorkflowVersion, RunRecord, TemplateRecord, ArtifactItem, ArtifactPreview, Health, WsEvent } from './types';
 
 export const apiBase = (window as any).miniTrickyDesktop?.apiBase || 'http://127.0.0.1:5000';
 const wsBase = apiBase.replace(/^http/, 'ws');
@@ -89,12 +89,46 @@ export async function fetchTemplates(): Promise<TemplateRecord[]> {
   return r.json();
 }
 
+export async function fetchWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions`);
+  return r.json();
+}
+
+export async function restoreWorkflowVersion(workflowId: string, version: number): Promise<WorkflowRecord> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions/${version}/restore`, { method: 'POST' });
+  return r.json();
+}
+
 export async function saveAsTemplate(payload: { name: string; description: string; category: string; tags: string[]; graph: any }): Promise<TemplateRecord> {
   const r = await fetch(`${apiBase}/api/templates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  return r.json();
+}
+
+// ── Parameter Presets ───────────────────────────────────────
+
+export type Preset = { id: string; tool_id: string; name: string; params: Record<string, string>; created_at: string };
+
+export async function fetchPresets(toolId?: string): Promise<Preset[]> {
+  const url = toolId ? `${apiBase}/api/presets?tool_id=${encodeURIComponent(toolId)}` : `${apiBase}/api/presets`;
+  const r = await fetch(url);
+  return r.json();
+}
+
+export async function savePreset(payload: { tool_id: string; name: string; params: Record<string, string> }): Promise<Preset> {
+  const r = await fetch(`${apiBase}/api/presets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
+export async function deletePreset(presetId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/presets/${presetId}`, { method: 'DELETE' });
   return r.json();
 }
 

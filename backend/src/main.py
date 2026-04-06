@@ -25,6 +25,7 @@ TOOLS_FILE = BASE_DIR / 'tools.yaml'
 TEMPLATES_FILE = BASE_DIR / 'templates.yaml'
 STATE_DIR = BASE_DIR / 'state'
 WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
+VERSIONS_DIR = STATE_DIR / 'versions'
 RUNS_FILE = STATE_DIR / 'runs.json'
 USER_TEMPLATES_FILE = STATE_DIR / 'user_templates.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
@@ -61,6 +62,9 @@ class WorkflowNode(BaseModel):
     position: dict[str, float] | None = None
     script_language: str | None = None
     script_body: str | None = None
+    module_workflow_id: str | None = None
+    condition_expr: str | None = None
+    loop_mode: str | None = None
 
 
 class WorkflowEdge(BaseModel):
@@ -140,6 +144,12 @@ def node_contract(node: WorkflowNode, tools_by_id: dict[str, Tool]) -> tuple[lis
         return ['any'], []
     if node.kind == 'script':
         return ['targets'], ['targets']
+    if node.kind == 'module':
+        return ['targets'], ['targets']
+    if node.kind == 'condition':
+        return ['targets'], ['pass', 'fail']
+    if node.kind == 'loop':
+        return ['targets'], ['item']
     raise ValueError(f'Unknown node kind: {node.kind}')
 
 
@@ -532,6 +542,274 @@ def execute_script_node(
     }
 
 
+def execute_condition_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate a condition expression against upstream data. Outputs to 'pass' or 'fail' sockets."""
+    expr = (node.condition_expr or '').strip()
+    if not expr:
+        return failed_node_result(node, node_dir, f'Condition node {node.id} has no expression.')
+
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+
+    # Gather upstream data
+    upstream_data = ''
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value:
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                upstream_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                upstream_data += str(source_value) + '\n'
+
+    # Evaluate expression: supports simple conditions
+    # - "has_lines" / "not_empty": true if upstream has content
+    # - "line_count > N": compare line count
+    # - "contains:PATTERN": true if pattern is found
+    # - "exit_code == 0": check upstream exit code
+    lines = [l for l in upstream_data.strip().split('\n') if l.strip()] if upstream_data.strip() else []
+    line_count = len(lines)
+    passed = False
+
+    try:
+        if expr in ('has_lines', 'not_empty'):
+            passed = line_count > 0
+        elif expr == 'empty':
+            passed = line_count == 0
+        elif expr.startswith('contains:'):
+            pattern = expr[len('contains:'):]
+            passed = pattern in upstream_data
+        elif expr.startswith('not_contains:'):
+            pattern = expr[len('not_contains:'):]
+            passed = pattern not in upstream_data
+        elif expr.startswith('line_count'):
+            # e.g. "line_count > 10", "line_count >= 5", "line_count == 0"
+            import re
+            m = re.match(r'line_count\s*(>=|<=|>|<|==|!=)\s*(\d+)', expr)
+            if m:
+                op, threshold = m.group(1), int(m.group(2))
+                ops = {'>=': lambda a, b: a >= b, '<=': lambda a, b: a <= b, '>': lambda a, b: a > b, '<': lambda a, b: a < b, '==': lambda a, b: a == b, '!=': lambda a, b: a != b}
+                passed = ops[op](line_count, threshold)
+            else:
+                return failed_node_result(node, node_dir, f'Invalid line_count expression: {expr}')
+        elif expr.startswith('min_lines:'):
+            threshold = int(expr.split(':')[1])
+            passed = line_count >= threshold
+        else:
+            return failed_node_result(node, node_dir, f'Unknown condition expression: {expr}. Supported: has_lines, empty, contains:PATTERN, line_count > N, min_lines:N')
+    except Exception as e:
+        return failed_node_result(node, node_dir, f'Condition evaluation error: {e}')
+
+    # Write data to the appropriate output socket
+    pass_file = node_dir / 'pass.txt'
+    fail_file = node_dir / 'fail.txt'
+    result_text = f'Condition "{expr}": {"PASS" if passed else "FAIL"} (lines={line_count})'
+
+    if passed:
+        write_text(pass_file, upstream_data)
+        write_text(fail_file, '')
+    else:
+        write_text(pass_file, '')
+        write_text(fail_file, upstream_data)
+
+    write_text(stdout_path, result_text + '\n')
+    write_text(stderr_path, '')
+
+    return {
+        'node_id': node.id,
+        'status': 'success',
+        'command': [],
+        'exit_code': 0,
+        'artifact_paths': [str(pass_file if passed else fail_file)],
+        'outputs': {
+            'pass': str(pass_file) if passed else '',
+            'fail': str(fail_file) if not passed else '',
+        },
+        'stdout_preview': result_text,
+        'stderr_preview': '',
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': [f'[>] Condition {node.id}: {expr} => {"PASS" if passed else "FAIL"} ({line_count} lines)'],
+    }
+
+
+def execute_loop_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Iterate over upstream data line-by-line (or chunk-by-chunk), emitting each item."""
+    loop_mode = node.loop_mode or 'line'
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+
+    # Gather upstream data
+    upstream_data = ''
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value:
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                upstream_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                upstream_data += str(source_value) + '\n'
+
+    if not upstream_data.strip():
+        return failed_node_result(node, node_dir, f'Loop node {node.id} received no data to iterate over.')
+
+    if loop_mode == 'line':
+        items = [line for line in upstream_data.strip().split('\n') if line.strip()]
+    else:
+        # chunk mode: split by double newlines
+        items = [chunk.strip() for chunk in upstream_data.split('\n\n') if chunk.strip()]
+
+    # Write all items as output (downstream nodes process the aggregated list)
+    # Each item written on its own line for downstream consumption
+    item_file = node_dir / 'item.txt'
+    output_text = '\n'.join(items) + '\n'
+    write_text(item_file, output_text)
+
+    summary = f'Loop ({loop_mode}): {len(items)} items from upstream'
+    write_text(stdout_path, summary + '\n' + output_text)
+    write_text(stderr_path, '')
+
+    return {
+        'node_id': node.id,
+        'status': 'success',
+        'command': [],
+        'exit_code': 0,
+        'artifact_paths': [str(item_file)],
+        'outputs': {'item': str(item_file)},
+        'stdout_preview': truncate_text(summary + '\n' + output_text),
+        'stderr_preview': '',
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': [f'[>] Loop {node.id}: emitted {len(items)} items ({loop_mode} mode)'],
+    }
+
+
+def execute_module_node(
+    run_id: str,
+    node: WorkflowNode,
+    node_dir: Path,
+    tools_by_id: dict[str, Tool],
+    incoming_edges: list[WorkflowEdge],
+    output_values: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Execute a module (sub-workflow) node by loading and running the referenced workflow."""
+    workflow_id = node.module_workflow_id
+    if not workflow_id:
+        return failed_node_result(node, node_dir, f'Module node {node.id} has no workflow reference.')
+
+    stored = next((item for item in workflow_records() if item.get('id') == workflow_id), None)
+    if not stored or 'graph' not in stored:
+        return failed_node_result(node, node_dir, f'Module node {node.id} references unknown workflow {workflow_id}.')
+
+    sub_graph = WorkflowGraph(**stored['graph'])
+    sub_validation = validate_graph(sub_graph)
+    if not sub_validation.get('ok'):
+        return failed_node_result(node, node_dir, f'Sub-workflow graph invalid: {sub_validation.get("error")}')
+
+    stdout_path = node_dir / 'stdout.log'
+    stderr_path = node_dir / 'stderr.log'
+
+    # Gather upstream input to feed into the sub-workflow's variable nodes
+    upstream_data = ''
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix('out:') if edge.source_handle else 'output'
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value:
+            source_path = Path(str(source_value))
+            if source_path.exists():
+                upstream_data += source_path.read_text(encoding='utf-8', errors='ignore')
+            else:
+                upstream_data += str(source_value) + '\n'
+
+    # Inject upstream data into variable nodes of the sub-workflow
+    for sub_node in sub_graph.nodes:
+        if sub_node.kind == 'variable' and not sub_node.value and upstream_data:
+            sub_node.value = upstream_data.strip()
+
+    # Execute the sub-workflow within a sub-directory
+    sub_dir = node_dir / 'sub_run'
+    sub_dir.mkdir(parents=True, exist_ok=True)
+
+    sub_nodes_by_id = {n.id: n for n in sub_graph.nodes}
+    sub_parents, _, sub_incoming = build_graph_indexes(sub_graph)
+    sub_node_states = {n.id: 'queued' for n in sub_graph.nodes}
+    sub_node_results: dict[str, Any] = {}
+    sub_output_values: dict[str, dict[str, Any]] = {}
+    sub_logs: list[str] = [f'[>] Module {node.id}: executing sub-workflow "{stored.get("name", workflow_id)}"']
+
+    for group in sub_validation['parallel_groups']:
+        runnable: list[WorkflowNode] = []
+        for nid in group:
+            blocked = [pid for pid in sub_parents.get(nid, []) if sub_node_states.get(pid) != 'success']
+            if blocked:
+                sub_node_states[nid] = 'blocked'
+                continue
+            sub_node_states[nid] = 'running'
+            runnable.append(sub_nodes_by_id[nid])
+
+        for sub_node in runnable:
+            result = execute_node(
+                run_id, sub_node, tools_by_id,
+                sub_incoming.get(sub_node.id, []),
+                sub_output_values, sub_dir,
+            )
+            sub_node_states[sub_node.id] = result['status']
+            sub_node_results[sub_node.id] = result
+            if result['status'] == 'success':
+                sub_output_values[sub_node.id] = result.get('outputs', {})
+            sub_logs.extend(result.get('logs', []))
+
+    # Collect final outputs from sub-workflow output nodes
+    final_artifacts: list[str] = []
+    final_output_value = ''
+    for sub_node in sub_graph.nodes:
+        if sub_node.kind == 'output' and sub_node.id in sub_node_results:
+            final_artifacts.extend(sub_node_results[sub_node.id].get('artifact_paths', []))
+        # Also collect from the last successful node
+        if sub_node.id in sub_output_values:
+            for val in sub_output_values[sub_node.id].values():
+                if val and Path(str(val)).exists():
+                    final_output_value = str(val)
+
+    # Write aggregate output
+    aggregate_file = node_dir / 'targets.txt'
+    aggregate_content = ''
+    if final_output_value and Path(final_output_value).exists():
+        aggregate_content = Path(final_output_value).read_text(encoding='utf-8', errors='ignore')
+    write_text(aggregate_file, aggregate_content)
+    write_text(stdout_path, '\n'.join(sub_logs))
+    write_text(stderr_path, '')
+
+    all_success = all(s == 'success' for s in sub_node_states.values() if s != 'queued')
+    return {
+        'node_id': node.id,
+        'status': 'success' if all_success else 'failed',
+        'command': [],
+        'exit_code': 0 if all_success else 1,
+        'artifact_paths': [str(aggregate_file)] + final_artifacts,
+        'outputs': {'targets': str(aggregate_file)} if all_success else {},
+        'stdout_preview': truncate_text('\n'.join(sub_logs)),
+        'stderr_preview': '',
+        'stdout_path': str(stdout_path),
+        'stderr_path': str(stderr_path),
+        'logs': sub_logs + [f'[+] Module {node.id} {"completed" if all_success else "failed"}.'],
+    }
+
+
 def execute_node(
     run_id: str,
     node: WorkflowNode,
@@ -553,6 +831,12 @@ def execute_node(
         return execute_tool_node(run_id, node, node_dir, tools_by_id[node.tool_id], incoming_edges, output_values)
     if node.kind == 'script':
         return execute_script_node(run_id, node, node_dir, incoming_edges, output_values)
+    if node.kind == 'module':
+        return execute_module_node(run_id, node, node_dir, tools_by_id, incoming_edges, output_values)
+    if node.kind == 'condition':
+        return execute_condition_node(run_id, node, node_dir, incoming_edges, output_values)
+    if node.kind == 'loop':
+        return execute_loop_node(run_id, node, node_dir, incoming_edges, output_values)
     return failed_node_result(node, node_dir, f'Unsupported node kind {node.kind}.')
 
 
@@ -745,6 +1029,37 @@ def list_workflows() -> list[dict[str, Any]]:
     return workflow_records()
 
 
+def _save_version(workflow_id: str, item: dict[str, Any]) -> int:
+    """Save a version snapshot of the workflow, return version number."""
+    ver_dir = VERSIONS_DIR / workflow_id
+    ver_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted(ver_dir.glob('v*.json'))
+    version = len(existing) + 1
+    ver_file = ver_dir / f'v{version}.json'
+    ver_file.write_text(json.dumps({**item, 'version': version}, indent=2))
+    return version
+
+
+def _list_versions(workflow_id: str) -> list[dict[str, Any]]:
+    ver_dir = VERSIONS_DIR / workflow_id
+    if not ver_dir.exists():
+        return []
+    versions = []
+    for vf in sorted(ver_dir.glob('v*.json')):
+        try:
+            data = json.loads(vf.read_text())
+            versions.append({
+                'version': data.get('version', 0),
+                'updated_at': data.get('updated_at', ''),
+                'name': data.get('name', ''),
+                'node_count': len(data.get('graph', {}).get('nodes', [])),
+                'edge_count': len(data.get('graph', {}).get('edges', [])),
+            })
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return versions
+
+
 @app.post('/api/workflows')
 def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
     records = workflow_records()
@@ -755,6 +1070,9 @@ def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
         'graph': payload.graph.model_dump(),
         'updated_at': datetime.now(timezone.utc).isoformat(),
     }
+
+    version = _save_version(workflow_id, item)
+    item['version'] = version
 
     records = [record for record in records if record['id'] != workflow_id]
     records.insert(0, item)
@@ -768,6 +1086,26 @@ def get_workflow(workflow_id: str) -> dict[str, Any]:
         if workflow['id'] == workflow_id:
             return workflow
     return {'error': 'Workflow not found'}
+
+
+@app.get('/api/workflows/{workflow_id}/versions')
+def list_workflow_versions(workflow_id: str) -> list[dict[str, Any]]:
+    return _list_versions(workflow_id)
+
+
+@app.post('/api/workflows/{workflow_id}/versions/{version}/restore')
+def restore_workflow_version(workflow_id: str, version: int) -> dict[str, Any]:
+    ver_file = VERSIONS_DIR / workflow_id / f'v{version}.json'
+    if not ver_file.exists():
+        return {'error': f'Version {version} not found for workflow {workflow_id}'}
+    data = json.loads(ver_file.read_text())
+    # Save as a new version (creating a restore point)
+    payload = WorkflowPayload(
+        id=workflow_id,
+        name=data.get('name', 'Restored'),
+        graph=WorkflowGraph(**data['graph']),
+    )
+    return save_workflow(payload)
 
 
 @app.post('/api/workflows/validate')
@@ -1387,6 +1725,68 @@ def toggle_schedule(schedule_id: str) -> dict[str, Any]:
             _sync_scheduler_jobs()
             return s
     return {'ok': False, 'error': 'Schedule not found'}
+
+
+# ── Parameter Presets ──────────────────────────────────────────────────────────
+
+PRESETS_FILE = STATE_DIR / 'presets.json'
+
+
+class PresetPayload(BaseModel):
+    tool_id: str
+    name: str
+    params: dict[str, str] = Field(default_factory=dict)
+
+
+def load_presets() -> list[dict[str, Any]]:
+    ensure_state()
+    if not PRESETS_FILE.exists():
+        PRESETS_FILE.write_text('[]')
+        return []
+    try:
+        return json.loads(PRESETS_FILE.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+def save_presets(presets: list[dict[str, Any]]) -> None:
+    ensure_state()
+    PRESETS_FILE.write_text(json.dumps(presets, indent=2))
+
+
+@app.get('/api/presets')
+def list_presets(tool_id: str | None = None) -> list[dict[str, Any]]:
+    presets = load_presets()
+    if tool_id:
+        return [p for p in presets if p.get('tool_id') == tool_id]
+    return presets
+
+
+@app.post('/api/presets')
+def create_preset(payload: PresetPayload) -> dict[str, Any]:
+    presets = load_presets()
+    preset_id = f'preset-{uuid4().hex[:10]}'
+    item = {
+        'id': preset_id,
+        'tool_id': payload.tool_id,
+        'name': payload.name,
+        'params': payload.params,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    presets.insert(0, item)
+    save_presets(presets)
+    return item
+
+
+@app.delete('/api/presets/{preset_id}')
+def delete_preset(preset_id: str) -> dict[str, Any]:
+    presets = load_presets()
+    before = len(presets)
+    presets = [p for p in presets if p.get('id') != preset_id]
+    if len(presets) == before:
+        return {'ok': False, 'error': 'Preset not found'}
+    save_presets(presets)
+    return {'ok': True, 'deleted': preset_id}
 
 
 # Sync scheduler on startup

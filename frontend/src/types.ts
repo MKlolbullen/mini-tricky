@@ -15,7 +15,7 @@ export type Tool = {
 export type Health = { status: string };
 
 export type WorkflowNodePayload = {
-  kind: 'tool' | 'variable' | 'output' | 'script';
+  kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop';
   label: string;
   toolId?: string;
   variableType?: string;
@@ -27,6 +27,9 @@ export type WorkflowNodePayload = {
   category?: string;
   scriptLanguage?: 'bash' | 'python';
   scriptBody?: string;
+  moduleWorkflowId?: string;
+  conditionExpr?: string; // For condition nodes: expression to evaluate
+  loopMode?: 'line' | 'chunk'; // For loop nodes: iterate per-line or per-chunk
 };
 
 export type WsEvent =
@@ -40,10 +43,11 @@ export type WsEvent =
 export type WorkflowRecord = {
   id: string;
   name: string;
+  version?: number;
   graph: {
     nodes: Array<{
       id: string;
-      kind: 'tool' | 'variable' | 'output' | 'script';
+      kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop';
       label: string;
       tool_id?: string | null;
       variable_type?: string | null;
@@ -52,6 +56,9 @@ export type WorkflowRecord = {
       position?: { x: number; y: number };
       script_language?: string | null;
       script_body?: string | null;
+      module_workflow_id?: string | null;
+      condition_expr?: string | null;
+      loop_mode?: string | null;
     }>;
     edges: Array<{
       id?: string;
@@ -61,6 +68,14 @@ export type WorkflowRecord = {
       target_handle?: string | null;
     }>;
   };
+};
+
+export type WorkflowVersion = {
+  version: number;
+  updated_at: string;
+  name: string;
+  node_count: number;
+  edge_count: number;
 };
 
 export type NodeRunResult = {

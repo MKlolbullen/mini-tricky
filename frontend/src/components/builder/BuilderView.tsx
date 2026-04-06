@@ -7,6 +7,7 @@ import ToolSidebar from './ToolSidebar';
 import Canvas from './Canvas';
 import Inspector from './Inspector';
 import Console from './Console';
+import Notifications, { type Notification } from './Notifications';
 
 type Props = {
   tools: Tool[];
@@ -54,6 +55,9 @@ function formatGraph(nodes: FlowNode[], edges: Edge[]) {
       value: n.data.value ?? null, params: n.data.params ?? {}, position: n.position,
       script_language: n.data.scriptLanguage ?? null,
       script_body: n.data.scriptBody ?? null,
+      module_workflow_id: n.data.moduleWorkflowId ?? null,
+      condition_expr: n.data.conditionExpr ?? null,
+      loop_mode: n.data.loopMode ?? null,
     })),
     edges: edges.map((e) => ({
       id: e.id, source: e.source, target: e.target,
@@ -69,11 +73,14 @@ function graphToNodes(workflow: WorkflowRecord): FlowNode[] {
       kind: n.kind, label: n.label, toolId: n.tool_id || undefined,
       variableType: n.variable_type || undefined, value: n.value || '',
       params: n.params || {},
-      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'script' ? ['targets'] : [],
-      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'script' ? ['targets'] : [],
+      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'condition' ? ['targets'] : n.kind === 'loop' ? ['targets'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
+      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'condition' ? ['pass', 'fail'] : n.kind === 'loop' ? ['item'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
       runState: undefined,
       scriptLanguage: (n.script_language as 'bash' | 'python') || undefined,
       scriptBody: n.script_body || undefined,
+      moduleWorkflowId: n.module_workflow_id || undefined,
+      conditionExpr: n.condition_expr || undefined,
+      loopMode: (n.loop_mode as 'line' | 'chunk') || undefined,
     },
   }));
 }
@@ -115,6 +122,21 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [isReplaying, setIsReplaying] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [maxParallel, setMaxParallel] = useState(2);
+  const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  function addNotification(type: Notification['type'], title: string, message: string) {
+    const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setNotifications((cur) => [...cur, { id, type, title, message, timestamp: Date.now() }]);
+    // Also trigger browser notification if available
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body: message, icon: type === 'success' ? undefined : undefined });
+    }
+  }
+
+  function dismissNotification(id: string) {
+    setNotifications((cur) => cur.filter((n) => n.id !== id));
+  }
   const counterRef = useRef(20);
   const hydratedRef = useRef(false);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -223,6 +245,39 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           category: 'Script',
         },
       }]);
+    } else if (type === 'module') {
+      const id = nextId('module');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'module', label: data.label || 'Sub-Workflow',
+          params: {}, inputs: ['targets'], outputs: ['targets'],
+          moduleWorkflowId: data.workflowId,
+          category: 'Module',
+        },
+      }]);
+    } else if (type === 'condition') {
+      const id = nextId('cond');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'condition', label: 'Condition',
+          params: {}, inputs: ['targets'], outputs: ['pass', 'fail'],
+          conditionExpr: 'has_lines',
+          category: 'Logic',
+        },
+      }]);
+    } else if (type === 'loop') {
+      const id = nextId('loop');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'loop', label: 'Iterator',
+          params: {}, inputs: ['targets'], outputs: ['item'],
+          loopMode: 'line',
+          category: 'Logic',
+        },
+      }]);
     }
   }, [tools, setNodes]);
 
@@ -313,11 +368,17 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
             setIsRunning(false);
             cancelRef.current = null;
             setConsoleLines((prev) => [...prev, `[+] Run finished: ${event.status}`]);
+            addNotification(
+              event.status === 'completed' ? 'success' : 'error',
+              `Run ${event.status === 'completed' ? 'Completed' : 'Failed'}`,
+              `"${workflowName}" finished with status: ${event.status}`,
+            );
             break;
           case 'run_error':
             setIsRunning(false);
             cancelRef.current = null;
             setConsoleLines((prev) => [...prev, `[-] Run error: ${event.error}`]);
+            addNotification('error', 'Run Error', event.error);
             break;
         }
       },
@@ -349,9 +410,11 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   }
 
   async function handleSave() {
-    const result = await api.saveWorkflow({ name: workflowName, graph: formatGraph(nodes, edges) });
+    const result = await api.saveWorkflow({ id: currentWorkflowId || undefined, name: workflowName, graph: formatGraph(nodes, edges) });
+    setCurrentWorkflowId(result.id);
     onRefreshWorkflows();
-    setConsoleLines([`[+] Saved workflow "${result.name}" (${result.id}).`]);
+    setConsoleLines([`[+] Saved workflow "${result.name}" (${result.id}) v${result.version || 1}.`]);
+    addNotification('success', 'Workflow Saved', `"${result.name}" v${result.version || 1}`);
   }
 
   async function handleValidate() {
@@ -387,6 +450,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
 
   function handleLoadWorkflow(wf: WorkflowRecord) {
     setWorkflowName(wf.name);
+    setCurrentWorkflowId(wf.id);
     const hydrated = hydrateNodesWithTools(graphToNodes(wf), tools);
     setNodes(hydrated);
     setEdges(graphToEdges(wf));
@@ -482,6 +546,14 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onSelectArtifact={setSelectedArtifactPath}
           artifactPreview={artifactPreview}
           artifactLoading={artifactLoading}
+          currentWorkflowId={currentWorkflowId}
+          onRestoreVersion={handleLoadWorkflow}
+          edges={edges}
+          onDeleteNode={(id) => {
+            setNodes((cur) => cur.filter((n) => n.id !== id));
+            setEdges((cur) => cur.filter((e) => e.source !== id && e.target !== id));
+            setSelectedNodeId(null);
+          }}
         />
       </div>
       <Console
@@ -491,6 +563,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         stderrView={stderrView}
         artifactsView={artifactsView}
       />
+      <Notifications notifications={notifications} onDismiss={dismissNotification} />
     </>
   );
 }

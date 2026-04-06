@@ -11,3 +11,4 @@ backend/src/__pycache__/
 out/
 dist/
 backend/state/
+*.tsbuildinfo

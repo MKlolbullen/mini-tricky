@@ -94,6 +94,32 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
         <span className="tool-desc">Custom Python script with file I/O</span>
       </div>
 
+      <div className="section-title">Logic Nodes</div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'condition', {})}
+      >
+        <div className="tool-card-header">
+          <strong>{'\u{2696}'} Condition</strong>
+          <span className="tool-cat-badge" style={{ background: '#ff9f43' }}>Logic</span>
+        </div>
+        <span className="tool-desc">If/else branching based on data content</span>
+        <span className="tool-io">targets &rarr; pass, fail</span>
+      </div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'loop', {})}
+      >
+        <div className="tool-card-header">
+          <strong>{'\u{1F504}'} Iterator</strong>
+          <span className="tool-cat-badge" style={{ background: '#ffcf5b' }}>Logic</span>
+        </div>
+        <span className="tool-desc">Loop over input items line-by-line</span>
+        <span className="tool-io">targets &rarr; item</span>
+      </div>
+
       <div className="section-title">Variables</div>
       {variableCatalog.map((v) => (
         <div
@@ -154,10 +180,20 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
       <div className="section-title">Saved Workflows</div>
       {savedWorkflows.length === 0 && <div className="empty-mini">No saved workflows yet.</div>}
       {savedWorkflows.map((wf) => (
-        <button key={wf.id} className="palette-item tool" onClick={() => onLoadWorkflow(wf)}>
-          <strong>{wf.name}</strong>
-          <span>{wf.graph.nodes.length} nodes &middot; {wf.graph.edges.length} edges</span>
-        </button>
+        <div
+          key={wf.id}
+          className="palette-item tool draggable-item"
+          draggable
+          onDragStart={(e) => startDrag(e, 'module', { workflowId: wf.id, label: wf.name })}
+          onClick={() => onLoadWorkflow(wf)}
+        >
+          <div className="tool-card-header">
+            <strong>{'\u{1F9E9}'} {wf.name}</strong>
+            <span className="tool-cat-badge" style={{ background: '#b47cff' }}>Module</span>
+          </div>
+          <span className="tool-io">{wf.graph.nodes.length} nodes &middot; {wf.graph.edges.length} edges</span>
+          <span className="tool-desc">Drag to use as sub-workflow module</span>
+        </div>
       ))}
     </aside>
   );
