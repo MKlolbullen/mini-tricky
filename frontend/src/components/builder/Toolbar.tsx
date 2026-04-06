@@ -6,10 +6,19 @@ type Props = {
   onSave: () => void;
   onValidate: () => void;
   onRun: () => void;
+  onRunFallback: () => void;
+  onCancel: () => void;
+  isRunning: boolean;
   onSaveAsTemplate: () => void;
+  onExport: () => void;
+  onImport: () => void;
 };
 
-export default function Toolbar({ workflowName, onNameChange, maxParallel, onMaxParallelChange, onSave, onValidate, onRun, onSaveAsTemplate }: Props) {
+export default function Toolbar({
+  workflowName, onNameChange, maxParallel, onMaxParallelChange,
+  onSave, onValidate, onRun, onRunFallback, onCancel, isRunning,
+  onSaveAsTemplate, onExport, onImport,
+}: Props) {
   return (
     <div className="toolbar">
       <input
@@ -29,10 +38,19 @@ export default function Toolbar({ workflowName, onNameChange, maxParallel, onMax
           onChange={(e) => onMaxParallelChange(Math.max(1, Number(e.target.value) || 1))}
         />
       </label>
-      <button className="action-btn" onClick={onSave}>Save Workflow</button>
-      <button className="action-btn" onClick={onSaveAsTemplate}>Save as Template</button>
-      <button className="action-btn" onClick={onValidate}>Validate Graph</button>
-      <button className="action-btn primary" onClick={onRun}>Run Queue</button>
+      <button className="action-btn" onClick={onSave}>Save</button>
+      <button className="action-btn" onClick={onSaveAsTemplate}>Template</button>
+      <button className="action-btn" onClick={onExport}>Export</button>
+      <button className="action-btn" onClick={onImport}>Import</button>
+      <button className="action-btn" onClick={onValidate}>Validate</button>
+      {isRunning ? (
+        <button className="action-btn danger" onClick={onCancel}>Cancel Run</button>
+      ) : (
+        <>
+          <button className="action-btn primary" onClick={onRun}>Run (Stream)</button>
+          <button className="action-btn" onClick={onRunFallback} title="Run without WebSocket streaming">Run (Batch)</button>
+        </>
+      )}
     </div>
   );
 }

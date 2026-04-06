@@ -5,8 +5,13 @@ import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
 export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNodePayload>>) {
   const payload = data as WorkflowNodePayload;
   const stateClass = payload.runState ? `state-${payload.runState}` : '';
-  const catColor = payload.category ? CATEGORY_COLORS[payload.category] || '#5bdcff' : undefined;
-  const catIcon = payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
+  const isScript = payload.kind === 'script';
+  const catColor = isScript
+    ? (payload.scriptLanguage === 'python' ? '#ffcf5b' : '#43d9ad')
+    : payload.category ? CATEGORY_COLORS[payload.category] || '#5bdcff' : undefined;
+  const catIcon = isScript
+    ? (payload.scriptLanguage === 'python' ? '\u{1F40D}' : '\u{1F4DC}')
+    : payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
 
   return (
     <div
@@ -15,10 +20,12 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
     >
       <div className="flow-node-header">
         <span>
-          {payload.kind === 'tool' && catIcon ? <span className="node-cat-icon">{catIcon} </span> : null}
+          {catIcon ? <span className="node-cat-icon">{catIcon} </span> : null}
           {payload.label}
         </span>
-        <small>{payload.kind === 'tool' ? payload.toolId : payload.kind}</small>
+        <small>
+          {isScript ? payload.scriptLanguage : payload.kind === 'tool' ? payload.toolId : payload.kind}
+        </small>
       </div>
 
       {payload.runState && <div className={`node-state-pill ${payload.runState}`}>{payload.runState}</div>}

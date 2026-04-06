@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { type DragEvent, useMemo, useState } from 'react';
 import type { Tool, WorkflowRecord } from '../../types';
 import { variableCatalog, outputCatalog, CATEGORY_COLORS } from '../../types';
 
@@ -10,6 +10,11 @@ type Props = {
   onAddOutput: () => void;
   onLoadWorkflow: (workflow: WorkflowRecord) => void;
 };
+
+function startDrag(event: DragEvent, type: string, data: any) {
+  event.dataTransfer.setData('application/mini-tricky-node', JSON.stringify({ type, data }));
+  event.dataTransfer.effectAllowed = 'move';
+}
 
 export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVariable, onAddOutput, onLoadWorkflow }: Props) {
   const [search, setSearch] = useState('');
@@ -64,20 +69,57 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
         ))}
       </div>
 
+      <div className="section-title">Script Nodes</div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'script', { language: 'bash' })}
+        onClick={() => {/* handled via drag or via BuilderView's addScriptNode */}}
+      >
+        <div className="tool-card-header">
+          <strong>Bash Script</strong>
+          <span className="tool-cat-badge" style={{ background: '#43d9ad' }}>Script</span>
+        </div>
+        <span className="tool-desc">Custom bash script with stdin/stdout</span>
+      </div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'script', { language: 'python' })}
+      >
+        <div className="tool-card-header">
+          <strong>Python Script</strong>
+          <span className="tool-cat-badge" style={{ background: '#ffcf5b' }}>Script</span>
+        </div>
+        <span className="tool-desc">Custom Python script with file I/O</span>
+      </div>
+
       <div className="section-title">Variables</div>
       {variableCatalog.map((v) => (
-        <button key={v.type} className="palette-item tool" onClick={() => onAddVariable(v.type, v.label)}>
+        <div
+          key={v.type}
+          className="palette-item tool draggable-item"
+          draggable
+          onDragStart={(e) => startDrag(e, 'variable', { variableType: v.type, label: v.label })}
+          onClick={() => onAddVariable(v.type, v.label)}
+        >
           <strong>{v.label}</strong>
           <span>Output: {v.type}</span>
-        </button>
+        </div>
       ))}
 
       <div className="section-title">Outputs</div>
       {outputCatalog.map((o) => (
-        <button key={o.label} className="palette-item tool" onClick={onAddOutput}>
+        <div
+          key={o.label}
+          className="palette-item tool draggable-item"
+          draggable
+          onDragStart={(e) => startDrag(e, 'output', {})}
+          onClick={onAddOutput}
+        >
           <strong>{o.label}</strong>
           <span>Input: {o.type}</span>
-        </button>
+        </div>
       ))}
 
       <div className="section-title">Tools ({filteredTools.length})</div>
@@ -87,7 +129,13 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
             {category} ({catTools.length})
           </div>
           {catTools.map((tool) => (
-            <button key={tool.id} className="palette-item tool-card" onClick={() => onAddTool(tool)}>
+            <div
+              key={tool.id}
+              className="palette-item tool-card draggable-item"
+              draggable
+              onDragStart={(e) => startDrag(e, 'tool', { toolId: tool.id })}
+              onClick={() => onAddTool(tool)}
+            >
               <div className="tool-card-header">
                 <strong>{tool.name}</strong>
                 <span className="tool-cat-badge" style={{ background: CATEGORY_COLORS[tool.category] || '#5bdcff' }}>
@@ -98,7 +146,7 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
               <span className="tool-io">
                 {tool.inputs.join(', ') || 'no inputs'} &rarr; {tool.outputs.join(', ') || 'no outputs'}
               </span>
-            </button>
+            </div>
           ))}
         </div>
       ))}

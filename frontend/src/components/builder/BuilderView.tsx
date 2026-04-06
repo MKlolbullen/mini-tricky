@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addEdge, useEdgesState, useNodesState, type Connection, type Edge, type Node } from '@xyflow/react';
-import type { Tool, WorkflowNodePayload, WorkflowRecord, RunRecord, ArtifactItem, ArtifactPreview, ReplayResponse, FlowNode, TemplateRecord } from '../../types';
+import type { Tool, WorkflowNodePayload, WorkflowRecord, RunRecord, ArtifactItem, ArtifactPreview, ReplayResponse, FlowNode, TemplateRecord, WsEvent } from '../../types';
 import * as api from '../../api';
 import Toolbar from './Toolbar';
 import ToolSidebar from './ToolSidebar';
@@ -52,6 +52,8 @@ function formatGraph(nodes: FlowNode[], edges: Edge[]) {
       id: n.id, kind: n.data.kind, label: n.data.label,
       tool_id: n.data.toolId ?? null, variable_type: n.data.variableType ?? null,
       value: n.data.value ?? null, params: n.data.params ?? {}, position: n.position,
+      script_language: n.data.scriptLanguage ?? null,
+      script_body: n.data.scriptBody ?? null,
     })),
     edges: edges.map((e) => ({
       id: e.id, source: e.source, target: e.target,
@@ -67,9 +69,11 @@ function graphToNodes(workflow: WorkflowRecord): FlowNode[] {
       kind: n.kind, label: n.label, toolId: n.tool_id || undefined,
       variableType: n.variable_type || undefined, value: n.value || '',
       params: n.params || {},
-      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : [],
-      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : [],
+      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'script' ? ['targets'] : [],
+      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'script' ? ['targets'] : [],
       runState: undefined,
+      scriptLanguage: (n.script_language as 'bash' | 'python') || undefined,
+      scriptBody: n.script_body || undefined,
     },
   }));
 }
@@ -109,11 +113,12 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [isReplaying, setIsReplaying] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const [maxParallel, setMaxParallel] = useState(2);
   const counterRef = useRef(20);
   const hydratedRef = useRef(false);
+  const cancelRef = useRef<(() => void) | null>(null);
 
-  // Hydrate initial nodes with tool data once tools load
   useEffect(() => {
     if (tools.length > 0 && !hydratedRef.current) {
       hydratedRef.current = true;
@@ -121,7 +126,6 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     }
   }, [tools, setNodes]);
 
-  // Load pending template
   useEffect(() => {
     if (pendingTemplate && tools.length > 0) {
       const wf: WorkflowRecord = { id: pendingTemplate.id, name: pendingTemplate.name, graph: pendingTemplate.graph };
@@ -136,7 +140,6 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     }
   }, [pendingTemplate, tools, setNodes, setEdges, onTemplateClaimed]);
 
-  // Fetch artifacts when run or selected node changes
   useEffect(() => {
     if (!lastRun?.id) {
       setArtifactItems([]); setSelectedArtifactPath(null); setArtifactPreview(null);
@@ -152,7 +155,6 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       .catch(() => { setArtifactItems([]); setSelectedArtifactPath(null); });
   }, [lastRun?.id, selectedNodeId]);
 
-  // Fetch artifact preview
   useEffect(() => {
     if (!lastRun?.id || !selectedArtifactPath) { setArtifactPreview(null); return; }
     setArtifactLoading(true);
@@ -181,32 +183,77 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       ? (selectedRunNode.artifact_paths.join('\n') || '[+] No artifacts.')
       : (lastRun ? lastRun.logs.filter((l) => l.includes('artifact://')).join('\n') || '[+] No artifact paths yet.' : '[+] No completed run yet.');
 
-  function getNextPosition() {
+  function nextId(prefix: string) {
     counterRef.current += 1;
-    const offset = counterRef.current * 24;
-    return { x: 140 + (offset % 420), y: 180 + (offset % 260) };
+    return `${prefix}-${counterRef.current}`;
   }
 
+  // ── Drop handler for drag-and-drop from sidebar ───────────
+
+  const handleDropNode = useCallback((type: string, data: any, position: { x: number; y: number }) => {
+    if (type === 'tool') {
+      const tool = tools.find((t) => t.id === data.toolId);
+      if (!tool) return;
+      const id = nextId('tool');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: { kind: 'tool', label: tool.name, toolId: tool.id, params: {}, inputs: tool.inputs, outputs: tool.outputs, category: tool.category },
+      }]);
+    } else if (type === 'variable') {
+      const id = nextId('variable');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: { kind: 'variable', label: data.label, variableType: data.variableType, value: '', params: {}, inputs: [], outputs: [data.variableType] },
+      }]);
+    } else if (type === 'output') {
+      const id = nextId('output');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
+      }]);
+    } else if (type === 'script') {
+      const lang = data.language || 'bash';
+      const id = nextId('script');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'script', label: `${lang === 'python' ? 'Python' : 'Bash'} Script`,
+          params: {}, inputs: ['targets'], outputs: ['targets'],
+          scriptLanguage: lang, scriptBody: lang === 'python' ? '# Read input from stdin, write to stdout\nimport sys\nfor line in sys.stdin:\n    print(line.strip())\n' : '#!/bin/bash\n# Read input from stdin, write to stdout\ncat\n',
+          category: 'Script',
+        },
+      }]);
+    }
+  }, [tools, setNodes]);
+
+  // ── Click-to-add handlers (keep for sidebar click fallback) ─
+
   function addToolNode(tool: Tool) {
-    const id = `tool-${counterRef.current + 1}`;
+    counterRef.current += 1;
+    const offset = counterRef.current * 24;
+    const position = { x: 140 + (offset % 420), y: 180 + (offset % 260) };
     setNodes((cur) => [...cur, {
-      id, position: getNextPosition(), type: 'socketNode',
+      id: `tool-${counterRef.current}`, position, type: 'socketNode',
       data: { kind: 'tool', label: tool.name, toolId: tool.id, params: {}, inputs: tool.inputs, outputs: tool.outputs, category: tool.category },
     }]);
   }
 
   function addVariableNode(type: string, label: string) {
-    const id = `variable-${counterRef.current + 1}`;
+    counterRef.current += 1;
+    const offset = counterRef.current * 24;
+    const position = { x: 140 + (offset % 420), y: 180 + (offset % 260) };
     setNodes((cur) => [...cur, {
-      id, position: getNextPosition(), type: 'socketNode',
+      id: `variable-${counterRef.current}`, position, type: 'socketNode',
       data: { kind: 'variable', label, variableType: type, value: '', params: {}, inputs: [], outputs: [type] },
     }]);
   }
 
   function addOutputNode() {
-    const id = `output-${counterRef.current + 1}`;
+    counterRef.current += 1;
+    const offset = counterRef.current * 24;
+    const position = { x: 140 + (offset % 420), y: 180 + (offset % 260) };
     setNodes((cur) => [...cur, {
-      id, position: getNextPosition(), type: 'socketNode',
+      id: `output-${counterRef.current}`, position, type: 'socketNode',
       data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
     }]);
   }
@@ -231,6 +278,76 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     setConsoleLines([`[+] Connected ${sourceHandle} -> ${targetHandle}`]);
   }, [setEdges]);
 
+  // ── WebSocket streaming run ───────────────────────────────
+
+  function handleRun() {
+    const graph = formatGraph(nodes, edges);
+    setIsRunning(true);
+    setConsoleLines(['[+] Starting run...']);
+    setConsoleTab('stdout');
+
+    // Set all nodes to queued
+    setNodes((cur) => cur.map((n) => ({ ...n, data: { ...n.data, runState: 'queued' } })));
+
+    const { cancel } = api.streamRun(
+      { name: workflowName, workflow: graph, max_parallel: maxParallel },
+      (event: WsEvent) => {
+        switch (event.type) {
+          case 'run_started':
+            setNodes((cur) => applyRunState(cur, event.node_states));
+            setConsoleLines((prev) => [...prev, `[+] Run ${event.run_id} started.`]);
+            break;
+          case 'node_started':
+            setNodes((cur) => cur.map((n) => n.id === event.node_id ? { ...n, data: { ...n.data, runState: 'running' } } : n));
+            setConsoleLines((prev) => [...prev, `[>] ${event.node_id} running...`]);
+            break;
+          case 'node_log':
+            setConsoleLines((prev) => [...prev, event.line]);
+            break;
+          case 'node_finished':
+            setNodes((cur) => cur.map((n) => n.id === event.node_id ? { ...n, data: { ...n.data, runState: event.status } } : n));
+            setConsoleLines((prev) => [...prev, ...event.result.logs]);
+            break;
+          case 'run_finished':
+            setLastRun(event.run);
+            setIsRunning(false);
+            cancelRef.current = null;
+            setConsoleLines((prev) => [...prev, `[+] Run finished: ${event.status}`]);
+            break;
+          case 'run_error':
+            setIsRunning(false);
+            cancelRef.current = null;
+            setConsoleLines((prev) => [...prev, `[-] Run error: ${event.error}`]);
+            break;
+        }
+      },
+      () => {
+        setIsRunning(false);
+        cancelRef.current = null;
+      },
+    );
+
+    cancelRef.current = cancel;
+  }
+
+  // Fallback: if WS fails, fall back to HTTP run
+  async function handleRunFallback() {
+    const result = await api.createRun({ name: workflowName, workflow: formatGraph(nodes, edges), max_parallel: maxParallel });
+    setLastRun(result);
+    setConsoleTab('stdout');
+    if (result.node_states) setNodes((cur) => applyRunState(cur, result.node_states));
+    setConsoleLines(result.logs || ['[+] Run started.']);
+  }
+
+  function handleCancel() {
+    if (cancelRef.current) {
+      cancelRef.current();
+      cancelRef.current = null;
+      setIsRunning(false);
+      setConsoleLines((prev) => [...prev, '[!] Run cancelled by user.']);
+    }
+  }
+
   async function handleSave() {
     const result = await api.saveWorkflow({ name: workflowName, graph: formatGraph(nodes, edges) });
     onRefreshWorkflows();
@@ -248,14 +365,6 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     } else {
       setConsoleLines([`[-] Validation failed: ${result.error}`]);
     }
-  }
-
-  async function handleRun() {
-    const result = await api.createRun({ name: workflowName, workflow: formatGraph(nodes, edges), max_parallel: maxParallel });
-    setLastRun(result);
-    setConsoleTab('stdout');
-    if (result.node_states) setNodes((cur) => applyRunState(cur, result.node_states));
-    setConsoleLines(result.logs || ['[+] Run started.']);
   }
 
   async function handleReplay() {
@@ -296,6 +405,34 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       .catch(() => setConsoleLines(['[-] Failed to save template.']));
   }
 
+  function handleExport() {
+    const wf: WorkflowRecord = {
+      id: `export-${Date.now()}`,
+      name: workflowName,
+      graph: formatGraph(nodes, edges),
+    };
+    api.exportWorkflow(wf);
+    setConsoleLines([`[+] Exported workflow "${workflowName}".`]);
+  }
+
+  async function handleImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const wf = await api.importWorkflow(file);
+        handleLoadWorkflow(wf);
+        setConsoleLines([`[+] Imported workflow "${wf.name}".`]);
+      } catch {
+        setConsoleLines(['[-] Failed to import workflow.']);
+      }
+    };
+    input.click();
+  }
+
   return (
     <>
       <Toolbar
@@ -306,7 +443,12 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         onSave={handleSave}
         onValidate={handleValidate}
         onRun={handleRun}
+        onRunFallback={handleRunFallback}
+        onCancel={handleCancel}
+        isRunning={isRunning}
         onSaveAsTemplate={handleSaveAsTemplate}
+        onExport={handleExport}
+        onImport={handleImport}
       />
       <div className="workspace">
         <ToolSidebar
@@ -324,6 +466,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={setSelectedNodeId}
+          onDropNode={handleDropNode}
         />
         <Inspector
           selectedNode={selectedNode}
