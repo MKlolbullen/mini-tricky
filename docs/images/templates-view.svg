@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 600" width="1400" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#09111f"/>
+      <stop offset="100%" stop-color="#070d19"/>
+    </linearGradient>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#101b2d"/>
+      <stop offset="100%" stop-color="#0c1423"/>
+    </linearGradient>
+  </defs>
+  <style>
+    text { font-family: Inter, system-ui, sans-serif; }
+    .title { fill: #d6e2ff; font-size: 14px; font-weight: 600; }
+    .desc { fill: #8fa5d2; font-size: 12px; }
+    .small { fill: #6b84b0; font-size: 11px; }
+    .badge { font-size: 10px; font-weight: 600; fill: #fff; letter-spacing: 0.5px; }
+    .chip { font-size: 12px; fill: #8fa5d2; }
+    .chip-active { fill: #5bdcff; }
+    .brand { fill: #d6e2ff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+    .nav { fill: #9fb2d9; font-size: 14px; }
+    .nav-active { fill: #fff; }
+    .btn-text { fill: #5bdcff; font-size: 12px; font-weight: 600; }
+  </style>
+
+  <rect width="1400" height="600" fill="url(#bg)"/>
+
+  <!-- Top Bar -->
+  <rect x="0" y="0" width="1400" height="56" fill="#0d1627"/>
+  <line x1="0" y1="56" x2="1400" y2="56" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <text x="24" y="35" class="brand">mini-tricky</text>
+  <text x="200" y="35" class="nav">Builder</text>
+  <rect x="295" y="16" width="90" height="30" rx="10" fill="#122038" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="315" y="36" class="nav-active">Templates</text>
+  <text x="420" y="35" class="nav">Runs</text>
+  <text x="490" y="35" class="nav">Settings</text>
+  <rect x="1310" y="18" width="60" height="24" rx="12" fill="#14381f"/>
+  <text x="1330" y="35" fill="#79f2a3" font-size="12" font-family="Inter, system-ui">OK</text>
+
+  <!-- Category Chips -->
+  <rect x="24" y="78" width="70" height="28" rx="14" fill="#122038" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="40" y="97" class="chip chip-active">All (8)</text>
+  <rect x="104" y="78" width="64" height="28" rx="14" fill="#0f1b2b" stroke="rgba(91,220,255,0.2)" stroke-width="1"/>
+  <text x="115" y="97" class="chip">Recon</text>
+  <rect x="178" y="78" width="100" height="28" rx="14" fill="#0f1b2b" stroke="rgba(91,220,255,0.2)" stroke-width="1"/>
+  <text x="189" y="97" class="chip">Vulnerability</text>
+  <rect x="288" y="78" width="100" height="28" rx="14" fill="#0f1b2b" stroke="rgba(91,220,255,0.2)" stroke-width="1"/>
+  <text x="299" y="97" class="chip">Full Pipeline</text>
+  <rect x="398" y="78" width="80" height="28" rx="14" fill="#0f1b2b" stroke="rgba(91,220,255,0.2)" stroke-width="1"/>
+  <text x="409" y="97" class="chip">Crawling</text>
+
+  <!-- Card 1 -->
+  <rect x="24" y="130" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="24" y="130" width="4" height="140" rx="2" fill="#5b8cff"/>
+  <text x="44" y="158" class="title">Subdomain Enumeration</text>
+  <rect x="256" y="142" width="56" height="20" rx="10" fill="#5b8cff"/><text x="264" y="156" class="badge">Recon</text>
+  <text x="44" y="180" class="desc">Discover subdomains using subfinder and amass,</text>
+  <text x="44" y="196" class="desc">filter live hosts with httpx.</text>
+  <text x="44" y="218" class="small">4 nodes · 3 edges</text>
+  <rect x="44" y="234" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="67" y="253" class="btn-text">Use Template</text>
+
+  <!-- Card 2 -->
+  <rect x="474" y="130" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="474" y="130" width="4" height="140" rx="2" fill="#7c6cff"/>
+  <text x="494" y="158" class="title">Full Recon Pipeline</text>
+  <rect x="670" y="142" width="90" height="20" rx="10" fill="#7c6cff"/><text x="678" y="156" class="badge">Full Pipeline</text>
+  <text x="494" y="180" class="desc">Complete recon chain: subdomain discovery,</text>
+  <text x="494" y="196" class="desc">HTTP probing, port scanning, and vulnerability detection.</text>
+  <text x="494" y="218" class="small">6 nodes · 5 edges</text>
+  <rect x="494" y="234" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="517" y="253" class="btn-text">Use Template</text>
+
+  <!-- Card 3 -->
+  <rect x="924" y="130" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="924" y="130" width="4" height="140" rx="2" fill="#ff5b6c"/>
+  <text x="944" y="158" class="title">Vulnerability Scan</text>
+  <rect x="1132" y="142" width="100" height="20" rx="10" fill="#ff5b6c"/><text x="1140" y="156" class="badge">Vulnerability</text>
+  <text x="944" y="180" class="desc">Run nuclei templates against a target list</text>
+  <text x="944" y="196" class="desc">with severity filtering and output collection.</text>
+  <text x="944" y="218" class="small">3 nodes · 2 edges</text>
+  <rect x="944" y="234" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="967" y="253" class="btn-text">Use Template</text>
+
+  <!-- Card 4 -->
+  <rect x="24" y="290" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="24" y="290" width="4" height="140" rx="2" fill="#43d9ad"/>
+  <text x="44" y="318" class="title">Web Crawling</text>
+  <rect x="185" y="302" width="72" height="20" rx="10" fill="#43d9ad"/><text x="193" y="316" class="badge">Crawling</text>
+  <text x="44" y="340" class="desc">Spider target websites using katana and gospider</text>
+  <text x="44" y="356" class="desc">to discover endpoints, forms, and JavaScript files.</text>
+  <text x="44" y="378" class="small">4 nodes · 3 edges</text>
+  <rect x="44" y="394" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="67" y="413" class="btn-text">Use Template</text>
+
+  <!-- Card 5 -->
+  <rect x="474" y="290" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="474" y="290" width="4" height="140" rx="2" fill="#ff9f43"/>
+  <text x="494" y="318" class="title">Directory Bruteforce</text>
+  <rect x="690" y="302" width="66" height="20" rx="10" fill="#ff9f43"/><text x="698" y="316" class="badge">Fuzzing</text>
+  <text x="494" y="340" class="desc">Fuzz directories and files using ffuf with</text>
+  <text x="494" y="356" class="desc">common wordlists and custom extensions.</text>
+  <text x="494" y="378" class="small">3 nodes · 2 edges</text>
+  <rect x="494" y="394" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="517" y="413" class="btn-text">Use Template</text>
+
+  <!-- Card 6 -->
+  <rect x="924" y="290" width="430" height="140" rx="16" fill="url(#cardBg)" stroke="rgba(91,220,255,0.35)" stroke-width="1"/>
+  <rect x="924" y="290" width="4" height="140" rx="2" fill="#b47cff"/>
+  <text x="944" y="318" class="title">Port Scan to Vuln Scan</text>
+  <rect x="1172" y="302" width="66" height="20" rx="10" fill="#b47cff"/><text x="1180" y="316" class="badge">Network</text>
+  <text x="944" y="340" class="desc">Scan ports with nmap/naabu, then run nuclei</text>
+  <text x="944" y="356" class="desc">against discovered services for vulnerability detection.</text>
+  <text x="944" y="378" class="small">4 nodes · 3 edges</text>
+  <rect x="944" y="394" width="120" height="28" rx="10" fill="transparent" stroke="rgba(91,220,255,0.55)" stroke-width="1"/>
+  <text x="967" y="413" class="btn-text">Use Template</text>
+
+  <text x="24" y="480" fill="#4a5c75" font-size="12" font-family="Inter, system-ui">Showing 6 of 8 templates</text>
+</svg>
