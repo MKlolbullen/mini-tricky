@@ -77,6 +77,25 @@ type NodeRunResult = {
   logs: string[];
 };
 
+type ReplayRecord = {
+  id: string;
+  node_id: string;
+  created_at: string;
+  used_cached_upstream_from: string[];
+  result: NodeRunResult;
+};
+
+type ReplayResponse = {
+  ok: boolean;
+  run_id: string;
+  replay_id: string;
+  node_id: string;
+  parent_ids: string[];
+  cached_output_nodes: string[];
+  result: NodeRunResult;
+  error?: string;
+};
+
 type RunRecord = {
   id: string;
   workflow_id: string | null;
@@ -86,6 +105,7 @@ type RunRecord = {
   node_states: Record<string, string>;
   node_results: Record<string, NodeRunResult>;
   artifact_root: string;
+  replays?: ReplayRecord[];
   logs: string[];
 };
 
@@ -262,6 +282,7 @@ export default function App() {
     '[+] Set a variable value, validate socket wiring, or launch a real local run.',
   ]);
   const [lastRun, setLastRun] = useState<RunRecord | null>(null);
+  const [isReplaying, setIsReplaying] = useState(false);
   const [maxParallel, setMaxParallel] = useState(2);
   const counterRef = useRef(20);
 
@@ -286,6 +307,11 @@ export default function App() {
   const selectedRunNode = useMemo(() => {
     if (!selectedNodeId || !lastRun?.node_results) return null;
     return lastRun.node_results[selectedNodeId] || null;
+  }, [selectedNodeId, lastRun]);
+
+  const selectedReplay = useMemo(() => {
+    if (!selectedNodeId || !lastRun?.replays?.length) return null;
+    return lastRun.replays.find((replay) => replay.node_id === selectedNodeId) || null;
   }, [selectedNodeId, lastRun]);
 
   const filteredTools = useMemo(() => {
@@ -443,11 +469,49 @@ export default function App() {
     appendConsole(result.logs || ['[+] Run started.']);
   }
 
+  async function replaySelectedNode() {
+    if (!lastRun?.id || !selectedNodeId) {
+      appendConsole(['[-] Select a node from a completed run before replaying it.']);
+      return;
+    }
+
+    setIsReplaying(true);
+    try {
+      const response = await fetch(`${apiBase}/api/runs/${lastRun.id}/replay/${selectedNodeId}`, {
+        method: 'POST',
+      });
+      const result: ReplayResponse = await response.json();
+
+      if (!result.ok) {
+        appendConsole([`[-] Replay failed: ${result.error || 'unknown error'}`]);
+        return;
+      }
+
+      const refreshed = await fetch(`${apiBase}/api/runs/${lastRun.id}`).then((r) => r.json());
+      setLastRun(refreshed);
+      setNodes((current) => current.map((node) => (
+        node.id === selectedNodeId
+          ? { ...node, data: { ...node.data, runState: result.result.status } }
+          : node
+      )));
+      setConsoleTab('stdout');
+      appendConsole([
+        `[+] Replay ${result.replay_id} completed for ${selectedNodeId}.`,
+        ...result.result.logs,
+      ]);
+    } catch {
+      appendConsole(['[-] Replay request failed.']);
+    } finally {
+      setIsReplaying(false);
+    }
+  }
+
   function loadWorkflow(workflow: WorkflowRecord) {
     setWorkflowName(workflow.name);
     const hydrated = hydrateNodesWithTools(graphToNodes(workflow), tools);
-    setNodes(hydrated);
+    setNodes(hydrateNodesWithTools(hydrated, tools));
     setEdges(graphToEdges(workflow));
+    setSelectedNodeId(null);
     setLastRun(null);
     appendConsole([`[+] Loaded workflow "${workflow.name}".`]);
   }
@@ -459,11 +523,13 @@ export default function App() {
 
   const selectedTool = selectedToolDefinition();
 
-  const stdoutView = selectedRunNode?.stdout_preview || consoleLines.join('\n');
-  const stderrView = selectedRunNode?.stderr_preview || '[-] No stderr captured for the selected node.';
-  const artifactsView = selectedRunNode
-    ? (selectedRunNode.artifact_paths.join('\n') || '[+] No artifacts produced for the selected node.')
-    : (lastRun ? lastRun.logs.filter((line) => line.includes('artifact://')).join('\n') || '[+] No artifact paths emitted yet.' : '[+] No completed run yet.');
+  const stdoutView = selectedReplay?.result.stdout_preview || selectedRunNode?.stdout_preview || consoleLines.join('\n');
+  const stderrView = selectedReplay?.result.stderr_preview || selectedRunNode?.stderr_preview || '[-] No stderr captured for the selected node.';
+  const artifactsView = selectedReplay
+    ? (selectedReplay.result.artifact_paths.join('\n') || '[+] No replay artifacts produced for the selected node.')
+    : selectedRunNode
+      ? (selectedRunNode.artifact_paths.join('\n') || '[+] No artifacts produced for the selected node.')
+      : (lastRun ? lastRun.logs.filter((line) => line.includes('artifact://')).join('\n') || '[+] No artifact paths emitted yet.' : '[+] No completed run yet.');
 
   return (
     <div className="app-shell">
@@ -608,6 +674,24 @@ export default function App() {
                   <div>{selectedNode.data.runState}</div>
                 </div>
               )}
+
+              {lastRun && (
+                <div className="meta-block">
+                  <strong>Replay</strong>
+                  <button className="action-btn" onClick={replaySelectedNode} disabled={isReplaying}>
+                    {isReplaying ? 'Replaying...' : `Replay ${selectedNode.id}`}
+                  </button>
+                  <div className="path-line">Runs the selected node again using cached upstream outputs from the current run.</div>
+                </div>
+              )}
+
+              {selectedReplay && (
+                <div className="meta-block">
+                  <strong>Latest Replay</strong>
+                  <div>{selectedReplay.id}</div>
+                  <div className="path-line">Parents reused: {selectedReplay.used_cached_upstream_from.join(', ') || 'none'}</div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="empty-state">Select a node to inspect its typed sockets, values, and last-run output.</div>
@@ -629,6 +713,14 @@ export default function App() {
               <div className="meta-block">
                 <strong>Node States</strong>
                 <ul>{Object.entries(lastRun.node_states).map(([id, state]) => <li key={id}>{id}: {state}</li>)}</ul>
+              </div>
+              <div className="meta-block">
+                <strong>Replays</strong>
+                {lastRun.replays && lastRun.replays.length > 0 ? (
+                  <ul>{lastRun.replays.map((replay) => <li key={replay.id}>{replay.id}: {replay.node_id}</li>)}</ul>
+                ) : (
+                  <div className="path-line">No node replays yet.</div>
+                )}
               </div>
             </div>
           ) : (
