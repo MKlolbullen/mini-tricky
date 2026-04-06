@@ -1,210 +1,171 @@
-# mini-tricky
-
-<p align="center">
-  <img src="docs/images/mini-tricky-ui-preview-2.png" alt="mini-tricky UI preview" width="100%" />
-</p>
-
-<p align="center">
-  <strong>Local-first, Electron-based visual workflow builder for bug bounty hunting and offensive security automation.</strong>
+<h1 align="center">
   <br />
-  Inspired by Trickest-style workflow UX, but designed to run entirely on your own machine with locally installed tools.
-</p>
+  mini-tricky
+  <br />
+</h1>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#workflows">Workflows</a> •
-  <a href="#roadmap">Roadmap</a>
+  <strong>A locally hosted Trickest clone for security workflow automation.</strong>
+  <br />
+  Visual DAG editor &middot; 38 security tools &middot; Real-time execution &middot; Zero cloud dependency
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Electron-47848F?logo=electron&logoColor=white" alt="Electron" />
-  <img src="https://img.shields.io/badge/frontend-React%20%2B%20ReactFlow-61DAFB?logo=react&logoColor=111827" alt="React" />
+  <img src="https://img.shields.io/badge/frontend-React%20%2B%20React%20Flow-61DAFB?logo=react&logoColor=111827" alt="React" />
   <img src="https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/runtime-Local%20Tools-111827" alt="Local Tools" />
+  <img src="https://img.shields.io/badge/tools-38%20integrated-blueviolet" alt="38 Tools" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> &middot;
+  <a href="#screenshots">Screenshots</a> &middot;
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="#architecture">Architecture</a> &middot;
+  <a href="#tool-library">Tool Library</a> &middot;
+  <a href="#node-types">Node Types</a> &middot;
+  <a href="#roadmap">Roadmap</a>
 </p>
 
 ---
 
-## What this is
-
-**mini-tricky** is a local desktop application for building and running offensive-security workflows with a **drag-and-drop DAG editor**.
-
-Think:
-- **Trickest-style workflow builder**
-- **Electron desktop shell**
-- **FastAPI execution backend**
-- **React/React Flow UI**
-- **Local binaries installed on your host**
-
-The goal is simple: stop juggling shell history, bash spaghetti, and 30 half-connected recon tools. Build reusable workflows visually, run them locally, stream logs live, and keep artifacts organized per node.
+<p align="center">
+  <img src="docs/images/hero-builder.svg" alt="mini-tricky workflow builder" width="100%" />
+</p>
 
 ---
 
-## Why it exists
+## What is mini-tricky?
 
-Most bug bounty setups degrade into one of these:
-- a pile of one-off bash scripts
-- terminal tabs breeding like rabbits
-- notes scattered across files and clipboard history
-- no clean way to model dependencies or reuse workflows
+**mini-tricky** is a local-first desktop application that replicates the Trickest workflow builder experience for offensive security automation. Build visual DAG workflows by dragging tools onto a canvas, connect them with typed sockets, and execute entire recon/scanning pipelines with real-time streaming output.
 
-mini-tricky fixes that by giving you:
-- **visual node-based workflow composition**
-- **typed sockets and explicit data flow**
-- **parallel and serial execution modes**
-- **per-node logs and downloadable artifacts**
-- **local-first execution with no cloud dependency**
+No cloud. No accounts. No subscriptions. Just your tools, your machine, your workflows.
 
-In plain English: less chaos, more motor.
+### The problem it solves
+
+Most bug bounty setups degrade into:
+- Piles of one-off bash scripts with no reuse
+- Terminal tabs multiplying faster than subdomains
+- No clean way to model dependencies between tools
+- Scattered notes, clipboard history, and half-finished pipelines
+- Re-running entire chains because one tool failed
+
+mini-tricky fixes this by giving you a **visual workflow engine** with typed data flow, parallel execution, per-node artifacts, and the ability to replay individual nodes without re-running the whole pipeline.
 
 ---
 
 ## Features
 
-### Visual workflow builder
-- Drag tools and variables onto a central graph canvas
-- Connect nodes using **typed input/output sockets**
-- Prevent invalid graph connections such as input→input or output→output
-- Bind upstream outputs to downstream parameters explicitly
+### Visual Workflow Builder
+Drag security tools, variables, scripts, and logic nodes onto a React Flow canvas. Connect them with typed input/output sockets. The DAG engine validates connections and prevents invalid graphs (cycles, type mismatches, occupied sockets).
 
-### Trickest-style execution model
-- DAG-based execution engine
-- Parent nodes must complete before child nodes start
-- Supports both:
-  - **single-path / serial execution**
-  - **parallel execution** where independent nodes can run concurrently
-- Failed upstream nodes can block downstream execution cleanly
+<p align="center">
+  <img src="docs/images/logic-nodes.svg" alt="Logic and special nodes" width="85%" />
+</p>
 
-### Distribution / fan-out
-- Node-level distribution support
-- Split work by:
-  - lines
-  - files
-  - file batches
-- Useful for feeding large target lists into tools like `httpx`, `nuclei`, `ffuf`, `katana`, etc.
+### Trickest-Style Arguments Panel
+The right sidebar is a structured node arguments controller — just like Trickest. Select any node to see its typed inputs/outputs with connection status indicators, configure parameters with add/remove fields, toggle script languages, and manage parameter presets.
 
-### Desktop-native ergonomics
-- Electron shell for local app experience
-- Open artifacts directly from the UI
-- Pick local input files without playing browser sandbox games
-- Tool status checks against local `PATH`
+<p align="center">
+  <img src="docs/images/node-arguments.svg" alt="Node arguments panel" width="55%" />
+</p>
 
-### Per-node execution visibility
-- Bottom console dock with tabs for:
-  - `stdout`
-  - `stderr`
-  - `stdin`
-  - artifacts/downloads
-- Live log streaming during workflow execution
-- Better feedback than “something happened somewhere maybe”
+### Real-Time Execution
+WebSocket streaming sends `node_started`, `node_finished`, and log events as they happen. Watch nodes light up on the canvas with state badges (queued/running/success/failed) and animated pulse borders. Fall back to HTTP batch execution if needed.
 
-### Bug bounty oriented tooling model
-Designed around locally installed tools such as:
-- `subfinder`
-- `assetfinder`
-- `amass`
-- `httpx`
-- `naabu`
-- `katana`
-- `gau`
-- `waybackurls`
-- `ffuf`
-- `feroxbuster`
-- `nuclei`
-- `dalfox`
-- `sqlmap`
-- `gospider`
-- `arjun`
+### 38 Integrated Security Tools
+Pre-configured tools across 9 categories, defined in `tools.yaml` with command templates, typed I/O sockets, and timeout settings:
+
+| Category | Tools |
+|----------|-------|
+| **Recon** | subfinder, httpx, amass, assetfinder, dnsx, massdns, shuffledns |
+| **Enumeration** | naabu, gobuster, dirsearch, wappalyzer |
+| **Vulnerability** | nuclei, dalfox, sqlmap, xsstrike, commix |
+| **Fuzzing** | ffuf, feroxbuster, wfuzz, arjun |
+| **Crawling** | katana, gospider, hakrawler, linkfinder |
+| **Network** | nmap, masscan, rustscan, testssl |
+| **OSINT** | theHarvester, shodan-cli, censys, spiderfoot |
+| **Archive** | gau, waybackurls, waymore |
+| **Utility** | jq, anew, unfurl, qsreplace |
+
+### Workflow Templates
+8 built-in templates for common security workflows. Create and save your own custom templates.
+
+<p align="center">
+  <img src="docs/images/templates-view.svg" alt="Templates gallery" width="100%" />
+</p>
+
+### Composable Sub-Workflows (Modules)
+Package any saved workflow as a reusable module node. Drag it from the sidebar into another workflow — the backend expands and executes the sub-graph inline, piping data through automatically.
+
+### Conditional Branching
+Route data based on content with condition nodes. Supported expressions:
+- `has_lines` / `empty` — check if upstream produced data
+- `contains:PATTERN` / `not_contains:PATTERN` — string matching
+- `line_count > N` / `min_lines:N` — threshold checks
+
+Data flows to the **pass** or **fail** output socket based on evaluation.
+
+### Loop/Iterator Nodes
+Split upstream data for downstream processing:
+- **Per Line**: Each line becomes a separate item
+- **Per Chunk**: Split by blank lines (double newline)
+
+### Custom Script Nodes
+Write inline Bash or Python scripts with stdin/stdout piping. Upstream data flows in via stdin, script output flows downstream. Toggle between languages with one click.
+
+### Cron Scheduling
+Schedule workflows to run on cron expressions via APScheduler. Enable/disable schedules without deleting them.
+
+### Workflow Versioning
+Every save creates a numbered version snapshot. Browse version history in the inspector, compare node/edge counts, and restore any previous version with one click.
+
+### Notifications
+Toast notifications slide in on run completion, errors, and saves. Browser Notification API integration for background alerts when you're in another tab.
+
+### Parameter Presets
+Save frequently-used parameter configurations per tool. One-click apply from the arguments panel. Never re-type the same flags again.
+
+### Artifact Explorer
+Per-node artifact browsing with inline preview for text, JSON, HTML, and images. Download individual artifacts or open them in a new tab.
+
+### Node Replay
+Re-run any individual node using cached upstream outputs. No need to re-execute the entire workflow just because one tool needs a retry.
 
 ---
 
 ## Screenshots
 
-### Workflow builder during execution
+### Workflow Builder
+The main view: left sidebar with categorized tools, center canvas with connected workflow nodes, right sidebar with the Trickest-style arguments panel, and bottom console with live output.
 
 <p align="center">
-  <img src="docs/images/mini-tricky-ui-preview.png" alt="mini-tricky workflow builder screenshot" width="100%" />
+  <img src="docs/images/hero-builder.svg" alt="Workflow builder view" width="100%" />
 </p>
 
-### Local architecture overview
+### Node Arguments Controller
+Structured parameter editing with connection status indicators, typed socket fields, command templates, parameter presets, and version history.
 
 <p align="center">
-  <img src="docs/images/mini-tricky-architecture.png" alt="mini-tricky architecture diagram" width="100%" />
+  <img src="docs/images/node-arguments.svg" alt="Arguments panel close-up" width="55%" />
 </p>
 
----
+### Logic Nodes
+Conditional branching and loop/iterator nodes enable complex workflow logic beyond simple linear chains.
 
-## Architecture
-
-mini-tricky is built around a simple rule:
-
-> **The UI draws the graph. The backend validates and executes the graph. The host machine owns the tools.**
-
-### Core pieces
-- **Electron**
-  - desktop shell
-  - process management
-  - local file handling
-  - IPC bridge for safe desktop actions
-- **React + React Flow**
-  - workflow editor
-  - tool palette
-  - argument pane
-  - run console
-- **FastAPI backend**
-  - graph validation
-  - run scheduling
-  - workflow execution
-  - log streaming
-  - artifact handling
-- **Local binaries**
-  - actual security tools installed on the host
-  - launched by the backend as subprocesses
-
-### Execution semantics
-- each workflow is treated as a **DAG**
-- nodes only run when their dependencies are satisfied
-- sockets are validated before execution
-- independent nodes may run in parallel when allowed
-- downstream nodes receive structured outputs from upstream nodes
-
----
-
-## UI layout
-
-The target layout is intentionally familiar:
-
-- **Top navigation bar**
-  - Builder
-  - Templates
-  - Runs
-  - Settings
-- **Left sidebar**
-  - search bar
-  - variable types
-  - tool library grouped by category
-- **Center**
-  - workflow graph canvas
-- **Right sidebar**
-  - argument editor
-  - switches / toggles
-  - distribution settings
-- **Bottom dock**
-  - `stdout`
-  - `stderr`
-  - `stdin`
-  - artifacts/downloads
-
-Basically: Trickest DNA, but local.
+<p align="center">
+  <img src="docs/images/logic-nodes.svg" alt="Condition, loop, and module nodes" width="85%" />
+</p>
 
 ---
 
 ## Quick Start
 
-> This assumes you are running the local desktop version and have the required tools installed on your host.
+### Prerequisites
+- **Node.js** 18+ and npm
+- **Python** 3.10+
+- Security tools installed on your system PATH (subfinder, httpx, nuclei, etc.)
 
 ### 1. Clone the repository
 
@@ -213,159 +174,302 @@ git clone https://github.com/MKlolbullen/mini-tricky.git
 cd mini-tricky
 ```
 
-### 2. Install Node dependencies
-
-```bash
-npm install
-```
-
-If the frontend lives in its own folder, install there too:
-
-```bash
-cd bug-bounty-platform
-npm install
-cd ..
-```
-
-### 3. Install Python backend dependencies
+### 2. Install and start the backend
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cd ..
+uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload
 ```
 
-### 4. Run the desktop app in development mode
+### 3. Install and start the frontend
 
 ```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend runs on `http://localhost:5173` and connects to the backend at `http://127.0.0.1:5000`.
+
+### 4. (Optional) Run the Electron desktop app
+
+```bash
+# From the root directory
+npm install
 npm run desktop:dev
 ```
 
-### 5. Build the desktop app
+### 5. (Optional) Build for production
 
 ```bash
-npm run desktop:build
+cd frontend && npm run build    # Build frontend
+npm run desktop:build           # Package Electron app
 ```
 
 ---
 
-## Example workflows
+## Architecture
 
-### Basic recon chain
-```text
-Input Domain -> Subfinder -> HTTPX -> Nuclei -> Output
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Electron Shell                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │              React + React Flow                    │   │
+│  │  ┌──────────┬──────────────┬──────────────────┐  │   │
+│  │  │  Tool    │   Canvas     │  Arguments       │  │   │
+│  │  │  Sidebar │   (DAG)      │  Panel           │  │   │
+│  │  │          │              │                   │  │   │
+│  │  └──────────┴──────────────┴──────────────────┘  │   │
+│  │  ┌────────────────────────────────────────────┐  │   │
+│  │  │  Console (stdout / stderr / artifacts)      │  │   │
+│  │  └────────────────────────────────────────────┘  │   │
+│  └──────────────────────────────────────────────────┘   │
+│            │ HTTP + WebSocket                             │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │              FastAPI Backend                       │   │
+│  │  ┌────────┐ ┌──────────┐ ┌────────────────────┐ │   │
+│  │  │  Graph  │ │ DAG Exec │ │  Artifact Manager  │ │   │
+│  │  │  Valid. │ │ Engine   │ │  + Preview         │ │   │
+│  │  └────────┘ └──────────┘ └────────────────────┘ │   │
+│  │  ┌────────┐ ┌──────────┐ ┌────────────────────┐ │   │
+│  │  │ Sched. │ │ Version  │ │  Template + Preset │ │   │
+│  │  │ (cron) │ │ Store    │ │  Manager           │ │   │
+│  │  └────────┘ └──────────┘ └────────────────────┘ │   │
+│  └──────────────────────────────────────────────────┘   │
+│            │ subprocess                                   │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │         Local Security Tools (PATH)               │   │
+│  │  subfinder  httpx  nuclei  ffuf  katana  nmap ... │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### URL discovery + fuzzing
-```text
-Input Domain -> Gau/Katana -> Deduplicate -> FFUF/Feroxbuster -> Output
-```
+### Execution Model
+- Workflows are validated as **Directed Acyclic Graphs (DAGs)**
+- Nodes execute in **topological order** with parallel groups
+- Parent nodes must complete before children start
+- Independent nodes run concurrently (configurable worker count)
+- Failed parents block downstream nodes cleanly
+- Output data flows through typed sockets: `domain`, `targets`, `findings`, etc.
 
-### JS endpoint and secrets hunting
-```text
-Input Domain -> Katana/Gospider -> JS Collector -> SecretFinder/LinkFinder -> Output
+### Data Flow
 ```
-
-### Parameter discovery into testing
-```text
-Input URL List -> Arjun -> Param Filter -> Dalfox / SQLMap -> Output
+Variable Node (domain: "example.com")
+    │
+    ▼ out:domain ──→ in:domain
+Subfinder (produces targets.txt)
+    │
+    ▼ out:targets ──→ in:targets
+HTTPX (filters live hosts)
+    │
+    ▼ out:targets ──→ in:targets
+Nuclei (scans for vulnerabilities)
+    │
+    ▼ out:findings ──→ in:any
+Output Node (collects artifacts)
 ```
 
 ---
 
-## Design goals
+## Node Types
 
-- **local-first**
-- **fast iteration**
-- **transparent execution**
-- **composable workflows**
-- **host-controlled tooling**
-- **no fake cloud dependency for basic automation**
-
-This is meant to be useful for:
-- bug bounty hunters
-- offensive security specialists
-- web/API testers
-- researchers building repeatable recon pipelines
+| Node | Icon | Description | Inputs | Outputs |
+|------|------|-------------|--------|---------|
+| **Tool** | Category-specific | Runs a security tool via subprocess | Tool-defined | Tool-defined |
+| **Variable** | 📥 | Provides input data (domain, target list, wordlist) | None | Typed value |
+| **Output** | 📤 | Collects artifacts from upstream nodes | any | None |
+| **Script** | 🐍/📜 | Custom Bash or Python with stdin/stdout piping | targets | targets |
+| **Module** | 🧩 | Embeds a saved workflow as a sub-graph | targets | targets |
+| **Condition** | ⚖️ | If/else branching based on data content | targets | pass, fail |
+| **Loop** | 🔄 | Iterates over input line-by-line or chunk-by-chunk | targets | item |
 
 ---
 
-## Suggested repository structure
+## Project Structure
 
-```text
+```
 mini-tricky/
-├── electron/               # Electron main + preload
-├── backend/                # FastAPI backend and scheduler
-├── bug-bounty-platform/    # React/React Flow frontend
-├── docs/
-│   └── images/             # README screenshots / diagrams
-├── scripts/                # dev/build helpers
-├── tools.yaml              # tool registry / metadata
-└── README.md
+├── electron/                    # Electron main process + preload
+│   ├── main.cjs
+│   └── preload.cjs
+├── backend/
+│   ├── src/
+│   │   └── main.py             # FastAPI app (all endpoints + execution engine)
+│   ├── tools.yaml              # 38 tool definitions with command templates
+│   ├── templates.yaml          # 8 built-in workflow templates
+│   └── requirements.txt        # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx             # Root app with view routing
+│   │   ├── api.ts              # All API + WebSocket helpers
+│   │   ├── types.ts            # TypeScript type definitions
+│   │   ├── index.css           # Full dark-theme stylesheet
+│   │   └── components/
+│   │       ├── TopBar.tsx      # Navigation bar
+│   │       ├── builder/
+│   │       │   ├── BuilderView.tsx    # Core builder logic
+│   │       │   ├── Canvas.tsx         # React Flow wrapper
+│   │       │   ├── SocketNode.tsx     # Custom node renderer
+│   │       │   ├── ToolSidebar.tsx    # Draggable tool palette
+│   │       │   ├── Inspector.tsx      # Arguments panel
+│   │       │   ├── Toolbar.tsx        # Action buttons
+│   │       │   ├── Console.tsx        # Output console
+│   │       │   └── Notifications.tsx  # Toast notification system
+│   │       ├── templates/
+│   │       │   └── TemplatesView.tsx  # Template gallery
+│   │       ├── runs/
+│   │       │   ├── RunsView.tsx       # Run history table
+│   │       │   └── RunDetail.tsx      # Run detail + artifacts
+│   │       └── settings/
+│   │           └── SettingsView.tsx   # Health + config
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── tsconfig.json
+├── docs/images/                 # UI mockups and diagrams
+└── package.json                 # Root package (Electron)
 ```
+
+---
+
+## API Reference
+
+### Workflows
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/workflows` | List all saved workflows |
+| `POST` | `/api/workflows` | Save workflow (creates version) |
+| `GET` | `/api/workflows/{id}` | Get workflow by ID |
+| `GET` | `/api/workflows/{id}/versions` | List version history |
+| `POST` | `/api/workflows/{id}/versions/{v}/restore` | Restore a version |
+| `POST` | `/api/workflows/validate` | Validate graph structure |
+
+### Runs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/runs` | Execute workflow (HTTP batch) |
+| `WS` | `/ws/run` | Execute workflow (WebSocket stream) |
+| `GET` | `/api/runs` | List all runs |
+| `GET` | `/api/runs/{id}` | Get run details |
+| `DELETE` | `/api/runs/{id}` | Delete run + artifacts |
+| `POST` | `/api/runs/{id}/cancel` | Cancel active run |
+| `POST` | `/api/runs/{id}/replay/{node}` | Replay single node |
+
+### Artifacts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/runs/{id}/artifacts` | List run artifacts |
+| `GET` | `/api/runs/{id}/artifact-preview?path=` | Preview artifact content |
+| `GET` | `/api/runs/{id}/artifact-raw?path=` | Download raw artifact |
+
+### Templates, Schedules, Presets
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET/POST` | `/api/templates` | List / create templates |
+| `GET/POST/DELETE` | `/api/schedules` | Manage cron schedules |
+| `PATCH` | `/api/schedules/{id}` | Toggle schedule enabled |
+| `GET/POST/DELETE` | `/api/presets` | Manage parameter presets |
+
+---
+
+## Example Workflows
+
+### Basic Recon Chain
+```
+Domain Input → Subfinder → HTTPX → Nuclei → Artifacts
+```
+
+### Conditional Vulnerability Scan
+```
+Domain Input → Subfinder → Condition (has_lines?)
+    ├── pass → HTTPX → Nuclei → Artifacts
+    └── fail → Output (no subdomains found)
+```
+
+### Parallel Discovery + Fuzzing
+```
+Domain Input ──┬── Gau ────────┬── Deduplicate → FFUF → Artifacts
+               └── Katana ─────┘
+```
+
+### Sub-Workflow Module
+```
+Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifacts
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Desktop Shell | Electron | Native app experience, file access |
+| Frontend | React 18 + TypeScript | UI components |
+| Graph Editor | @xyflow/react (React Flow) | Visual DAG canvas |
+| Build Tool | Vite | Fast dev server + production builds |
+| Backend | FastAPI + Uvicorn | REST API + WebSocket server |
+| Execution | Python subprocess | Tool invocation + artifact capture |
+| Scheduling | APScheduler | Cron-based workflow automation |
+| Storage | JSON files | Workflows, runs, versions, presets |
 
 ---
 
 ## Roadmap
 
-### Near term
-- typed node sockets and better graph validation
-- replay/resume single node runs
-- cached upstream artifacts
-- richer run history and artifact explorer
-- native desktop notifications
+### Completed
+- [x] Visual DAG workflow editor with drag-and-drop
+- [x] 38 security tools across 9 categories
+- [x] WebSocket streaming execution with live node states
+- [x] Trickest-style node arguments panel
+- [x] Conditional branching (if/else nodes)
+- [x] Loop/iterator nodes
+- [x] Composable sub-workflow modules
+- [x] Custom script nodes (Bash/Python)
+- [x] 8 built-in workflow templates
+- [x] Cron scheduling
+- [x] Workflow versioning with restore
+- [x] Parameter presets
+- [x] Toast + browser notifications
+- [x] Animated directional edges
+- [x] Category-colored minimap
+- [x] Artifact explorer with inline preview
+- [x] Node replay with cached upstream
+- [x] Import/export workflows as JSON
 
-### Medium term
-- per-tool install/bootstrap manager
-- environment profiles
-- reusable workflow templates
-- better result normalization across tools
-- integrated preview for text, JSON, HTML, and screenshots
-
-### Longer term
-- playbooks for multi-stage bug bounty workflows
-- AI-assisted workflow generation and artifact triage
-- richer evidence graphing
-- optional report export pipelines
-
----
-
-## Non-goals
-
-To be very clear, mini-tricky is **not** trying to be:
-- a cloud SaaS clone
-- a magic “one-click pwn everything” box
-- a replacement for understanding how the tools actually work
-
-It is a **workflow engine and local operator UI**, not wizard dust.
+### Planned
+- [ ] Per-tool install/bootstrap manager (check if tools are in PATH)
+- [ ] Environment profiles (different tool configs per target scope)
+- [ ] Richer result normalization across tools
+- [ ] AI-assisted workflow generation
+- [ ] Report export (Markdown/PDF) from run artifacts
+- [ ] Dark/light theme toggle
 
 ---
 
-## Security / operational note
+## Security & Ethics
 
 This project is intended for:
-- authorized testing
-- lab environments
-- bug bounty programs where you are allowed to test
-- defensive research and security engineering
+- **Authorized penetration testing**
+- **Bug bounty programs** where you have permission to test
+- **Lab environments** and CTF challenges
+- **Defensive security research**
 
-Do not aim this at targets you do not have permission to assess.
+Do not use this against targets you do not have explicit authorization to assess.
 
 ---
 
 ## Contributing
 
-PRs, issues, and brutally honest feedback are welcome.
+PRs, issues, and honest feedback welcome.
 
-Good contribution areas:
-- node execution engine
-- typed tool schemas
-- React Flow UX improvements
-- artifact rendering
+Good areas to contribute:
+- Tool definitions in `tools.yaml` (add new tools)
+- Node execution engine improvements
+- React Flow UX polish
+- Artifact rendering for more file types
 - Electron desktop ergonomics
-- local tool bootstrap/install logic
 
 ---
 
@@ -377,13 +481,13 @@ MIT
 
 ## Acknowledgments
 
-- **Trickest** for the workflow-builder inspiration
-- **ProjectDiscovery** and the wider offensive security tool ecosystem
-- **React Flow / XYFlow** for the graph foundation
-- everyone who got tired of terminal chaos and decided to build a better operator surface
+- [Trickest](https://trickest.com/) for the workflow builder inspiration
+- [ProjectDiscovery](https://projectdiscovery.io/) and the offensive security tool ecosystem
+- [React Flow / XYFlow](https://reactflow.dev/) for the graph rendering foundation
+- Everyone tired of terminal chaos who wants a better operator surface
 
 ---
 
 <p align="center">
-  Built for local workflows, real tooling, and less operational mess.
+  <strong>Built for local workflows, real tooling, and less operational mess.</strong>
 </p>
