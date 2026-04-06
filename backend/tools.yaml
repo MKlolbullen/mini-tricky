@@ -1,7 +1,9 @@
 tools:
+  # ── Recon ──────────────────────────────────────────────────
   - id: subfinder
     name: Subfinder
     category: Recon
+    description: Fast passive subdomain enumeration tool
     inputs: [domain]
     outputs: [targets]
     command: [subfinder, -silent, -d, '{domain}']
@@ -11,44 +13,377 @@ tools:
   - id: httpx
     name: HTTPX
     category: Recon
+    description: Fast HTTP toolkit for probing live hosts
     inputs: [targets]
     outputs: [targets]
     command: [httpx, -silent, -l, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 300
 
+  - id: amass
+    name: Amass
+    category: Recon
+    description: In-depth attack surface mapping and asset discovery
+    inputs: [domain]
+    outputs: [targets]
+    command: [amass, enum, -passive, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: assetfinder
+    name: Assetfinder
+    category: Recon
+    description: Find domains and subdomains related to a given domain
+    inputs: [domain]
+    outputs: [targets]
+    command: [assetfinder, --subs-only, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: findomain
+    name: Findomain
+    category: Recon
+    description: Cross-platform subdomain enumerator
+    inputs: [domain]
+    outputs: [targets]
+    command: [findomain, -t, '{domain}', -q]
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: dnsx
+    name: DNSx
+    category: Recon
+    description: Fast and multi-purpose DNS toolkit for running DNS queries
+    inputs: [targets]
+    outputs: [targets]
+    command: [dnsx, -silent, -l, '{targets_file}', -resp]
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: shuffledns
+    name: ShuffleDNS
+    category: Recon
+    description: Wrapper around massdns for active subdomain bruteforcing
+    inputs: [domain, wordlist]
+    outputs: [targets]
+    command: [shuffledns, -d, '{domain}', -w, '{wordlist_file}', -r, /usr/share/resolvers.txt, -silent]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: chaos
+    name: Chaos
+    category: Recon
+    description: Fetch subdomains from Chaos dataset by ProjectDiscovery
+    inputs: [domain]
+    outputs: [targets]
+    command: [chaos, -silent, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
+  # ── Enumeration ────────────────────────────────────────────
+  - id: gobuster
+    name: Gobuster
+    category: Enumeration
+    description: Directory/file and DNS busting tool written in Go
+    inputs: [targets, wordlist]
+    outputs: [findings]
+    command: [gobuster, dir, -u, '{targets}', -w, '{wordlist_file}', -q]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: dirsearch
+    name: Dirsearch
+    category: Enumeration
+    description: Web path discovery tool with recursive scanning
+    inputs: [targets, wordlist]
+    outputs: [findings]
+    command: [dirsearch, -u, '{targets}', -w, '{wordlist_file}', --format=plain, -q]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: feroxbuster
+    name: Feroxbuster
+    category: Enumeration
+    description: Fast content discovery tool written in Rust
+    inputs: [targets, wordlist]
+    outputs: [findings]
+    command: [feroxbuster, -u, '{targets}', -w, '{wordlist_file}', -q, --no-state]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: wfuzz
+    name: Wfuzz
+    category: Enumeration
+    description: Web application fuzzer for brute-forcing parameters and paths
+    inputs: [targets, wordlist]
+    outputs: [findings]
+    command: [wfuzz, -w, '{wordlist_file}', --hc, '404', '{targets}/FUZZ']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  # ── Vulnerability ──────────────────────────────────────────
   - id: nuclei
     name: Nuclei
     category: Vulnerability
+    description: Fast vulnerability scanner using community-powered templates
     inputs: [targets]
     outputs: [findings]
     command: [nuclei, -silent, -l, '{targets_file}', -jsonl]
     output_mode: stdout
     timeout_seconds: 600
 
+  - id: nikto
+    name: Nikto
+    category: Vulnerability
+    description: Web server scanner for dangerous files and outdated software
+    inputs: [targets]
+    outputs: [findings]
+    command: [nikto, -h, '{targets}', -Format, txt]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: wpscan
+    name: WPScan
+    category: Vulnerability
+    description: WordPress security scanner for plugins, themes, and users
+    inputs: [targets]
+    outputs: [findings]
+    command: [wpscan, --url, '{targets}', --no-banner, -f, cli-no-color]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: sqlmap
+    name: SQLMap
+    category: Vulnerability
+    description: Automatic SQL injection and database takeover tool
+    inputs: [targets]
+    outputs: [findings]
+    command: [sqlmap, -u, '{targets}', --batch, --level, '1']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: xsstrike
+    name: XSStrike
+    category: Vulnerability
+    description: Advanced XSS detection suite with fuzzing engine
+    inputs: [targets]
+    outputs: [findings]
+    command: [xsstrike, -u, '{targets}', --crawl, -l, '2']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: dalfox
+    name: Dalfox
+    category: Vulnerability
+    description: Parameter analysis and XSS scanning tool
+    inputs: [targets]
+    outputs: [findings]
+    command: [dalfox, url, '{targets}', --silence]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  # ── Fuzzing ────────────────────────────────────────────────
   - id: ffuf
     name: FFUF
     category: Fuzzing
+    description: Fast web fuzzer for directories, parameters, and virtual hosts
     inputs: [targets, wordlist]
     outputs: [findings]
     command: [ffuf, -w, '{wordlist_file}', -u, '{targets}', -of, json]
     output_mode: stdout
     timeout_seconds: 600
 
+  # ── Crawling ───────────────────────────────────────────────
   - id: katana
     name: Katana
     category: Crawling
+    description: Next-generation crawling and spidering framework
     inputs: [targets]
     outputs: [targets]
     command: [katana, -silent, -list, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 600
 
+  - id: gospider
+    name: GoSpider
+    category: Crawling
+    description: Fast web spidering tool for endpoint discovery
+    inputs: [targets]
+    outputs: [targets]
+    command: [gospider, -S, '{targets_file}', --no-redirect, -q]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: hakrawler
+    name: Hakrawler
+    category: Crawling
+    description: Simple Go web crawler for gathering URLs and JS files
+    inputs: [targets]
+    outputs: [targets]
+    command: [hakrawler, -url, '{targets}', -plain]
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: waybackurls
+    name: Waybackurls
+    category: Crawling
+    description: Fetch known URLs from the Wayback Machine
+    inputs: [domain]
+    outputs: [targets]
+    command: [waybackurls, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
+  # ── Network ────────────────────────────────────────────────
+  - id: nmap
+    name: Nmap
+    category: Network
+    description: Network exploration tool and security/port scanner
+    inputs: [targets]
+    outputs: [findings]
+    command: [nmap, -iL, '{targets_file}', -oN, '-']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: masscan
+    name: Masscan
+    category: Network
+    description: Internet-scale port scanner at 10M packets per second
+    inputs: [targets]
+    outputs: [findings]
+    command: [masscan, -iL, '{targets_file}', -p1-65535, --rate, '1000']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: naabu
+    name: Naabu
+    category: Network
+    description: Fast port scanner written in Go with SYN/CONNECT probe
+    inputs: [targets]
+    outputs: [targets]
+    command: [naabu, -silent, -list, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: rustscan
+    name: RustScan
+    category: Network
+    description: Extremely fast port scanner built in Rust
+    inputs: [targets]
+    outputs: [findings]
+    command: [rustscan, -a, '{targets}', --ulimit, '5000']
+    output_mode: stdout
+    timeout_seconds: 600
+
+  # ── OSINT ──────────────────────────────────────────────────
+  - id: theharvester
+    name: theHarvester
+    category: OSINT
+    description: Gather emails, subdomains, hosts, and names from public sources
+    inputs: [domain]
+    outputs: [targets]
+    command: [theHarvester, -d, '{domain}', -b, all]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  - id: shodan-cli
+    name: Shodan CLI
+    category: OSINT
+    description: Query Shodan for hosts, services, and vulnerabilities
+    inputs: [domain]
+    outputs: [findings]
+    command: [shodan, search, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: censys
+    name: Censys
+    category: OSINT
+    description: Search engine for internet-connected devices and certificates
+    inputs: [domain]
+    outputs: [findings]
+    command: [censys, search, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+
+  - id: spiderfoot
+    name: SpiderFoot
+    category: OSINT
+    description: Automated OSINT collection and threat intelligence tool
+    inputs: [domain]
+    outputs: [findings]
+    command: [spiderfoot, -s, '{domain}', -q]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  # ── Archive ────────────────────────────────────────────────
   - id: gau
     name: GAU
     category: Archive
+    description: Fetch known URLs from AlienVault OTX, Wayback, and Common Crawl
     inputs: [domain]
     outputs: [targets]
     command: [gau, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+
+  - id: waymore
+    name: Waymore
+    category: Archive
+    description: Extended Wayback Machine URL extraction tool
+    inputs: [domain]
+    outputs: [targets]
+    command: [waymore, -i, '{domain}', -mode, U]
+    output_mode: stdout
+    timeout_seconds: 600
+
+  # ── Utility ────────────────────────────────────────────────
+  - id: anew
+    name: Anew
+    category: Utility
+    description: Append lines from stdin to a file if they don't already exist
+    inputs: [targets]
+    outputs: [targets]
+    command: [anew, '{artifact_file}']
+    output_mode: stdout
+    timeout_seconds: 120
+
+  - id: qsreplace
+    name: QSReplace
+    category: Utility
+    description: Replace query string parameter values in URLs
+    inputs: [targets]
+    outputs: [targets]
+    command: [qsreplace, FUZZ]
+    output_mode: stdout
+    timeout_seconds: 120
+
+  - id: uro
+    name: URO
+    category: Utility
+    description: Declutter URL lists by removing duplicate-looking URLs
+    inputs: [targets]
+    outputs: [targets]
+    command: [uro]
+    output_mode: stdout
+    timeout_seconds: 120
+
+  - id: unfurl
+    name: Unfurl
+    category: Utility
+    description: Pull out bits of URLs like domains, paths, and keys
+    inputs: [targets]
+    outputs: [targets]
+    command: [unfurl, domains]
+    output_mode: stdout
+    timeout_seconds: 120
+
+  - id: jq-filter
+    name: JQ Filter
+    category: Utility
+    description: Process and filter JSON output with jq expressions
+    inputs: [targets]
+    outputs: [findings]
+    command: [jq, '.', '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 120
