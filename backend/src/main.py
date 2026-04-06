@@ -19,9 +19,11 @@ from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
+TEMPLATES_FILE = BASE_DIR / 'templates.yaml'
 STATE_DIR = BASE_DIR / 'state'
 WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
 RUNS_FILE = STATE_DIR / 'runs.json'
+USER_TEMPLATES_FILE = STATE_DIR / 'user_templates.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
 
 TEXT_SUFFIXES = {
@@ -36,6 +38,8 @@ class Tool(BaseModel):
     id: str
     name: str
     category: str
+    description: str = ''
+    icon: str = ''
     inputs: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     command: list[str] = Field(default_factory=list)
@@ -898,3 +902,93 @@ def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
         'cached_output_nodes': sorted(output_values.keys()),
         'result': result,
     }
+
+
+# ── Delete Run ───────────────────────────────────────────────────────────────
+
+@app.delete('/api/runs/{run_id}')
+def delete_run(run_id: str) -> dict[str, Any]:
+    runs = run_records()
+    before = len(runs)
+    runs = [r for r in runs if r.get('id') != run_id]
+    if len(runs) == before:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+    write_json(RUNS_FILE, runs)
+    run_dir = ARTIFACTS_DIR / run_id
+    if run_dir.exists():
+        import shutil
+        shutil.rmtree(run_dir, ignore_errors=True)
+    return {'ok': True, 'deleted': run_id}
+
+
+# ── Tool Categories ──────────────────────────────────────────────────────────
+
+@app.get('/api/tools/categories')
+def tool_categories() -> list[str]:
+    tools = load_tools()
+    return sorted({t.category for t in tools})
+
+
+# ── Templates ────────────────────────────────────────────────────────────────
+
+class TemplatePayload(BaseModel):
+    name: str
+    description: str = ''
+    category: str = 'Recon'
+    tags: list[str] = Field(default_factory=list)
+    graph: WorkflowGraph
+
+
+def load_builtin_templates() -> list[dict[str, Any]]:
+    if not TEMPLATES_FILE.exists():
+        return []
+    data = yaml.safe_load(TEMPLATES_FILE.read_text()) or {}
+    templates = []
+    for item in data.get('templates', []):
+        item['builtin'] = True
+        templates.append(item)
+    return templates
+
+
+def load_user_templates() -> list[dict[str, Any]]:
+    ensure_state()
+    if not USER_TEMPLATES_FILE.exists():
+        USER_TEMPLATES_FILE.write_text('[]')
+        return []
+    try:
+        return json.loads(USER_TEMPLATES_FILE.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+@app.get('/api/templates')
+def list_templates() -> list[dict[str, Any]]:
+    return load_builtin_templates() + load_user_templates()
+
+
+@app.get('/api/templates/{template_id}')
+def get_template(template_id: str) -> dict[str, Any]:
+    for t in load_builtin_templates() + load_user_templates():
+        if t.get('id') == template_id:
+            return t
+    return {'error': 'Template not found'}
+
+
+@app.post('/api/templates')
+def save_template(payload: TemplatePayload) -> dict[str, Any]:
+    ensure_state()
+    templates = load_user_templates()
+    template_id = f'tpl-{uuid4().hex[:10]}'
+    item = {
+        'id': template_id,
+        'name': payload.name,
+        'description': payload.description,
+        'category': payload.category,
+        'tags': payload.tags,
+        'builtin': False,
+        'graph': payload.graph.model_dump(),
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    templates.insert(0, item)
+    USER_TEMPLATES_FILE.write_text(json.dumps(templates, indent=2))
+    return item

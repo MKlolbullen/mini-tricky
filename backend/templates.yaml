@@ -1,0 +1,416 @@
+templates:
+  - id: tpl-subdomain-enum
+    name: Subdomain Enumeration
+    description: Discover subdomains using Subfinder, then probe live hosts with HTTPX.
+    category: Recon
+    tags: [subdomains, recon, passive]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 160 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 160 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 960, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+
+  - id: tpl-full-recon
+    name: Full Recon Pipeline
+    description: Complete recon chain — subdomain discovery, HTTP probing, crawling, and vulnerability scanning.
+    category: Full Pipeline
+    tags: [recon, vuln-scan, crawling, comprehensive]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 160 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 160 }
+        - id: tool-3
+          kind: tool
+          label: Katana
+          tool_id: katana
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 960, y: 240 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1260, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+
+  - id: tpl-vuln-scan
+    name: Vulnerability Scan
+    description: Scan a target list with Nuclei vulnerability templates.
+    category: Vulnerability
+    tags: [nuclei, vulnerability, scanning]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 400, y: 160 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-web-crawl
+    name: Web Crawling
+    description: Crawl live targets with Katana to discover endpoints and URLs.
+    category: Crawling
+    tags: [crawling, endpoints, katana]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Katana
+          tool_id: katana
+          params: {}
+          position: { x: 400, y: 160 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+
+  - id: tpl-dir-bruteforce
+    name: Directory Bruteforce
+    description: Fuzz target URLs with FFUF to discover hidden paths and files.
+    category: Fuzzing
+    tags: [fuzzing, directories, ffuf]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target URL
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 120 }
+        - id: variable-2
+          kind: variable
+          label: Wordlist
+          variable_type: wordlist
+          value: ""
+          params: {}
+          position: { x: 80, y: 280 }
+        - id: tool-1
+          kind: tool
+          label: FFUF
+          tool_id: ffuf
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-2
+          target: tool-1
+          source_handle: "out:wordlist"
+          target_handle: "in:wordlist"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-url-discovery
+    name: URL Discovery
+    description: Gather URLs from both GAU (archive sources) and Katana (live crawling) in parallel.
+    category: Recon
+    tags: [urls, archive, crawling, parallel]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: GAU
+          tool_id: gau
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: tool-3
+          kind: tool
+          label: Katana
+          tool_id: katana
+          params: {}
+          position: { x: 720, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1020, y: 100 }
+        - id: output-2
+          kind: output
+          label: Crawled URLs
+          params: {}
+          position: { x: 1020, y: 300 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-1
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+        - id: e5
+          source: tool-3
+          target: output-2
+          source_handle: "out:targets"
+          target_handle: "in:any"
+
+  - id: tpl-port-to-vuln
+    name: Port Scan to Vuln Scan
+    description: Discover open ports with Naabu, then scan discovered services with Nuclei.
+    category: Full Pipeline
+    tags: [ports, vulnerability, naabu, nuclei]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Naabu
+          tool_id: naabu
+          params: {}
+          position: { x: 400, y: 160 }
+        - id: tool-2
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 720, y: 160 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1020, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-osint-gathering
+    name: OSINT Gathering
+    description: Combine Subfinder and theHarvester in parallel for comprehensive domain intelligence.
+    category: OSINT
+    tags: [osint, intelligence, recon, parallel]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: theHarvester
+          tool_id: theharvester
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Subdomains
+          params: {}
+          position: { x: 720, y: 100 }
+        - id: output-2
+          kind: output
+          label: OSINT Data
+          params: {}
+          position: { x: 720, y: 300 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-2
+          source_handle: "out:targets"
+          target_handle: "in:any"
