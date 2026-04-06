@@ -109,6 +109,68 @@ type RunRecord = {
   logs: string[];
 };
 
+type ArtifactItem = {
+  id: string;
+  source: 'run' | 'replay';
+  node_id: string;
+  replay_id?: string;
+  label: string;
+  path: string;
+  name: string;
+  extension: string;
+  size_bytes: number;
+};
+
+type ArtifactPreview =
+  | {
+      ok: true;
+      kind: 'text';
+      path: string;
+      name: string;
+      mime_type: string;
+      size_bytes: number;
+      text_content: string;
+    }
+  | {
+      ok: true;
+      kind: 'json';
+      path: string;
+      name: string;
+      mime_type: string;
+      size_bytes: number;
+      json_content: unknown;
+    }
+  | {
+      ok: true;
+      kind: 'html';
+      path: string;
+      name: string;
+      mime_type: string;
+      size_bytes: number;
+      html_content: string;
+    }
+  | {
+      ok: true;
+      kind: 'image';
+      path: string;
+      name: string;
+      mime_type: string;
+      size_bytes: number;
+      image_data_url: string;
+    }
+  | {
+      ok: true;
+      kind: 'binary';
+      path: string;
+      name: string;
+      mime_type: string;
+      size_bytes: number;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
 const apiBase = (window as any).miniTrickyDesktop?.apiBase || 'http://127.0.0.1:5000';
 const variableCatalog = [
   { label: 'Domain Input', type: 'domain' },
@@ -282,6 +344,10 @@ export default function App() {
     '[+] Set a variable value, validate socket wiring, or launch a real local run.',
   ]);
   const [lastRun, setLastRun] = useState<RunRecord | null>(null);
+  const [artifactItems, setArtifactItems] = useState<ArtifactItem[]>([]);
+  const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null);
+  const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
+  const [artifactLoading, setArtifactLoading] = useState(false);
   const [isReplaying, setIsReplaying] = useState(false);
   const [maxParallel, setMaxParallel] = useState(2);
   const counterRef = useRef(20);
@@ -303,6 +369,52 @@ export default function App() {
     refreshWorkflows();
   }, [setNodes]);
 
+  useEffect(() => {
+    if (!lastRun?.id) {
+      setArtifactItems([]);
+      setSelectedArtifactPath(null);
+      setArtifactPreview(null);
+      return;
+    }
+
+    fetch(`${apiBase}/api/runs/${lastRun.id}/artifacts`)
+      .then((r) => r.json())
+      .then((data) => {
+        const items: ArtifactItem[] = data.items || [];
+        setArtifactItems(items);
+
+        const preferredItem =
+          (selectedNodeId ? items.find((item) => item.node_id === selectedNodeId) : null) ||
+          items[0] ||
+          null;
+
+        setSelectedArtifactPath((current) => {
+          if (current && items.some((item) => item.path === current)) {
+            return current;
+          }
+          return preferredItem?.path || null;
+        });
+      })
+      .catch(() => {
+        setArtifactItems([]);
+        setSelectedArtifactPath(null);
+      });
+  }, [lastRun?.id, selectedNodeId]);
+
+  useEffect(() => {
+    if (!lastRun?.id || !selectedArtifactPath) {
+      setArtifactPreview(null);
+      return;
+    }
+
+    setArtifactLoading(true);
+    fetch(`${apiBase}/api/runs/${lastRun.id}/artifact-preview?path=${encodeURIComponent(selectedArtifactPath)}`)
+      .then((r) => r.json())
+      .then((data: ArtifactPreview) => setArtifactPreview(data))
+      .catch(() => setArtifactPreview({ ok: false, error: 'Artifact preview request failed.' }))
+      .finally(() => setArtifactLoading(false));
+  }, [lastRun?.id, selectedArtifactPath]);
+
   const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) || null, [nodes, selectedNodeId]);
   const selectedRunNode = useMemo(() => {
     if (!selectedNodeId || !lastRun?.node_results) return null;
@@ -317,6 +429,11 @@ export default function App() {
   const filteredTools = useMemo(() => {
     return tools.filter((tool) => `${tool.name} ${tool.category}`.toLowerCase().includes(search.toLowerCase()));
   }, [tools, search]);
+
+  const selectedArtifact = useMemo(() => {
+    if (!selectedArtifactPath) return null;
+    return artifactItems.find((item) => item.path === selectedArtifactPath) || null;
+  }, [artifactItems, selectedArtifactPath]);
 
   function appendConsole(lines: string[]) {
     setConsoleLines(lines);
@@ -509,7 +626,7 @@ export default function App() {
   function loadWorkflow(workflow: WorkflowRecord) {
     setWorkflowName(workflow.name);
     const hydrated = hydrateNodesWithTools(graphToNodes(workflow), tools);
-    setNodes(hydrateNodesWithTools(hydrated, tools));
+    setNodes(hydrated);
     setEdges(graphToEdges(workflow));
     setSelectedNodeId(null);
     setLastRun(null);
@@ -522,6 +639,7 @@ export default function App() {
   }
 
   const selectedTool = selectedToolDefinition();
+  const rawArtifactUrl = lastRun?.id && selectedArtifact ? `${apiBase}/api/runs/${lastRun.id}/artifact-raw?path=${encodeURIComponent(selectedArtifact.path)}` : null;
 
   const stdoutView = selectedReplay?.result.stdout_preview || selectedRunNode?.stdout_preview || consoleLines.join('\n');
   const stderrView = selectedReplay?.result.stderr_preview || selectedRunNode?.stderr_preview || '[-] No stderr captured for the selected node.';
@@ -530,6 +648,66 @@ export default function App() {
     : selectedRunNode
       ? (selectedRunNode.artifact_paths.join('\n') || '[+] No artifacts produced for the selected node.')
       : (lastRun ? lastRun.logs.filter((line) => line.includes('artifact://')).join('\n') || '[+] No artifact paths emitted yet.' : '[+] No completed run yet.');
+
+  function renderArtifactPreview() {
+    if (!lastRun) {
+      return <div className="empty-state compact">Run a workflow to browse artifacts here.</div>;
+    }
+
+    if (!selectedArtifact) {
+      return <div className="empty-state compact">Select an artifact to preview it.</div>;
+    }
+
+    if (artifactLoading) {
+      return <div className="empty-state compact">Loading artifact preview…</div>;
+    }
+
+    if (!artifactPreview) {
+      return <div className="empty-state compact">Preview unavailable.</div>;
+    }
+
+    if (!artifactPreview.ok) {
+      return <div className="empty-state compact">{artifactPreview.error}</div>;
+    }
+
+    if (artifactPreview.kind === 'image') {
+      return (
+        <div className="artifact-preview-surface">
+          <img className="artifact-preview-image" src={artifactPreview.image_data_url} alt={artifactPreview.name} />
+        </div>
+      );
+    }
+
+    if (artifactPreview.kind === 'json') {
+      return (
+        <pre className="artifact-preview-text">
+          {JSON.stringify(artifactPreview.json_content, null, 2)}
+        </pre>
+      );
+    }
+
+    if (artifactPreview.kind === 'html') {
+      return (
+        <iframe
+          className="artifact-preview-frame"
+          sandbox=""
+          srcDoc={artifactPreview.html_content}
+          title={artifactPreview.name}
+        />
+      );
+    }
+
+    if (artifactPreview.kind === 'text') {
+      return <pre className="artifact-preview-text">{artifactPreview.text_content}</pre>;
+    }
+
+    return (
+      <div className="artifact-preview-binary">
+        <div>No inline preview for this file type.</div>
+        <div className="path-line">{artifactPreview.mime_type}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -726,6 +904,41 @@ export default function App() {
           ) : (
             <div className="empty-state">No runs yet.</div>
           )}
+
+          <div className="section-title">Artifact Explorer</div>
+          <div className="artifact-explorer">
+            <div className="artifact-list">
+              {artifactItems.length === 0 && <div className="empty-mini">No artifacts yet.</div>}
+              {artifactItems.map((item) => (
+                <button
+                  key={item.id}
+                  className={`artifact-list-item ${selectedArtifactPath === item.path ? 'selected' : ''} ${selectedNodeId === item.node_id ? 'node-match' : ''}`}
+                  onClick={() => setSelectedArtifactPath(item.path)}
+                >
+                  <strong>{item.name}</strong>
+                  <span>{item.node_id} · {item.source}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="artifact-preview-wrap">
+              <div className="artifact-preview-toolbar">
+                <div className="artifact-preview-meta">
+                  <strong>{selectedArtifact?.name || 'No artifact selected'}</strong>
+                  <span>{selectedArtifact ? `${selectedArtifact.node_id} · ${selectedArtifact.size_bytes} bytes` : 'Choose an artifact from the list.'}</span>
+                </div>
+                {rawArtifactUrl && (
+                  <div className="artifact-preview-actions">
+                    <a className="action-link" href={rawArtifactUrl} target="_blank" rel="noreferrer">Open raw</a>
+                    <a className="action-link" href={rawArtifactUrl} download={selectedArtifact?.name}>Download</a>
+                  </div>
+                )}
+              </div>
+              <div className="artifact-preview-body">
+                {renderArtifactPreview()}
+              </div>
+            </div>
+          </div>
         </aside>
       </div>
 
