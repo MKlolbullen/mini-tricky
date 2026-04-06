@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 import subprocess
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,8 +12,9 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +23,13 @@ STATE_DIR = BASE_DIR / 'state'
 WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
 RUNS_FILE = STATE_DIR / 'runs.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
+
+TEXT_SUFFIXES = {
+    '.txt', '.log', '.md', '.csv', '.xml', '.yaml', '.yml',
+    '.py', '.js', '.ts', '.tsx', '.jsx', '.go', '.rs', '.sh',
+    '.zsh', '.bash', '.ini', '.cfg', '.conf', '.toml',
+}
+IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg'}
 
 
 class Tool(BaseModel):
@@ -70,7 +80,7 @@ class RunPayload(BaseModel):
     max_parallel: int = 2
 
 
-app = FastAPI(title='mini-tricky API', version='0.4.0')
+app = FastAPI(title='mini-tricky API', version='0.5.0')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -464,8 +474,169 @@ def reconstruct_output_values(node_results: dict[str, Any]) -> dict[str, dict[st
     return output_values
 
 
+def resolve_run_graph(run: dict[str, Any]) -> WorkflowGraph | None:
+    if 'graph' in run:
+        return WorkflowGraph(**run['graph'])
+    workflow_id = run.get('workflow_id')
+    if workflow_id:
+        workflow = next((item for item in workflow_records() if item.get('id') == workflow_id), None)
+        if workflow and 'graph' in workflow:
+            return WorkflowGraph(**workflow['graph'])
+    return None
+
+
 def find_run(run_id: str) -> dict[str, Any] | None:
     return next((run for run in run_records() if run.get('id') == run_id), None)
+
+
+def ensure_artifact_path(run: dict[str, Any], requested_path: str) -> Path | None:
+    root = Path(run['artifact_root']).resolve()
+    candidate = Path(requested_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = (root / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+
+    if not candidate.exists():
+        return None
+    if candidate == root or root in candidate.parents:
+        return candidate
+    return None
+
+
+def collect_run_artifacts(run: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+
+    for node_id, result in (run.get('node_results') or {}).items():
+        for path in result.get('artifact_paths') or []:
+            artifact_path = ensure_artifact_path(run, path)
+            if not artifact_path:
+                continue
+            items.append({
+                'id': f'run::{node_id}::{artifact_path.name}',
+                'source': 'run',
+                'node_id': node_id,
+                'label': f'{node_id} · {artifact_path.name}',
+                'path': str(artifact_path),
+                'name': artifact_path.name,
+                'extension': artifact_path.suffix.lower(),
+                'size_bytes': artifact_path.stat().st_size,
+            })
+
+    for replay in run.get('replays') or []:
+        replay_id = replay.get('id', 'replay')
+        replay_node = replay.get('node_id', 'node')
+        result = replay.get('result') or {}
+        for path in result.get('artifact_paths') or []:
+            artifact_path = ensure_artifact_path(run, path)
+            if not artifact_path:
+                continue
+            items.append({
+                'id': f'replay::{replay_id}::{artifact_path.name}',
+                'source': 'replay',
+                'replay_id': replay_id,
+                'node_id': replay_node,
+                'label': f'{replay_node} replay · {artifact_path.name}',
+                'path': str(artifact_path),
+                'name': artifact_path.name,
+                'extension': artifact_path.suffix.lower(),
+                'size_bytes': artifact_path.stat().st_size,
+            })
+
+    items.sort(key=lambda item: (item['node_id'], item['name']))
+    return items
+
+
+def preview_artifact(run: dict[str, Any], requested_path: str) -> dict[str, Any]:
+    artifact_path = ensure_artifact_path(run, requested_path)
+    if not artifact_path:
+        return {'ok': False, 'error': 'Artifact path is invalid or outside the run root.'}
+
+    mime_type = mimetypes.guess_type(artifact_path.name)[0] or 'application/octet-stream'
+    suffix = artifact_path.suffix.lower()
+    size_bytes = artifact_path.stat().st_size
+
+    if suffix == '.json':
+        raw = artifact_path.read_text(encoding='utf-8', errors='ignore')
+        try:
+            parsed = json.loads(raw)
+            return {
+                'ok': True,
+                'kind': 'json',
+                'path': str(artifact_path),
+                'name': artifact_path.name,
+                'mime_type': mime_type,
+                'size_bytes': size_bytes,
+                'json_content': parsed,
+            }
+        except json.JSONDecodeError:
+            return {
+                'ok': True,
+                'kind': 'text',
+                'path': str(artifact_path),
+                'name': artifact_path.name,
+                'mime_type': 'text/plain',
+                'size_bytes': size_bytes,
+                'text_content': raw,
+            }
+
+    if suffix in {'.html', '.htm'} or mime_type == 'text/html':
+        html = artifact_path.read_text(encoding='utf-8', errors='ignore')
+        return {
+            'ok': True,
+            'kind': 'html',
+            'path': str(artifact_path),
+            'name': artifact_path.name,
+            'mime_type': mime_type,
+            'size_bytes': size_bytes,
+            'html_content': html,
+        }
+
+    if suffix in IMAGE_SUFFIXES or mime_type.startswith('image/'):
+        raw_bytes = artifact_path.read_bytes()
+        encoded = base64.b64encode(raw_bytes).decode('ascii')
+        return {
+            'ok': True,
+            'kind': 'image',
+            'path': str(artifact_path),
+            'name': artifact_path.name,
+            'mime_type': mime_type,
+            'size_bytes': size_bytes,
+            'image_data_url': f'data:{mime_type};base64,{encoded}',
+        }
+
+    if suffix in TEXT_SUFFIXES or mime_type.startswith('text/'):
+        text = artifact_path.read_text(encoding='utf-8', errors='ignore')
+        return {
+            'ok': True,
+            'kind': 'text',
+            'path': str(artifact_path),
+            'name': artifact_path.name,
+            'mime_type': mime_type,
+            'size_bytes': size_bytes,
+            'text_content': text,
+        }
+
+    if size_bytes <= 1_000_000:
+        text = artifact_path.read_text(encoding='utf-8', errors='ignore')
+        return {
+            'ok': True,
+            'kind': 'text',
+            'path': str(artifact_path),
+            'name': artifact_path.name,
+            'mime_type': mime_type,
+            'size_bytes': size_bytes,
+            'text_content': text,
+        }
+
+    return {
+        'ok': True,
+        'kind': 'binary',
+        'path': str(artifact_path),
+        'name': artifact_path.name,
+        'mime_type': mime_type,
+        'size_bytes': size_bytes,
+    }
 
 
 @app.get('/api/health')
@@ -524,6 +695,40 @@ def get_run(run_id: str) -> dict[str, Any]:
     if found:
         return found
     return {'error': 'Run not found'}
+
+
+@app.get('/api/runs/{run_id}/artifacts')
+def list_run_artifacts(run_id: str) -> dict[str, Any]:
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+    return {
+        'ok': True,
+        'run_id': run_id,
+        'items': collect_run_artifacts(run),
+    }
+
+
+@app.get('/api/runs/{run_id}/artifact-preview')
+def get_artifact_preview(run_id: str, path: str = Query(...)) -> dict[str, Any]:
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+    return preview_artifact(run, path)
+
+
+@app.get('/api/runs/{run_id}/artifact-raw')
+def get_artifact_raw(run_id: str, path: str = Query(...)) -> FileResponse | dict[str, Any]:
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+
+    artifact_path = ensure_artifact_path(run, path)
+    if not artifact_path:
+        return {'ok': False, 'error': 'Artifact path is invalid or outside the run root.'}
+
+    media_type = mimetypes.guess_type(artifact_path.name)[0] or 'application/octet-stream'
+    return FileResponse(path=artifact_path, filename=artifact_path.name, media_type=media_type)
 
 
 @app.post('/api/runs')
@@ -635,16 +840,11 @@ def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
     run = find_run(run_id)
     if not run:
         return {'ok': False, 'error': f'Run {run_id} not found'}
-    if 'graph' not in run:
-        workflow_id = run.get('workflow_id')
-        if workflow_id:
-            workflow = next((item for item in workflow_records() if item.get('id') == workflow_id), None)
-            if workflow and 'graph' in workflow:
-                run['graph'] = workflow['graph']
-        if 'graph' not in run:
-            return {'ok': False, 'error': 'This run does not include a stored graph. Save the workflow or execute a fresh run, then replay nodes from the newer run.'}
 
-    graph = WorkflowGraph(**run['graph'])
+    graph = resolve_run_graph(run)
+    if graph is None:
+        return {'ok': False, 'error': 'This run does not include a stored graph. Save the workflow or execute a fresh run, then replay nodes from the newer run.'}
+
     validation = validate_graph(graph)
     if not validation.get('ok'):
         return {'ok': False, 'error': validation.get('error', 'Stored graph is invalid')}
