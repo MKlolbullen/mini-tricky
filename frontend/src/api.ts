@@ -108,6 +108,59 @@ export async function saveAsTemplate(payload: { name: string; description: strin
   return r.json();
 }
 
+// ── Tool Health / Bootstrap ─────────────────────────────────
+
+export type ToolHealth = {
+  id: string; name: string; category: string; binary: string | null;
+  installed: boolean; path: string | null; hint: string;
+};
+
+export async function fetchToolsHealth(): Promise<{ ok: boolean; total: number; installed: number; missing: number; tools: ToolHealth[] }> {
+  const r = await fetch(`${apiBase}/api/tools/health`);
+  return r.json();
+}
+
+// ── Environment Profiles ────────────────────────────────────
+
+export type Profile = {
+  id: string; name: string; description: string;
+  tool_overrides: Record<string, Record<string, string>>;
+  env_vars: Record<string, string>;
+  created_at: string;
+};
+
+export async function fetchProfiles(): Promise<Profile[]> {
+  const r = await fetch(`${apiBase}/api/profiles`);
+  return r.json();
+}
+
+export async function saveProfile(payload: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }): Promise<Profile> {
+  const r = await fetch(`${apiBase}/api/profiles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
+export async function deleteProfile(profileId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/profiles/${profileId}`, { method: 'DELETE' });
+  return r.json();
+}
+
+// ── Normalized Results ──────────────────────────────────────
+
+export async function fetchNormalizedResults(runId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/runs/${runId}/normalized`);
+  return r.json();
+}
+
+// ── Report Export ───────────────────────────────────────────
+
+export function reportDownloadUrl(runId: string, format: string = 'markdown'): string {
+  return `${apiBase}/api/runs/${runId}/report?fmt=${format}`;
+}
+
 // ── Parameter Presets ───────────────────────────────────────
 
 export type Preset = { id: string; tool_id: string; name: string; params: Record<string, string>; created_at: string };
@@ -129,6 +182,17 @@ export async function savePreset(payload: { tool_id: string; name: string; param
 
 export async function deletePreset(presetId: string): Promise<any> {
   const r = await fetch(`${apiBase}/api/presets/${presetId}`, { method: 'DELETE' });
+  return r.json();
+}
+
+// ── AI Workflow Generation ──────────────────────────────────
+
+export async function generateWorkflow(prompt: string, scope: string = ''): Promise<any> {
+  const r = await fetch(`${apiBase}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, scope }),
+  });
   return r.json();
 }
 
