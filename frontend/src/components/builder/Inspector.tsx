@@ -1,8 +1,24 @@
 import { useEffect, useState } from 'react';
-import type { FlowNode, Tool, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion } from '../../types';
+import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
 import type { Edge } from '@xyflow/react';
+
+/** Color map for socket data types (matches SocketNode) */
+const SOCKET_COLORS: Record<string, string> = {
+  domain: '#5b8cff',
+  targets: '#43d9ad',
+  wordlist: '#ffcf5b',
+  findings: '#ff5b6c',
+  any: '#b47cff',
+  pass: '#43d9ad',
+  fail: '#ff5b6c',
+  item: '#ffcf5b',
+};
+
+function socketColor(name: string): string {
+  return SOCKET_COLORS[name] || '#63e6ff';
+}
 
 type Props = {
   selectedNode: FlowNode | null;
@@ -60,7 +76,6 @@ export default function Inspector({
   const [activeTab, setActiveTab] = useState<InspectorTab>('arguments');
   const [presets, setPresets] = useState<Preset[]>([]);
 
-  // Load presets for the selected tool
   useEffect(() => {
     if (selectedNode?.data.kind === 'tool' && selectedNode.data.toolId) {
       fetchPresets(selectedNode.data.toolId).then(setPresets).catch(() => setPresets([]));
@@ -77,16 +92,41 @@ export default function Inspector({
     }
   }, [currentWorkflowId]);
 
-  // Reset to arguments tab when node selection changes
   useEffect(() => {
     setActiveTab('arguments');
   }, [selectedNode?.id]);
 
+  /** Toggle a tool arg on/off in the node params */
+  function toggleArg(arg: ToolArg) {
+    if (!selectedNode) return;
+    const params = { ...(selectedNode.data.params || {}) };
+    if (arg.flag in params) {
+      // Turn off — remove from params
+      delete params[arg.flag];
+    } else {
+      // Turn on — set to default or empty
+      if (arg.type === 'flag') {
+        params[arg.flag] = '__flag__'; // sentinel: flag is enabled, no value needed
+      } else {
+        params[arg.flag] = arg.default || '';
+      }
+    }
+    onUpdateNodeData(selectedNode.id, { params });
+  }
+
+  /** Update value for a toggled-on arg */
+  function updateArgValue(flag: string, value: string) {
+    if (!selectedNode) return;
+    onUpdateNodeData(selectedNode.id, {
+      params: { ...(selectedNode.data.params || {}), [flag]: value },
+    });
+  }
+
   return (
     <aside className="sidebar right">
-      {/* ── Node Header ── */}
       {selectedNode ? (
         <>
+          {/* ── Node Header ── */}
           <div className="arg-panel-header">
             <div className="arg-panel-node-info">
               <span className="arg-panel-icon" style={getCategoryStyle(selectedNode)}>
@@ -122,23 +162,14 @@ export default function Inspector({
 
           {/* ── Tabs ── */}
           <div className="arg-panel-tabs">
-            <button
-              className={`arg-tab ${activeTab === 'arguments' ? 'active' : ''}`}
-              onClick={() => setActiveTab('arguments')}
-            >
+            <button className={`arg-tab ${activeTab === 'arguments' ? 'active' : ''}`} onClick={() => setActiveTab('arguments')}>
               Arguments
             </button>
-            <button
-              className={`arg-tab ${activeTab === 'output' ? 'active' : ''}`}
-              onClick={() => setActiveTab('output')}
-            >
+            <button className={`arg-tab ${activeTab === 'output' ? 'active' : ''}`} onClick={() => setActiveTab('output')}>
               Output
             </button>
             {versions.length > 0 && (
-              <button
-                className={`arg-tab ${activeTab === 'versions' ? 'active' : ''}`}
-                onClick={() => setActiveTab('versions')}
-              >
+              <button className={`arg-tab ${activeTab === 'versions' ? 'active' : ''}`} onClick={() => setActiveTab('versions')}>
                 History ({versions.length})
               </button>
             )}
@@ -147,25 +178,28 @@ export default function Inspector({
           {/* ── Arguments Tab ── */}
           {activeTab === 'arguments' && (
             <div className="arg-panel-body">
-              {/* Input Sockets */}
+
+              {/* ── Input Sockets (Trickest style) ── */}
               {selectedNode.data.inputs.length > 0 && (
                 <div className="arg-section">
                   <div className="arg-section-title">Inputs</div>
                   {selectedNode.data.inputs.map((input) => {
                     const conn = getConnectionStatus(selectedNode.id, input, edges, 'in');
+                    const color = socketColor(input);
                     return (
-                      <div key={input} className="arg-field">
-                        <div className="arg-field-header">
-                          <span className={`arg-socket-dot ${conn.connected ? 'connected' : ''}`} />
-                          <span className="arg-field-name">{input}</span>
-                          <span className="arg-field-type">input</span>
+                      <div key={input} className="arg-socket-field">
+                        <div className="arg-socket-field-row">
+                          <span className="arg-socket-indicator" style={{ background: conn.connected ? color : 'transparent', borderColor: color }} />
+                          <span className="arg-socket-name">{input}</span>
+                          <span className="arg-socket-type-badge" style={{ color, borderColor: `${color}44` }}>input</span>
                         </div>
                         {conn.connected ? (
-                          <div className="arg-field-connected">
-                            Connected from <strong>{conn.connectedTo}</strong>
+                          <div className="arg-socket-connection" style={{ color }}>
+                            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M8 5H2M2 5L4.5 2.5M2 5L4.5 7.5" stroke={color} strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>
+                            <span>from <strong>{conn.connectedTo}</strong></span>
                           </div>
                         ) : (
-                          <div className="arg-field-disconnected">Not connected</div>
+                          <div className="arg-socket-disconnected">Not connected</div>
                         )}
                       </div>
                     );
@@ -173,25 +207,27 @@ export default function Inspector({
                 </div>
               )}
 
-              {/* Output Sockets */}
+              {/* ── Output Sockets (Trickest style) ── */}
               {selectedNode.data.outputs.length > 0 && (
                 <div className="arg-section">
                   <div className="arg-section-title">Outputs</div>
                   {selectedNode.data.outputs.map((output) => {
                     const conn = getConnectionStatus(selectedNode.id, output, edges, 'out');
+                    const color = socketColor(output);
                     return (
-                      <div key={output} className="arg-field">
-                        <div className="arg-field-header">
-                          <span className={`arg-socket-dot ${conn.connected ? 'connected' : ''}`} />
-                          <span className="arg-field-name">{output}</span>
-                          <span className="arg-field-type">output</span>
+                      <div key={output} className="arg-socket-field">
+                        <div className="arg-socket-field-row">
+                          <span className="arg-socket-indicator" style={{ background: conn.connected ? color : 'transparent', borderColor: color }} />
+                          <span className="arg-socket-name">{output}</span>
+                          <span className="arg-socket-type-badge" style={{ color, borderColor: `${color}44` }}>output</span>
                         </div>
                         {conn.connected ? (
-                          <div className="arg-field-connected">
-                            Connected to <strong>{conn.connectedTo}</strong>
+                          <div className="arg-socket-connection" style={{ color }}>
+                            <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5H8M8 5L5.5 2.5M8 5L5.5 7.5" stroke={color} strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>
+                            <span>to <strong>{conn.connectedTo}</strong></span>
                           </div>
                         ) : (
-                          <div className="arg-field-disconnected">Not connected</div>
+                          <div className="arg-socket-disconnected">Not connected</div>
                         )}
                       </div>
                     );
@@ -199,7 +235,7 @@ export default function Inspector({
                 </div>
               )}
 
-              {/* Variable Node: Value */}
+              {/* ── Variable Node: Value ── */}
               {selectedNode.data.kind === 'variable' && (
                 <div className="arg-section">
                   <div className="arg-section-title">Configuration</div>
@@ -219,61 +255,120 @@ export default function Inspector({
                 </div>
               )}
 
-              {/* Tool Node: Parameters */}
+              {/* ── Tool Node: Argument Switches ── */}
               {selectedNode.data.kind === 'tool' && selectedTool && (
                 <div className="arg-section">
-                  <div className="arg-section-title">Tool Configuration</div>
-                  <div className="arg-field">
-                    <div className="arg-field-header">
-                      <span className="arg-field-name">Command</span>
-                      <span className="arg-field-type">template</span>
-                    </div>
-                    <pre className="arg-field-code">{(selectedTool.command || []).join(' ') || 'No command configured.'}</pre>
+                  <div className="arg-section-title">
+                    Arguments
+                    {selectedTool.args && selectedTool.args.length > 0 && (
+                      <span className="arg-count-badge">
+                        {Object.keys(selectedNode.data.params || {}).length}/{selectedTool.args.length}
+                      </span>
+                    )}
                   </div>
-                  <div className="arg-field">
-                    <div className="arg-field-header">
-                      <span className="arg-field-name">Timeout</span>
-                      <span className="arg-field-type">seconds</span>
-                    </div>
-                    <div className="arg-field-value">{selectedTool.timeout_seconds || 300}s</div>
-                  </div>
+
+                  {/* Tool description */}
                   {selectedTool.description && (
-                    <div className="arg-field">
-                      <div className="arg-field-header">
-                        <span className="arg-field-name">Description</span>
-                      </div>
-                      <div className="arg-field-desc">{selectedTool.description}</div>
-                    </div>
+                    <div className="arg-tool-desc">{selectedTool.description}</div>
                   )}
 
-                  {/* Custom parameters */}
-                  <div className="arg-section-title">Parameters</div>
-                  {Object.entries(selectedNode.data.params || {}).map(([key, val]) => (
-                    <div key={key} className="arg-field">
-                      <div className="arg-field-header">
-                        <span className="arg-field-name">{key}</span>
-                        <button
-                          className="arg-field-remove"
-                          onClick={() => {
-                            const next = { ...(selectedNode.data.params || {}) };
-                            delete next[key];
-                            onUpdateNodeData(selectedNode.id, { params: next });
-                          }}
-                        >
-                          &times;
-                        </button>
-                      </div>
-                      <input
-                        className="arg-field-input"
-                        value={val}
-                        onChange={(e) =>
-                          onUpdateNodeData(selectedNode.id, {
-                            params: { ...(selectedNode.data.params || {}), [key]: e.target.value },
-                          })
-                        }
-                      />
+                  {/* Command preview */}
+                  <div className="arg-command-preview">
+                    <pre>{buildCommandPreview(selectedTool, selectedNode.data.params || {})}</pre>
+                  </div>
+
+                  {/* Argument switches */}
+                  {selectedTool.args && selectedTool.args.length > 0 ? (
+                    <div className="arg-switches-list">
+                      {selectedTool.args.map((arg) => {
+                        const isOn = arg.flag in (selectedNode.data.params || {});
+                        const currentValue = (selectedNode.data.params || {})[arg.flag];
+                        const isFlag = arg.type === 'flag';
+
+                        return (
+                          <div key={arg.flag} className={`arg-switch-item ${isOn ? 'active' : ''}`}>
+                            <div className="arg-switch-row">
+                              <button
+                                className={`arg-switch-toggle ${isOn ? 'on' : 'off'}`}
+                                onClick={() => toggleArg(arg)}
+                                title={isOn ? 'Disable' : 'Enable'}
+                              >
+                                <span className="arg-switch-track">
+                                  <span className="arg-switch-thumb" />
+                                </span>
+                              </button>
+                              <div className="arg-switch-info">
+                                <span className="arg-switch-label">{arg.label}</span>
+                                <code className="arg-switch-flag">{arg.flag}</code>
+                              </div>
+                              {!isFlag && (
+                                <span className="arg-switch-type-tag">{arg.type}</span>
+                              )}
+                            </div>
+
+                            {/* Value input for non-flag args when toggled on */}
+                            {isOn && !isFlag && (
+                              <div className="arg-switch-value">
+                                <input
+                                  className="arg-switch-input"
+                                  type={arg.type === 'int' || arg.type === 'float' ? 'number' : 'text'}
+                                  value={currentValue || ''}
+                                  placeholder={arg.default || arg.type}
+                                  onChange={(e) => updateArgValue(arg.flag, e.target.value)}
+                                />
+                              </div>
+                            )}
+
+                            {/* Description tooltip */}
+                            {arg.description && (
+                              <div className="arg-switch-desc">{arg.description}</div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="arg-field-desc" style={{ padding: '8px 0' }}>No configurable arguments for this tool.</div>
+                  )}
+
+                  {/* Custom extra parameters (for anything not in the defined args) */}
+                  {(() => {
+                    const definedFlags = new Set((selectedTool.args || []).map((a) => a.flag));
+                    const customParams = Object.entries(selectedNode.data.params || {}).filter(([k]) => !definedFlags.has(k));
+                    if (customParams.length === 0) return null;
+                    return (
+                      <>
+                        <div className="arg-section-title">Custom Parameters</div>
+                        {customParams.map(([key, val]) => (
+                          <div key={key} className="arg-field">
+                            <div className="arg-field-header">
+                              <span className="arg-field-name">{key}</span>
+                              <button
+                                className="arg-field-remove"
+                                onClick={() => {
+                                  const next = { ...(selectedNode.data.params || {}) };
+                                  delete next[key];
+                                  onUpdateNodeData(selectedNode.id, { params: next });
+                                }}
+                              >
+                                &times;
+                              </button>
+                            </div>
+                            <input
+                              className="arg-field-input"
+                              value={val}
+                              onChange={(e) =>
+                                onUpdateNodeData(selectedNode.id, {
+                                  params: { ...(selectedNode.data.params || {}), [key]: e.target.value },
+                                })
+                              }
+                            />
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
+
                   <AddParamButton
                     onAdd={(key, val) =>
                       onUpdateNodeData(selectedNode.id, {
@@ -282,7 +377,7 @@ export default function Inspector({
                     }
                   />
 
-                  {/* Parameter Presets */}
+                  {/* Presets */}
                   <div className="arg-section-title">Presets</div>
                   {presets.length > 0 ? (
                     presets.map((preset) => (
@@ -458,7 +553,6 @@ export default function Inspector({
           {/* ── Output Tab ── */}
           {activeTab === 'output' && (
             <div className="arg-panel-body">
-              {/* Run results for this node */}
               {selectedRunNode ? (
                 <div className="arg-section">
                   <div className="arg-section-title">Execution Result</div>
@@ -470,9 +564,7 @@ export default function Inspector({
                   </div>
                   {selectedRunNode.command?.length > 0 && (
                     <div className="arg-field">
-                      <div className="arg-field-header">
-                        <span className="arg-field-name">Command</span>
-                      </div>
+                      <div className="arg-field-header"><span className="arg-field-name">Command</span></div>
                       <pre className="arg-field-code">{selectedRunNode.command.join(' ')}</pre>
                     </div>
                   )}
@@ -501,7 +593,6 @@ export default function Inspector({
                 <div className="empty-state compact">No output yet. Run the workflow to see results.</div>
               )}
 
-              {/* Artifacts for this node */}
               {artifactItems.filter((a) => a.node_id === selectedNode.id).length > 0 && (
                 <div className="arg-section">
                   <div className="arg-section-title">Artifacts</div>
@@ -518,7 +609,6 @@ export default function Inspector({
                 </div>
               )}
 
-              {/* Artifact Preview */}
               {selectedArtifact && (
                 <div className="arg-section">
                   <div className="arg-section-title">
@@ -536,7 +626,6 @@ export default function Inspector({
                 </div>
               )}
 
-              {/* All artifacts (when no node matches) */}
               {artifactItems.filter((a) => a.node_id === selectedNode.id).length === 0 && artifactItems.length > 0 && (
                 <div className="arg-section">
                   <div className="arg-section-title">All Artifacts</div>
@@ -587,7 +676,6 @@ export default function Inspector({
                 <div className="empty-state compact">Save the workflow to start tracking versions.</div>
               )}
 
-              {/* Last run summary */}
               {lastRun && (
                 <div className="arg-section">
                   <div className="arg-section-title">Last Run</div>
@@ -625,6 +713,21 @@ export default function Inspector({
   );
 }
 
+/* ── Build Command Preview ── */
+
+function buildCommandPreview(tool: Tool, params: Record<string, string>): string {
+  const base = (tool.command || []).join(' ');
+  const extras: string[] = [];
+  for (const [flag, val] of Object.entries(params)) {
+    if (val === '__flag__') {
+      extras.push(flag);
+    } else {
+      extras.push(`${flag} ${val}`);
+    }
+  }
+  return extras.length > 0 ? `${base} ${extras.join(' ')}` : base;
+}
+
 /* ── Add Parameter Widget ── */
 
 function AddParamButton({ onAdd }: { onAdd: (key: string, val: string) => void }) {
@@ -635,14 +738,14 @@ function AddParamButton({ onAdd }: { onAdd: (key: string, val: string) => void }
   if (!open) {
     return (
       <button className="arg-add-param" onClick={() => setOpen(true)}>
-        + Add Parameter
+        + Add Custom Parameter
       </button>
     );
   }
 
   return (
     <div className="arg-add-param-form">
-      <input className="arg-field-input" placeholder="Key" value={key} onChange={(e) => setKey(e.target.value)} />
+      <input className="arg-field-input" placeholder="Flag (e.g. -H)" value={key} onChange={(e) => setKey(e.target.value)} />
       <input className="arg-field-input" placeholder="Value" value={val} onChange={(e) => setVal(e.target.value)} />
       <div className="arg-add-param-actions">
         <button

@@ -9,6 +9,33 @@ tools:
     command: [subfinder, -silent, -d, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -recursive
+        label: Recursive
+        description: Use recursion to find more subdomains
+        type: flag
+      - flag: -all
+        label: All Sources
+        description: Use all sources for enumeration
+        type: flag
+      - flag: -nW
+        label: No Wildcard
+        description: Remove wildcard and dead DNS results
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent goroutines
+        type: int
+        default: '10'
+      - flag: -timeout
+        label: Timeout
+        description: Seconds to wait before timing out
+        type: int
+        default: '30'
+      - flag: -rL
+        label: Resolver List
+        description: File containing list of resolvers
+        type: string
 
   - id: httpx
     name: HTTPX
@@ -19,6 +46,71 @@ tools:
     command: [httpx, -silent, -l, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -ip
+        label: Show IP
+        description: Display host IP in output
+        type: flag
+      - flag: -td
+        label: Tech Detect
+        description: Display technology in use
+        type: flag
+      - flag: -sc
+        label: Status Code
+        description: Display response status code
+        type: flag
+      - flag: -cl
+        label: Content Length
+        description: Display response content length
+        type: flag
+      - flag: -title
+        label: Page Title
+        description: Display page title
+        type: flag
+      - flag: -location
+        label: Follow Redirects
+        description: Display redirect location
+        type: flag
+      - flag: -favicon
+        label: Favicon Hash
+        description: Display mmh3 hash of favicon
+        type: flag
+      - flag: -jarm
+        label: JARM Hash
+        description: Display JARM fingerprint hash
+        type: flag
+      - flag: -rt
+        label: Response Time
+        description: Display response time
+        type: flag
+      - flag: -nc
+        label: No Color
+        description: Disable colors in CLI output
+        type: flag
+      - flag: -fr
+        label: Follow Redirects
+        description: Follow HTTP redirects
+        type: flag
+      - flag: -mc
+        label: Match Codes
+        description: Match response with specified status codes
+        type: string
+        default: '200'
+      - flag: -t
+        label: Threads
+        description: Number of threads to use
+        type: int
+        default: '50'
+      - flag: -rl
+        label: Rate Limit
+        description: Maximum requests per second
+        type: int
+        default: '150'
+      - flag: -timeout
+        label: Timeout
+        description: Timeout in seconds
+        type: int
+        default: '5'
 
   - id: amass
     name: Amass
@@ -29,6 +121,28 @@ tools:
     command: [amass, enum, -passive, -d, '{domain}']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -active
+        label: Active
+        description: Enable active recon methods
+        type: flag
+      - flag: -brute
+        label: Brute Force
+        description: Execute brute forcing
+        type: flag
+      - flag: -ip
+        label: Show IPs
+        description: Show IP addresses for discovered names
+        type: flag
+      - flag: -src
+        label: Show Sources
+        description: Print data sources for discovered names
+        type: flag
+      - flag: -timeout
+        label: Timeout
+        description: Minutes until enumeration ends
+        type: int
+        default: '30'
 
   - id: assetfinder
     name: Assetfinder
@@ -39,6 +153,11 @@ tools:
     command: [assetfinder, --subs-only, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: --subs-only
+        label: Subs Only
+        description: Only include subdomains of the given domain
+        type: flag
 
   - id: findomain
     name: Findomain
@@ -49,6 +168,16 @@ tools:
     command: [findomain, -t, '{domain}', -q]
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -r
+        label: Resolvers
+        description: Use resolvers for discovery
+        type: flag
+      - flag: --threads
+        label: Threads
+        description: Number of threads
+        type: int
+        default: '50'
 
   - id: dnsx
     name: DNSx
@@ -59,6 +188,45 @@ tools:
     command: [dnsx, -silent, -l, '{targets_file}', -resp]
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -a
+        label: A Record
+        description: Query A record
+        type: flag
+      - flag: -aaaa
+        label: AAAA Record
+        description: Query AAAA record
+        type: flag
+      - flag: -cname
+        label: CNAME
+        description: Query CNAME record
+        type: flag
+      - flag: -mx
+        label: MX Record
+        description: Query MX record
+        type: flag
+      - flag: -ns
+        label: NS Record
+        description: Query NS record
+        type: flag
+      - flag: -resp
+        label: Show Response
+        description: Display DNS response
+        type: flag
+      - flag: -rc
+        label: Response Code
+        description: Display DNS response status code
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '100'
+      - flag: -retry
+        label: Retries
+        description: Number of DNS retries
+        type: int
+        default: '2'
 
   - id: shuffledns
     name: ShuffleDNS
@@ -69,6 +237,16 @@ tools:
     command: [shuffledns, -d, '{domain}', -w, '{wordlist_file}', -r, /usr/share/resolvers.txt, -silent]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -strict-wildcard
+        label: Strict Wildcard
+        description: Perform strict wildcard check
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '100'
 
   - id: chaos
     name: Chaos
@@ -79,6 +257,11 @@ tools:
     command: [chaos, -silent, -d, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -count
+        label: Count Only
+        description: Show only subdomain count
+        type: flag
 
   # ── Enumeration ────────────────────────────────────────────
   - id: gobuster
@@ -90,6 +273,37 @@ tools:
     command: [gobuster, dir, -u, '{targets}', -w, '{wordlist_file}', -q]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Follow Redirects
+        description: Follow redirects
+        type: flag
+      - flag: -k
+        label: Skip TLS
+        description: Skip TLS certificate verification
+        type: flag
+      - flag: -n
+        label: No Status
+        description: Don't print status codes
+        type: flag
+      - flag: --wildcard
+        label: Wildcard
+        description: Force continued operation on wildcard
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '10'
+      - flag: -s
+        label: Status Codes
+        description: Positive status codes
+        type: string
+        default: '200,204,301,302,307,401,403'
+      - flag: -x
+        label: Extensions
+        description: File extension(s) to search for
+        type: string
 
   - id: dirsearch
     name: Dirsearch
@@ -100,6 +314,33 @@ tools:
     command: [dirsearch, -u, '{targets}', -w, '{wordlist_file}', --format=plain, -q]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Recursive
+        description: Brute-force recursively
+        type: flag
+      - flag: --deep-recursive
+        label: Deep Recursive
+        description: Perform recursive scan on every directory
+        type: flag
+      - flag: --force-recursive
+        label: Force Recursive
+        description: Do recursive brute force for every found path
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of threads
+        type: int
+        default: '25'
+      - flag: -R
+        label: Recursion Depth
+        description: Maximum recursion depth
+        type: int
+        default: '0'
+      - flag: -e
+        label: Extensions
+        description: Extension list separated by commas
+        type: string
 
   - id: feroxbuster
     name: Feroxbuster
@@ -110,6 +351,41 @@ tools:
     command: [feroxbuster, -u, '{targets}', -w, '{wordlist_file}', -q, --no-state]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Follow Redirects
+        description: Follow redirects
+        type: flag
+      - flag: -k
+        label: Insecure
+        description: Disable TLS certificate validation
+        type: flag
+      - flag: -n
+        label: No Recursion
+        description: Do not recurse
+        type: flag
+      - flag: -e
+        label: Extract Links
+        description: Extract links from response body
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '50'
+      - flag: -d
+        label: Depth
+        description: Maximum recursion depth
+        type: int
+        default: '4'
+      - flag: -C
+        label: Filter Codes
+        description: Filter status codes
+        type: string
+      - flag: -x
+        label: Extensions
+        description: File extensions to search for
+        type: string
 
   - id: wfuzz
     name: Wfuzz
@@ -120,6 +396,29 @@ tools:
     command: [wfuzz, -w, '{wordlist_file}', --hc, '404', '{targets}/FUZZ']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -L
+        label: Follow Redirects
+        description: Follow HTTP redirects
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent connections
+        type: int
+        default: '10'
+      - flag: --hc
+        label: Hide Codes
+        description: Hide responses with specified codes
+        type: string
+        default: '404'
+      - flag: --hl
+        label: Hide Lines
+        description: Hide responses with specified line count
+        type: string
+      - flag: --hw
+        label: Hide Words
+        description: Hide responses with specified word count
+        type: string
 
   # ── Vulnerability ──────────────────────────────────────────
   - id: nuclei
@@ -131,6 +430,55 @@ tools:
     command: [nuclei, -silent, -l, '{targets_file}', -jsonl]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -as
+        label: Auto Scan
+        description: Automatic web scan using wappalyzer
+        type: flag
+      - flag: -new-templates
+        label: New Templates
+        description: Run only new templates
+        type: flag
+      - flag: -headless
+        label: Headless
+        description: Enable headless browser-based templates
+        type: flag
+      - flag: -system-resolvers
+        label: System Resolvers
+        description: Use system DNS resolving as error fallback
+        type: flag
+      - flag: -sa
+        label: Scan All IPs
+        description: Scan all IPs associated with a DNS record
+        type: flag
+      - flag: -severity
+        label: Severity
+        description: Filter by severity (info,low,medium,high,critical)
+        type: string
+        default: 'low,medium,high,critical'
+      - flag: -tags
+        label: Tags
+        description: Execute templates with specified tags
+        type: string
+      - flag: -etags
+        label: Exclude Tags
+        description: Exclude templates with specified tags
+        type: string
+      - flag: -c
+        label: Concurrency
+        description: Maximum templates to run in parallel
+        type: int
+        default: '25'
+      - flag: -rl
+        label: Rate Limit
+        description: Maximum requests per second
+        type: int
+        default: '150'
+      - flag: -bs
+        label: Bulk Size
+        description: Max hosts to process per template
+        type: int
+        default: '25'
 
   - id: nikto
     name: Nikto
@@ -141,6 +489,28 @@ tools:
     command: [nikto, -h, '{targets}', -Format, txt]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -ssl
+        label: Force SSL
+        description: Force SSL mode on port 443
+        type: flag
+      - flag: -nossl
+        label: No SSL
+        description: Disable SSL
+        type: flag
+      - flag: -no404
+        label: No 404 Guessing
+        description: Disable 404 guessing
+        type: flag
+      - flag: -Tuning
+        label: Tuning
+        description: Scan tuning options
+        type: string
+      - flag: -maxtime
+        label: Max Time
+        description: Maximum testing time per host in seconds
+        type: int
+        default: '3600'
 
   - id: wpscan
     name: WPScan
@@ -151,6 +521,26 @@ tools:
     command: [wpscan, --url, '{targets}', --no-banner, -f, cli-no-color]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --stealthy
+        label: Stealthy
+        description: Use stealthy scan options
+        type: flag
+      - flag: --enumerate
+        label: Enumerate
+        description: 'Enumeration process: vp,ap,at,cb,dbe,u,m'
+        type: string
+        default: 'vp,vt,u'
+      - flag: --plugins-detection
+        label: Plugin Detection
+        description: Plugin detection mode
+        type: string
+        default: 'mixed'
+      - flag: -t
+        label: Threads
+        description: Max number of threads
+        type: int
+        default: '5'
 
   - id: sqlmap
     name: SQLMap
@@ -161,6 +551,47 @@ tools:
     command: [sqlmap, -u, '{targets}', --batch, --level, '1']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --dbs
+        label: List Databases
+        description: Enumerate DBMS databases
+        type: flag
+      - flag: --tables
+        label: List Tables
+        description: Enumerate DBMS tables
+        type: flag
+      - flag: --dump
+        label: Dump
+        description: Dump DBMS database table entries
+        type: flag
+      - flag: --forms
+        label: Parse Forms
+        description: Parse and test forms on target URL
+        type: flag
+      - flag: --crawl
+        label: Crawl Depth
+        description: Crawl the website starting from the target URL
+        type: int
+        default: '2'
+      - flag: --level
+        label: Level
+        description: Level of tests to perform (1-5)
+        type: int
+        default: '1'
+      - flag: --risk
+        label: Risk
+        description: Risk of tests to perform (1-3)
+        type: int
+        default: '1'
+      - flag: --threads
+        label: Threads
+        description: Max number of concurrent threads
+        type: int
+        default: '1'
+      - flag: -p
+        label: Test Parameter
+        description: Testable parameter(s)
+        type: string
 
   - id: xsstrike
     name: XSStrike
@@ -171,6 +602,29 @@ tools:
     command: [xsstrike, -u, '{targets}', --crawl, -l, '2']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --crawl
+        label: Crawl
+        description: Crawl target for URLs
+        type: flag
+      - flag: --blind
+        label: Blind XSS
+        description: Inject blind XSS payloads while crawling
+        type: flag
+      - flag: --fuzzer
+        label: Fuzzer
+        description: Enable the fuzzer
+        type: flag
+      - flag: -l
+        label: Crawl Level
+        description: Depth of crawling
+        type: int
+        default: '2'
+      - flag: -t
+        label: Threads
+        description: Number of threads
+        type: int
+        default: '2'
 
   - id: dalfox
     name: Dalfox
@@ -181,6 +635,29 @@ tools:
     command: [dalfox, url, '{targets}', --silence]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --deep-domxss
+        label: Deep DOM XSS
+        description: Find DOM XSS with more payloads
+        type: flag
+      - flag: --follow-redirects
+        label: Follow Redirects
+        description: Follow HTTP redirects
+        type: flag
+      - flag: --mining-dict
+        label: Mining Dict
+        description: Find new parameter with dictionary attack
+        type: flag
+      - flag: -w
+        label: Workers
+        description: Number of worker
+        type: int
+        default: '100'
+      - flag: -d
+        label: Delay
+        description: Milliseconds between each request
+        type: int
+        default: '0'
 
   # ── Fuzzing ────────────────────────────────────────────────
   - id: ffuf
@@ -192,6 +669,59 @@ tools:
     command: [ffuf, -w, '{wordlist_file}', -u, '{targets}', -of, json]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Follow Redirects
+        description: Follow redirects
+        type: flag
+      - flag: -recursion
+        label: Recursion
+        description: Enable recursive scan
+        type: flag
+      - flag: -sf
+        label: Stop on Flood
+        description: Stop when 95% of responses have 403
+        type: flag
+      - flag: -se
+        label: Stop on Errors
+        description: Stop on spurious errors
+        type: flag
+      - flag: -ac
+        label: Auto Calibrate
+        description: Automatically calibrate filtering options
+        type: flag
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '40'
+      - flag: -rate
+        label: Rate
+        description: Rate of requests per second
+        type: int
+        default: '0'
+      - flag: -recursion-depth
+        label: Recursion Depth
+        description: Maximum recursion depth
+        type: int
+        default: '0'
+      - flag: -mc
+        label: Match Codes
+        description: Match HTTP status codes
+        type: string
+        default: '200,204,301,302,307,401,403,405'
+      - flag: -fc
+        label: Filter Codes
+        description: Filter HTTP status codes
+        type: string
+      - flag: -fs
+        label: Filter Size
+        description: Filter response size
+        type: string
+      - flag: -H
+        label: Header
+        description: Custom header 'Name: Value'
+        type: string
 
   # ── Crawling ───────────────────────────────────────────────
   - id: katana
@@ -203,6 +733,47 @@ tools:
     command: [katana, -silent, -list, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -jc
+        label: JS Crawl
+        description: Enable JavaScript file crawling
+        type: flag
+      - flag: -aff
+        label: Auto Form Fill
+        description: Enable automatic form filling
+        type: flag
+      - flag: -headless
+        label: Headless
+        description: Enable headless browser
+        type: flag
+      - flag: -kf
+        label: Known Files
+        description: Enable crawling for known files
+        type: flag
+      - flag: -ef
+        label: Extension Filter
+        description: Skip crawling for listed extensions
+        type: flag
+      - flag: -d
+        label: Depth
+        description: Maximum depth to crawl
+        type: int
+        default: '3'
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent crawlers
+        type: int
+        default: '10'
+      - flag: -rl
+        label: Rate Limit
+        description: Maximum requests per second
+        type: int
+        default: '150'
+      - flag: -timeout
+        label: Timeout
+        description: Time limit in seconds
+        type: int
+        default: '15'
 
   - id: gospider
     name: GoSpider
@@ -213,6 +784,38 @@ tools:
     command: [gospider, -S, '{targets_file}', --no-redirect, -q]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --js
+        label: Parse JS
+        description: Find URLs in JavaScript files
+        type: flag
+      - flag: --sitemap
+        label: Sitemap
+        description: Try to crawl sitemap.xml
+        type: flag
+      - flag: --robots
+        label: Robots
+        description: Try to crawl robots.txt
+        type: flag
+      - flag: --no-redirect
+        label: No Redirect
+        description: Disable redirect
+        type: flag
+      - flag: -d
+        label: Depth
+        description: Maximum depth to crawl
+        type: int
+        default: '1'
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent workers
+        type: int
+        default: '5'
+      - flag: -t
+        label: Threads
+        description: Number of threads (Run sites in parallel)
+        type: int
+        default: '1'
 
   - id: hakrawler
     name: Hakrawler
@@ -223,6 +826,29 @@ tools:
     command: [hakrawler, -url, '{targets}', -plain]
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -js
+        label: JavaScript
+        description: Include URLs from JavaScript files
+        type: flag
+      - flag: -subs
+        label: Subdomains
+        description: Include subdomains of target
+        type: flag
+      - flag: -insecure
+        label: Insecure
+        description: Skip TLS verification
+        type: flag
+      - flag: -d
+        label: Depth
+        description: Maximum crawl depth
+        type: int
+        default: '2'
+      - flag: -t
+        label: Threads
+        description: Number of threads to utilise
+        type: int
+        default: '8'
 
   - id: waybackurls
     name: Waybackurls
@@ -233,6 +859,15 @@ tools:
     command: [waybackurls, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: -no-subs
+        label: No Subs
+        description: Don't include subdomains of target
+        type: flag
+      - flag: -dates
+        label: Show Dates
+        description: Show date of fetch in the first column
+        type: flag
 
   # ── Network ────────────────────────────────────────────────
   - id: nmap
@@ -244,6 +879,56 @@ tools:
     command: [nmap, -iL, '{targets_file}', -oN, '-']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -sV
+        label: Service Version
+        description: Probe open ports to determine service/version
+        type: flag
+      - flag: -sC
+        label: Default Scripts
+        description: Equivalent to --script=default
+        type: flag
+      - flag: -A
+        label: Aggressive
+        description: Enable OS detection, version detection, script scanning
+        type: flag
+      - flag: -O
+        label: OS Detection
+        description: Enable OS detection
+        type: flag
+      - flag: -sS
+        label: SYN Scan
+        description: TCP SYN scan (stealth)
+        type: flag
+      - flag: -sU
+        label: UDP Scan
+        description: UDP scan
+        type: flag
+      - flag: -Pn
+        label: No Ping
+        description: Treat all hosts as online
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Increase verbosity level
+        type: flag
+      - flag: -T
+        label: Timing
+        description: Set timing template (0-5)
+        type: int
+        default: '3'
+      - flag: -p
+        label: Ports
+        description: Only scan specified ports
+        type: string
+      - flag: --script
+        label: Script
+        description: NSE scripts to run
+        type: string
+      - flag: --top-ports
+        label: Top Ports
+        description: Scan N most common ports
+        type: int
 
   - id: masscan
     name: Masscan
@@ -254,6 +939,21 @@ tools:
     command: [masscan, -iL, '{targets_file}', -p1-65535, --rate, '1000']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --banners
+        label: Banners
+        description: Grab banners from services
+        type: flag
+      - flag: --rate
+        label: Rate
+        description: Packets per second
+        type: int
+        default: '1000'
+      - flag: -p
+        label: Ports
+        description: Port range to scan
+        type: string
+        default: '1-65535'
 
   - id: naabu
     name: Naabu
@@ -264,6 +964,38 @@ tools:
     command: [naabu, -silent, -list, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -Pn
+        label: No Ping
+        description: Skip host discovery
+        type: flag
+      - flag: -sn
+        label: Ping Scan
+        description: Ping scan only
+        type: flag
+      - flag: -sv
+        label: Service Version
+        description: Service version detection
+        type: flag
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent threads
+        type: int
+        default: '25'
+      - flag: -rate
+        label: Rate
+        description: Packets per second
+        type: int
+        default: '1000'
+      - flag: -p
+        label: Ports
+        description: Ports to scan
+        type: string
+      - flag: -top-ports
+        label: Top Ports
+        description: Top ports to scan
+        type: string
+        default: '100'
 
   - id: rustscan
     name: RustScan
@@ -274,6 +1006,34 @@ tools:
     command: [rustscan, -a, '{targets}', --ulimit, '5000']
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: --greppable
+        label: Greppable
+        description: Greppable output
+        type: flag
+      - flag: --accessible
+        label: Accessible
+        description: Accessible mode
+        type: flag
+      - flag: --ulimit
+        label: Ulimit
+        description: File descriptor limit
+        type: int
+        default: '5000'
+      - flag: -b
+        label: Batch Size
+        description: Batch size for port scanning
+        type: int
+        default: '4500'
+      - flag: -t
+        label: Timeout
+        description: Connection timeout in ms
+        type: int
+        default: '1500'
+      - flag: -p
+        label: Ports
+        description: Ports to scan
+        type: string
 
   # ── OSINT ──────────────────────────────────────────────────
   - id: theharvester
@@ -285,6 +1045,29 @@ tools:
     command: [theHarvester, -d, '{domain}', -b, all]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -g
+        label: Use Google Dorks
+        description: Use Google dorks during search
+        type: flag
+      - flag: -n
+        label: DNS Lookup
+        description: Enable DNS server lookup
+        type: flag
+      - flag: -v
+        label: Virtual Host
+        description: Verify hostnames via DNS resolution
+        type: flag
+      - flag: -l
+        label: Limit
+        description: Limit number of results
+        type: int
+        default: '500'
+      - flag: -b
+        label: Sources
+        description: Data sources (all,google,bing,...)
+        type: string
+        default: 'all'
 
   - id: shodan-cli
     name: Shodan CLI
@@ -295,6 +1078,17 @@ tools:
     command: [shodan, search, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: --fields
+        label: Fields
+        description: List of properties to show
+        type: string
+        default: 'ip_str,port,org,hostnames'
+      - flag: --limit
+        label: Limit
+        description: Number of results to return
+        type: int
+        default: '100'
 
   - id: censys
     name: Censys
@@ -305,6 +1099,12 @@ tools:
     command: [censys, search, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: --pages
+        label: Pages
+        description: Number of pages of results
+        type: int
+        default: '1'
 
   - id: spiderfoot
     name: SpiderFoot
@@ -315,6 +1115,16 @@ tools:
     command: [spiderfoot, -s, '{domain}', -q]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -m
+        label: Modules
+        description: Modules to enable
+        type: string
+      - flag: -M
+        label: Max Threads
+        description: Maximum number of threads
+        type: int
+        default: '3'
 
   # ── Archive ────────────────────────────────────────────────
   - id: gau
@@ -326,6 +1136,24 @@ tools:
     command: [gau, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
+    args:
+      - flag: --subs
+        label: Include Subs
+        description: Include subdomains of target domain
+        type: flag
+      - flag: --threads
+        label: Threads
+        description: Number of threads
+        type: int
+        default: '1'
+      - flag: --mc
+        label: Match Codes
+        description: Match HTTP status codes
+        type: string
+      - flag: --fc
+        label: Filter Codes
+        description: Filter HTTP status codes
+        type: string
 
   - id: waymore
     name: Waymore
@@ -336,6 +1164,21 @@ tools:
     command: [waymore, -i, '{domain}', -mode, U]
     output_mode: stdout
     timeout_seconds: 600
+    args:
+      - flag: -mode
+        label: Mode
+        description: 'Mode of operation: U=URLs, R=Responses, B=Both'
+        type: string
+        default: 'U'
+      - flag: -t
+        label: Threads
+        description: Number of threads
+        type: int
+        default: '5'
+      - flag: -limit
+        label: Limit
+        description: Limit number of URLs per source
+        type: int
 
   # ── Utility ────────────────────────────────────────────────
   - id: anew
@@ -347,6 +1190,11 @@ tools:
     command: [anew, '{artifact_file}']
     output_mode: stdout
     timeout_seconds: 120
+    args:
+      - flag: -q
+        label: Quiet
+        description: Don't print to stdout
+        type: flag
 
   - id: qsreplace
     name: QSReplace
@@ -357,6 +1205,11 @@ tools:
     command: [qsreplace, FUZZ]
     output_mode: stdout
     timeout_seconds: 120
+    args:
+      - flag: -a
+        label: Append
+        description: Append value instead of replacing
+        type: flag
 
   - id: uro
     name: URO
@@ -367,6 +1220,7 @@ tools:
     command: [uro]
     output_mode: stdout
     timeout_seconds: 120
+    args: []
 
   - id: unfurl
     name: Unfurl
@@ -377,6 +1231,11 @@ tools:
     command: [unfurl, domains]
     output_mode: stdout
     timeout_seconds: 120
+    args:
+      - flag: -u
+        label: Unique
+        description: Only output unique values
+        type: flag
 
   - id: jq-filter
     name: JQ Filter
@@ -387,3 +1246,12 @@ tools:
     command: [jq, '.', '{targets_file}']
     output_mode: stdout
     timeout_seconds: 120
+    args:
+      - flag: -r
+        label: Raw Output
+        description: Output raw strings instead of JSON
+        type: flag
+      - flag: -c
+        label: Compact
+        description: Compact output
+        type: flag

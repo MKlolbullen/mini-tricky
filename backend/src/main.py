@@ -38,6 +38,14 @@ TEXT_SUFFIXES = {
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg'}
 
 
+class ToolArg(BaseModel):
+    flag: str
+    label: str
+    description: str = ''
+    type: str = 'flag'  # flag | string | int | float
+    default: str | None = None
+
+
 class Tool(BaseModel):
     id: str
     name: str
@@ -49,6 +57,7 @@ class Tool(BaseModel):
     command: list[str] = Field(default_factory=list)
     output_mode: str = 'stdout'
     timeout_seconds: int = 300
+    args: list[ToolArg] = Field(default_factory=list)
 
 
 class WorkflowNode(BaseModel):
@@ -389,13 +398,27 @@ def execute_tool_node(
         if input_name != 'any':
             prepare_bound_value(input_name, source_value, node_dir, context)
 
+    # Separate toggled args (CLI flags) from template context params
+    extra_cli_args: list[str] = []
     for key, value in node.params.items():
-        context[key] = str(value)
+        if value == '__flag__':
+            # Boolean flag — just append the flag
+            extra_cli_args.append(key)
+        elif key.startswith('-'):
+            # Value arg — append flag + value
+            extra_cli_args.append(key)
+            extra_cli_args.append(str(value))
+        else:
+            # Template context variable
+            context[key] = str(value)
 
     try:
         command = [segment.format_map(context) for segment in tool.command]
     except KeyError as exc:
         return failed_node_result(node, node_dir, f'Missing template value for {exc.args[0]} while building command for {tool.id}.')
+
+    # Append toggled args to the end of the command
+    command.extend(extra_cli_args)
 
     try:
         completed = subprocess.run(
