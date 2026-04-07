@@ -2038,6 +2038,54 @@ def _get_install_hint(binary: str) -> str:
         'wappalyzer': 'npm install -g wappalyzer',
         'linkfinder': 'pip install linkfinder',
         'waymore': 'pip install waymore',
+        # Parameter Discovery
+        'paramspider': 'pip install paramspider',
+        'x8': 'cargo install x8',
+        'paraminer': 'pip install paraminer',
+        # API Testing
+        'kr': 'go install github.com/assetnote/kiterunner/cmd/kr@latest',
+        'APIFuzzer': 'pip install APIFuzzer',
+        'oasdiff': 'go install github.com/tufin/oasdiff@latest',
+        'restler': 'pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer',
+        # SSRF / OOB
+        'ssrfmap': 'pip install ssrfmap',
+        'gopherus': 'pip install gopherus',
+        'interactsh-client': 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest',
+        'ssrf-sheriff': 'pip install ssrf-sheriff',
+        # SSTI
+        'sstimap': 'pip install sstimap',
+        'tplmap': 'pip install tplmap',
+        # CSRF / CORS
+        'xsrfprobe': 'pip install xsrfprobe',
+        'cors_scan': 'pip install CORScanner',
+        'crlfuzz': 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest',
+        # Subdomain Takeover
+        'subjack': 'go install github.com/haccer/subjack@latest',
+        'subzy': 'go install -v github.com/PentestPad/subzy@latest',
+        # Headers
+        'shcheck': 'pip install shcheck',
+        'hakcheckurl': 'go install github.com/hakluke/hakcheckurl@latest',
+        # JS Analysis
+        'SecretFinder': 'pip install SecretFinder',
+        'getJS': 'go install github.com/003random/getJS/v2@latest',
+        'subjs': 'go install -v github.com/lc/subjs@latest',
+        # Wordlist
+        'cewl': 'gem install cewl  # or apt install cewl',
+        'wordlister': 'pip install wordlister',
+        # Cloud / Buckets
+        's3scanner': 'pip install s3scanner',
+        'cloud_enum': 'pip install cloud_enum',
+        # Secrets
+        'trufflehog': 'go install github.com/trufflesecurity/trufflehog/v3@latest',
+        'gitleaks': 'go install github.com/gitleaks/gitleaks/v8@latest',
+        # Utility
+        'gf': 'go install -v github.com/tomnomnom/gf@latest',
+        'interlace': 'pip install interlace',
+        'rush': 'go install github.com/shenwei356/rush@latest',
+        'notify': 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest',
+        'meg': 'go install github.com/tomnomnom/meg@latest',
+        'chaos': 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest',
+        'findomain': 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip',
     }
     return hints.get(binary, f'Install {binary} and ensure it is on your PATH')
 

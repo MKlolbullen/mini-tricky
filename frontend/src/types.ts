@@ -179,6 +179,18 @@ export const CATEGORY_COLORS: Record<string, string> = {
   OSINT: '#ffcf5b',
   Archive: '#8fa5d2',
   Utility: '#6bc5e8',
+  Params: '#e879f9',
+  API: '#38bdf8',
+  SSRF: '#f97316',
+  SSTI: '#ef4444',
+  CSRF: '#f472b6',
+  CORS: '#fb923c',
+  Takeover: '#dc2626',
+  Headers: '#a78bfa',
+  JSAnalysis: '#fbbf24',
+  Wordlist: '#94a3b8',
+  Cloud: '#22d3ee',
+  Secrets: '#f43f5e',
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -191,6 +203,18 @@ export const CATEGORY_ICONS: Record<string, string> = {
   OSINT: '\u{1F441}',
   Archive: '\u{1F4DA}',
   Utility: '\u{1F527}',
+  Params: '\u{1F50E}',
+  API: '\u{1F517}',
+  SSRF: '\u{1F30A}',
+  SSTI: '\u{1F525}',
+  CSRF: '\u{1F6AB}',
+  CORS: '\u{1F6A7}',
+  Takeover: '\u{1F3F4}',
+  Headers: '\u{1F4CB}',
+  JSAnalysis: '\u{1F4DC}',
+  Wordlist: '\u{1F4D6}',
+  Cloud: '\u{2601}',
+  Secrets: '\u{1F510}',
 };
 
 export const variableCatalog = [
