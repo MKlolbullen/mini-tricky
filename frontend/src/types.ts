@@ -1,5 +1,13 @@
 import type { Node } from '@xyflow/react';
 
+export type ToolArg = {
+  flag: string;
+  label: string;
+  description: string;
+  type: 'flag' | 'string' | 'int' | 'float';
+  default?: string | null;
+};
+
 export type Tool = {
   id: string;
   name: string;
@@ -10,6 +18,7 @@ export type Tool = {
   outputs: string[];
   command?: string[];
   timeout_seconds?: number;
+  args?: ToolArg[];
 };
 
 export type Health = { status: string };

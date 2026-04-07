@@ -2,6 +2,22 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { WorkflowNodePayload } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
 
+/** Color map for socket data types */
+const SOCKET_COLORS: Record<string, string> = {
+  domain: '#5b8cff',
+  targets: '#43d9ad',
+  wordlist: '#ffcf5b',
+  findings: '#ff5b6c',
+  any: '#b47cff',
+  pass: '#43d9ad',
+  fail: '#ff5b6c',
+  item: '#ffcf5b',
+};
+
+function socketColor(name: string): string {
+  return SOCKET_COLORS[name] || '#63e6ff';
+}
+
 export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNodePayload>>) {
   const payload = data as WorkflowNodePayload;
   const stateClass = payload.runState ? `state-${payload.runState}` : '';
@@ -28,13 +44,17 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
           ? (payload.scriptLanguage === 'python' ? '\u{1F40D}' : '\u{1F4DC}')
           : payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
 
+  // Count active (toggled-on) params for badge
+  const activeArgs = Object.keys(payload.params || {}).length;
+
   return (
     <div
       className={`flow-node ${payload.kind} ${stateClass} ${selected ? 'selected' : ''}`}
       style={catColor ? { borderLeftColor: catColor, borderLeftWidth: 3 } : undefined}
     >
+      {/* Header */}
       <div className="flow-node-header">
-        <span>
+        <span className="flow-node-title">
           {catIcon ? <span className="node-cat-icon">{catIcon} </span> : null}
           {payload.label}
         </span>
@@ -43,25 +63,49 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
         </small>
       </div>
 
+      {/* State pill */}
       {payload.runState && <div className={`node-state-pill ${payload.runState}`}>{payload.runState}</div>}
 
+      {/* Active args badge */}
+      {activeArgs > 0 && payload.kind === 'tool' && (
+        <div className="node-args-badge">{activeArgs} arg{activeArgs > 1 ? 's' : ''}</div>
+      )}
+
+      {/* Input sockets — Trickest style */}
       {payload.inputs.length > 0 && (
         <div className="socket-list left">
           {payload.inputs.map((input, index) => (
-            <div key={input} className="socket-row left" style={{ top: 52 + index * 26 }}>
-              <Handle type="target" position={Position.Left} id={`in:${input}`} />
-              <span>{input}</span>
+            <div key={input} className="socket-row left" style={{ top: 52 + index * 28 }}>
+              <Handle
+                type="target"
+                position={Position.Left}
+                id={`in:${input}`}
+                style={{ background: socketColor(input), borderColor: socketColor(input) }}
+              />
+              <span className="socket-label">
+                <span className="socket-dot" style={{ background: socketColor(input) }} />
+                {input}
+              </span>
             </div>
           ))}
         </div>
       )}
 
+      {/* Output sockets — Trickest style */}
       {payload.outputs.length > 0 && (
         <div className="socket-list right">
           {payload.outputs.map((output, index) => (
-            <div key={output} className="socket-row right" style={{ top: 52 + index * 26 }}>
-              <span>{output}</span>
-              <Handle type="source" position={Position.Right} id={`out:${output}`} />
+            <div key={output} className="socket-row right" style={{ top: 52 + index * 28 }}>
+              <span className="socket-label">
+                {output}
+                <span className="socket-dot" style={{ background: socketColor(output) }} />
+              </span>
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={`out:${output}`}
+                style={{ background: socketColor(output), borderColor: socketColor(output) }}
+              />
             </div>
           ))}
         </div>
