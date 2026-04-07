@@ -469,6 +469,23 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       .catch(() => setConsoleLines(['[-] Failed to save template.']));
   }
 
+  async function handleGenerate(prompt: string, scope: string) {
+    try {
+      const result = await api.generateWorkflow(prompt, scope);
+      if (result.ok && result.graph) {
+        const wf: WorkflowRecord = { id: `gen-${Date.now()}`, name: result.name, graph: result.graph };
+        handleLoadWorkflow(wf);
+        setWorkflowName(result.name);
+        setConsoleLines([`[+] Generated: "${result.name}" - ${result.description}`]);
+        addNotification('success', 'Workflow Generated', result.description);
+      } else {
+        setConsoleLines([`[-] Generation failed: ${result.error || 'Unknown error'}`]);
+      }
+    } catch {
+      setConsoleLines(['[-] Failed to generate workflow.']);
+    }
+  }
+
   function handleExport() {
     const wf: WorkflowRecord = {
       id: `export-${Date.now()}`,
@@ -513,6 +530,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         onSaveAsTemplate={handleSaveAsTemplate}
         onExport={handleExport}
         onImport={handleImport}
+        onGenerate={handleGenerate}
       />
       <div className="workspace">
         <ToolSidebar

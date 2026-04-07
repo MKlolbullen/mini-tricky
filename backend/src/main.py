@@ -1789,5 +1789,528 @@ def delete_preset(preset_id: str) -> dict[str, Any]:
     return {'ok': True, 'deleted': preset_id}
 
 
+# ── AI-Assisted Workflow Generation ────────────────────────────────────────────
+
+class GeneratePayload(BaseModel):
+    prompt: str
+    scope: str = ''
+
+
+@app.post('/api/generate')
+def generate_workflow(payload: GeneratePayload) -> dict[str, Any]:
+    """Generate a workflow from a natural language description."""
+    prompt = payload.prompt.lower()
+    scope = payload.scope.strip()
+
+    tools = load_tools()
+    tools_by_id = {t.id: t for t in tools}
+
+    # Pattern matching for workflow generation
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+    x_pos = 80
+    y_pos = 120
+    node_counter = 0
+
+    def add_node(kind: str, label: str, tool_id: str | None = None, variable_type: str | None = None, value: str | None = None, **kwargs: Any) -> str:
+        nonlocal node_counter, x_pos
+        node_counter += 1
+        nid = f'{kind}-{node_counter}'
+        node = {
+            'id': nid, 'kind': kind, 'label': label,
+            'tool_id': tool_id, 'variable_type': variable_type,
+            'value': value, 'params': {},
+            'position': {'x': x_pos, 'y': y_pos},
+        }
+        node.update(kwargs)
+        nodes.append(node)
+        x_pos += 280
+        return nid
+
+    def connect(source: str, target: str, source_handle: str, target_handle: str) -> None:
+        edges.append({
+            'id': f'edge-{len(edges)+1}',
+            'source': source, 'target': target,
+            'source_handle': f'out:{source_handle}',
+            'target_handle': f'in:{target_handle}',
+        })
+
+    # Detect intent and build workflow
+    has_recon = any(k in prompt for k in ['recon', 'subdomain', 'enumerate', 'discover', 'asset'])
+    has_vuln = any(k in prompt for k in ['vuln', 'scan', 'nuclei', 'security', 'exploit'])
+    has_fuzz = any(k in prompt for k in ['fuzz', 'brute', 'directory', 'dir', 'ffuf', 'gobuster'])
+    has_crawl = any(k in prompt for k in ['crawl', 'spider', 'url', 'endpoint', 'katana', 'gau'])
+    has_port = any(k in prompt for k in ['port', 'nmap', 'naabu', 'service', 'masscan'])
+    has_osint = any(k in prompt for k in ['osint', 'harvest', 'shodan', 'censys', 'intel'])
+    has_full = any(k in prompt for k in ['full', 'complete', 'comprehensive', 'everything', 'all'])
+
+    if has_full:
+        has_recon = has_vuln = has_crawl = True
+
+    # Always start with an input
+    input_type = 'domain'
+    if any(k in prompt for k in ['url list', 'target list', 'ip list']):
+        input_type = 'targets'
+
+    var_id = add_node('variable', 'Target Input', variable_type=input_type, value=scope or '')
+
+    last_id = var_id
+    last_output = input_type
+
+    if has_recon:
+        # Subdomain enumeration
+        if 'subfinder' in tools_by_id:
+            sid = add_node('tool', 'Subfinder', tool_id='subfinder')
+            connect(last_id, sid, last_output, 'domain' if last_output == 'domain' else 'targets')
+            last_id = sid
+            last_output = 'targets'
+
+        # HTTP probing
+        if 'httpx' in tools_by_id:
+            hid = add_node('tool', 'HTTPX', tool_id='httpx')
+            connect(last_id, hid, last_output, 'targets')
+            last_id = hid
+            last_output = 'targets'
+
+    if has_port:
+        if 'naabu' in tools_by_id:
+            pid = add_node('tool', 'Naabu', tool_id='naabu')
+            connect(last_id, pid, last_output, 'targets')
+            last_id = pid
+            last_output = 'targets'
+
+    if has_crawl:
+        y_pos_saved = y_pos
+        if 'katana' in tools_by_id:
+            kid = add_node('tool', 'Katana', tool_id='katana')
+            connect(last_id, kid, last_output, 'targets')
+            last_id = kid
+            last_output = 'targets'
+        y_pos = y_pos_saved
+
+    if has_fuzz:
+        if 'ffuf' in tools_by_id:
+            fid = add_node('tool', 'FFUF', tool_id='ffuf')
+            connect(last_id, fid, last_output, 'targets')
+            last_id = fid
+            last_output = 'targets'
+
+    if has_osint:
+        if 'theHarvester' in tools_by_id:
+            oid = add_node('tool', 'theHarvester', tool_id='theHarvester')
+            connect(last_id, oid, last_output, 'domain' if last_output == 'domain' else 'targets')
+            last_id = oid
+            last_output = 'targets'
+
+    if has_vuln:
+        if 'nuclei' in tools_by_id:
+            nid = add_node('tool', 'Nuclei', tool_id='nuclei')
+            connect(last_id, nid, last_output, 'targets')
+            last_id = nid
+            last_output = 'findings'
+
+    # Always end with output
+    out_id = add_node('output', 'Artifacts')
+    connect(last_id, out_id, last_output, 'any')
+
+    # Generate a name
+    parts = []
+    if has_recon: parts.append('Recon')
+    if has_port: parts.append('Port Scan')
+    if has_crawl: parts.append('Crawl')
+    if has_fuzz: parts.append('Fuzz')
+    if has_osint: parts.append('OSINT')
+    if has_vuln: parts.append('Vuln Scan')
+    name = ' + '.join(parts) if parts else 'Generated Workflow'
+    if scope:
+        name += f' ({scope})'
+
+    return {
+        'ok': True,
+        'name': name,
+        'graph': {'nodes': nodes, 'edges': edges},
+        'description': f'Auto-generated workflow with {len(nodes)} nodes based on: "{payload.prompt}"',
+    }
+
+
 # Sync scheduler on startup
 _sync_scheduler_jobs()
+
+
+# ── Tool Health / Bootstrap Manager ────────────────────────────────────────────
+
+@app.get('/api/tools/health')
+def tools_health() -> dict[str, Any]:
+    """Check which tools are installed and available on PATH."""
+    tools = load_tools()
+    results: list[dict[str, Any]] = []
+    for tool in tools:
+        binary = tool.command[0] if tool.command else None
+        if not binary:
+            results.append({'id': tool.id, 'name': tool.name, 'binary': None, 'installed': False, 'path': None, 'hint': 'No command configured'})
+            continue
+        # Check if binary exists on PATH
+        import shutil as _shutil
+        found = _shutil.which(binary)
+        hint = ''
+        if not found:
+            # Provide install hints for common tools
+            hint = _get_install_hint(binary)
+        results.append({
+            'id': tool.id,
+            'name': tool.name,
+            'category': tool.category,
+            'binary': binary,
+            'installed': found is not None,
+            'path': found,
+            'hint': hint,
+        })
+    installed = sum(1 for r in results if r['installed'])
+    return {
+        'ok': True,
+        'total': len(results),
+        'installed': installed,
+        'missing': len(results) - installed,
+        'tools': results,
+    }
+
+
+def _get_install_hint(binary: str) -> str:
+    """Return install hints for common security tools."""
+    hints = {
+        'subfinder': 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
+        'httpx': 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest',
+        'nuclei': 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
+        'naabu': 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
+        'katana': 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest',
+        'dnsx': 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
+        'ffuf': 'go install -v github.com/ffuf/ffuf/v2@latest',
+        'amass': 'go install -v github.com/owasp-amass/amass/v4/...@master',
+        'assetfinder': 'go install -v github.com/tomnomnom/assetfinder@latest',
+        'gau': 'go install -v github.com/lc/gau/v2/cmd/gau@latest',
+        'waybackurls': 'go install -v github.com/tomnomnom/waybackurls@latest',
+        'gospider': 'go install -v github.com/jaeles-project/gospider@latest',
+        'hakrawler': 'go install -v github.com/hakluke/hakrawler@latest',
+        'anew': 'go install -v github.com/tomnomnom/anew@latest',
+        'unfurl': 'go install -v github.com/tomnomnom/unfurl@latest',
+        'qsreplace': 'go install -v github.com/tomnomnom/qsreplace@latest',
+        'dalfox': 'go install -v github.com/hahwul/dalfox/v2@latest',
+        'arjun': 'pip install arjun',
+        'sqlmap': 'pip install sqlmap',
+        'feroxbuster': 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash',
+        'gobuster': 'go install github.com/OJ/gobuster/v3@latest',
+        'dirsearch': 'pip install dirsearch',
+        'nmap': 'apt install nmap  # or brew install nmap',
+        'masscan': 'apt install masscan  # or brew install masscan',
+        'rustscan': 'cargo install rustscan',
+        'jq': 'apt install jq  # or brew install jq',
+        'wfuzz': 'pip install wfuzz',
+        'massdns': 'apt install massdns  # or build from github.com/blechschmidt/massdns',
+        'shuffledns': 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest',
+        'testssl.sh': 'git clone https://github.com/drwetter/testssl.sh.git',
+        'theHarvester': 'pip install theHarvester',
+        'spiderfoot': 'pip install spiderfoot',
+        'xsstrike': 'pip install XSStrike',
+        'commix': 'pip install commix',
+        'wappalyzer': 'npm install -g wappalyzer',
+        'linkfinder': 'pip install linkfinder',
+        'waymore': 'pip install waymore',
+    }
+    return hints.get(binary, f'Install {binary} and ensure it is on your PATH')
+
+
+# ── Environment Profiles ──────────────────────────────────────────────────────
+
+PROFILES_FILE = STATE_DIR / 'profiles.json'
+
+
+class ProfilePayload(BaseModel):
+    name: str
+    description: str = ''
+    tool_overrides: dict[str, dict[str, str]] = Field(default_factory=dict)
+    env_vars: dict[str, str] = Field(default_factory=dict)
+
+
+def load_profiles() -> list[dict[str, Any]]:
+    ensure_state()
+    if not PROFILES_FILE.exists():
+        PROFILES_FILE.write_text('[]')
+        return []
+    try:
+        return json.loads(PROFILES_FILE.read_text())
+    except json.JSONDecodeError:
+        return []
+
+
+def save_profiles(profiles: list[dict[str, Any]]) -> None:
+    ensure_state()
+    PROFILES_FILE.write_text(json.dumps(profiles, indent=2))
+
+
+@app.get('/api/profiles')
+def list_profiles() -> list[dict[str, Any]]:
+    return load_profiles()
+
+
+@app.post('/api/profiles')
+def create_profile(payload: ProfilePayload) -> dict[str, Any]:
+    profiles = load_profiles()
+    profile_id = f'prof-{uuid4().hex[:10]}'
+    item = {
+        'id': profile_id,
+        'name': payload.name,
+        'description': payload.description,
+        'tool_overrides': payload.tool_overrides,
+        'env_vars': payload.env_vars,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+    }
+    profiles.insert(0, item)
+    save_profiles(profiles)
+    return item
+
+
+@app.delete('/api/profiles/{profile_id}')
+def delete_profile(profile_id: str) -> dict[str, Any]:
+    profiles = load_profiles()
+    before = len(profiles)
+    profiles = [p for p in profiles if p.get('id') != profile_id]
+    if len(profiles) == before:
+        return {'ok': False, 'error': 'Profile not found'}
+    save_profiles(profiles)
+    return {'ok': True, 'deleted': profile_id}
+
+
+@app.put('/api/profiles/{profile_id}')
+def update_profile(profile_id: str, payload: ProfilePayload) -> dict[str, Any]:
+    profiles = load_profiles()
+    for p in profiles:
+        if p.get('id') == profile_id:
+            p['name'] = payload.name
+            p['description'] = payload.description
+            p['tool_overrides'] = payload.tool_overrides
+            p['env_vars'] = payload.env_vars
+            p['updated_at'] = datetime.now(timezone.utc).isoformat()
+            save_profiles(profiles)
+            return p
+    return {'ok': False, 'error': 'Profile not found'}
+
+
+# ── Result Normalization ──────────────────────────────────────────────────────
+
+@app.get('/api/runs/{run_id}/normalized')
+def get_normalized_results(run_id: str) -> dict[str, Any]:
+    """Return normalized results across all nodes in a run."""
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+
+    normalized: list[dict[str, Any]] = []
+    summary = {'total_items': 0, 'by_type': {}, 'by_node': {}, 'by_severity': {}}
+
+    for node_id, result in (run.get('node_results') or {}).items():
+        if result.get('status') != 'success':
+            continue
+        stdout = result.get('stdout_preview', '')
+        if not stdout:
+            continue
+
+        lines = [l.strip() for l in stdout.strip().split('\n') if l.strip()]
+        node_type = _classify_output(node_id, result, lines)
+
+        for line in lines:
+            if line.startswith('[') or line.startswith('#'):
+                continue  # skip log lines
+            item = _normalize_line(line, node_id, node_type)
+            if item:
+                normalized.append(item)
+                summary['total_items'] += 1
+                summary['by_type'][item['type']] = summary['by_type'].get(item['type'], 0) + 1
+                summary['by_node'][node_id] = summary['by_node'].get(node_id, 0) + 1
+                if item.get('severity'):
+                    summary['by_severity'][item['severity']] = summary['by_severity'].get(item['severity'], 0) + 1
+
+    return {
+        'ok': True,
+        'run_id': run_id,
+        'summary': summary,
+        'items': normalized,
+    }
+
+
+def _classify_output(node_id: str, result: dict[str, Any], lines: list[str]) -> str:
+    """Guess the type of output based on content patterns."""
+    cmd = ' '.join(result.get('command', []))
+    if 'nuclei' in cmd:
+        return 'vulnerability'
+    if 'subfinder' in cmd or 'amass' in cmd or 'assetfinder' in cmd:
+        return 'subdomain'
+    if 'httpx' in cmd:
+        return 'live_host'
+    if 'naabu' in cmd or 'nmap' in cmd or 'masscan' in cmd:
+        return 'port'
+    if 'ffuf' in cmd or 'gobuster' in cmd or 'feroxbuster' in cmd:
+        return 'directory'
+    if 'katana' in cmd or 'gau' in cmd or 'waybackurls' in cmd:
+        return 'url'
+    if any(':' in l and '//' in l for l in lines[:5]):
+        return 'url'
+    return 'raw'
+
+
+def _normalize_line(line: str, node_id: str, node_type: str) -> dict[str, Any] | None:
+    """Normalize a single output line into a structured item."""
+    if not line or len(line) < 3:
+        return None
+
+    item: dict[str, Any] = {'node_id': node_id, 'type': node_type, 'raw': line}
+
+    if node_type == 'vulnerability':
+        # Nuclei output: [template-id] [protocol] [severity] url
+        import re
+        m = re.match(r'\[([^\]]+)\]\s*\[([^\]]*)\]\s*\[([^\]]*)\]\s*(.*)', line)
+        if m:
+            item['template'] = m.group(1)
+            item['protocol'] = m.group(2)
+            item['severity'] = m.group(3).lower()
+            item['target'] = m.group(4).strip()
+        else:
+            item['target'] = line
+    elif node_type == 'subdomain':
+        item['subdomain'] = line
+        item['target'] = line
+    elif node_type == 'live_host':
+        item['url'] = line
+        item['target'] = line
+    elif node_type == 'port':
+        # Could be "host:port" format
+        if ':' in line:
+            parts = line.rsplit(':', 1)
+            item['host'] = parts[0]
+            item['port'] = parts[1] if len(parts) > 1 else ''
+        item['target'] = line
+    elif node_type == 'url':
+        item['url'] = line
+        item['target'] = line
+    elif node_type == 'directory':
+        item['path'] = line
+        item['target'] = line
+    else:
+        item['target'] = line
+
+    return item
+
+
+# ── Report Export ─────────────────────────────────────────────────────────────
+
+@app.get('/api/runs/{run_id}/report')
+def export_report(run_id: str, fmt: str = Query('markdown')) -> Any:
+    """Export a run as a Markdown or text report."""
+    run = find_run(run_id)
+    if not run:
+        return {'ok': False, 'error': f'Run {run_id} not found'}
+
+    # Get normalized results
+    normalized_resp = get_normalized_results(run_id)
+    normalized = normalized_resp.get('items', []) if normalized_resp.get('ok') else []
+    summary = normalized_resp.get('summary', {})
+
+    report = _generate_markdown_report(run, normalized, summary)
+
+    if fmt == 'markdown':
+        report_path = ARTIFACTS_DIR / run_id / 'report.md'
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report, encoding='utf-8')
+        return FileResponse(path=report_path, filename=f'{run["name"]}-report.md', media_type='text/markdown')
+
+    # Default: return as JSON with the markdown content
+    return {'ok': True, 'format': fmt, 'content': report}
+
+
+def _generate_markdown_report(run: dict[str, Any], normalized: list[dict[str, Any]], summary: dict[str, Any]) -> str:
+    """Generate a Markdown report from run results."""
+    lines: list[str] = []
+    name = run.get('name', 'Unnamed Run')
+    status = run.get('status', 'unknown')
+    created = run.get('created_at', '')
+
+    lines.append(f'# {name}')
+    lines.append('')
+    lines.append(f'**Status:** {status}  ')
+    lines.append(f'**Run ID:** `{run.get("id", "")}`  ')
+    lines.append(f'**Created:** {created}  ')
+    lines.append(f'**Nodes:** {len(run.get("node_states", {}))}  ')
+    lines.append('')
+
+    # Summary
+    lines.append('## Summary')
+    lines.append('')
+    lines.append(f'- **Total items found:** {summary.get("total_items", 0)}')
+    if summary.get('by_type'):
+        lines.append('- **By type:**')
+        for t, count in sorted(summary['by_type'].items()):
+            lines.append(f'  - {t}: {count}')
+    if summary.get('by_severity'):
+        lines.append('- **By severity:**')
+        for s, count in sorted(summary['by_severity'].items(), key=lambda x: {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}.get(x[0], 5)):
+            lines.append(f'  - {s}: {count}')
+    lines.append('')
+
+    # Node results
+    lines.append('## Node Results')
+    lines.append('')
+    lines.append('| Node | Status | Exit Code |')
+    lines.append('|------|--------|-----------|')
+    for node_id, result in (run.get('node_results') or {}).items():
+        exit_code = result.get('exit_code', 'N/A')
+        lines.append(f'| {node_id} | {result.get("status", "unknown")} | {exit_code} |')
+    lines.append('')
+
+    # Findings by type
+    if normalized:
+        by_type: dict[str, list[dict[str, Any]]] = {}
+        for item in normalized:
+            by_type.setdefault(item['type'], []).append(item)
+
+        for item_type, items in sorted(by_type.items()):
+            lines.append(f'## {item_type.replace("_", " ").title()} ({len(items)})')
+            lines.append('')
+
+            if item_type == 'vulnerability':
+                lines.append('| Severity | Template | Target |')
+                lines.append('|----------|----------|--------|')
+                for item in items:
+                    sev = item.get('severity', 'unknown')
+                    tpl = item.get('template', '')
+                    tgt = item.get('target', '')
+                    lines.append(f'| {sev} | {tpl} | {tgt} |')
+            elif item_type == 'subdomain':
+                lines.append('```')
+                for item in items:
+                    lines.append(item.get('subdomain', item.get('raw', '')))
+                lines.append('```')
+            elif item_type == 'port':
+                lines.append('| Host | Port |')
+                lines.append('|------|------|')
+                for item in items:
+                    lines.append(f'| {item.get("host", "")} | {item.get("port", "")} |')
+            else:
+                lines.append('```')
+                for item in items[:100]:  # Limit to 100 items
+                    lines.append(item.get('target', item.get('raw', '')))
+                if len(items) > 100:
+                    lines.append(f'... and {len(items) - 100} more')
+                lines.append('```')
+            lines.append('')
+
+    # Logs
+    lines.append('## Execution Logs')
+    lines.append('')
+    lines.append('```')
+    for log in run.get('logs', []):
+        lines.append(log)
+    lines.append('```')
+    lines.append('')
+    lines.append('---')
+    lines.append(f'*Generated by mini-tricky on {datetime.now(timezone.utc).isoformat()}*')
+
+    return '\n'.join(lines)
