@@ -23,6 +23,9 @@ jobs:
   build:
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    concurrency:
+      group: release-${{ github.event.inputs.tag || github.ref_name }}-${{ matrix.name }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +46,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -122,6 +127,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -136,12 +143,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: mini-tricky ${{ github.ref_name }}
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: mini-tricky ${{ github.event.inputs.tag || github.ref_name }}
           prerelease: true
           generate_release_notes: false
           body: |
-            ## mini-tricky ${{ github.ref_name }}
+            ## mini-tricky ${{ github.event.inputs.tag || github.ref_name }}
 
             First public beta of **mini-tricky** — a local-first Trickest-style workflow builder for bug bounty / offensive security automation.
 
