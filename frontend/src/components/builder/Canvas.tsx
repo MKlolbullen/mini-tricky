@@ -1,5 +1,5 @@
 import { useCallback, type DragEvent } from 'react';
-import { Background, Controls, MiniMap, ReactFlow, useReactFlow, MarkerType, type Connection, type Edge, type Node, type DefaultEdgeOptions } from '@xyflow/react';
+import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, MarkerType, type Connection, type Edge, type Node, type DefaultEdgeOptions } from '@xyflow/react';
 import SocketNode from './SocketNode';
 import type { WorkflowNodePayload } from '../../types';
 import { CATEGORY_COLORS } from '../../types';
@@ -53,7 +53,11 @@ type Props = {
   onDropNode: (type: string, data: any, position: { x: number; y: number }) => void;
 };
 
-export default function Canvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onDropNode }: Props) {
+// `useReactFlow()` requires a `<ReactFlowProvider>` ancestor. The `<ReactFlow>`
+// component provides the store to its *children*, not to siblings in the same
+// component, so we split Canvas into an inner component that calls the hook
+// and an outer wrapper that mounts the provider.
+function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onDropNode }: Props) {
   const { screenToFlowPosition } = useReactFlow();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -102,5 +106,13 @@ export default function Canvas({ nodes, edges, onNodesChange, onEdgesChange, onC
         />
       </ReactFlow>
     </main>
+  );
+}
+
+export default function Canvas(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <CanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }
