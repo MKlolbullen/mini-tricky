@@ -1,22 +1,73 @@
 {
   "name": "mini-tricky",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Local-first Electron shell for a Trickest-style bug bounty workflow builder.",
+  "description": "Local-first Trickest-style bug bounty workflow builder — desktop app & web GUI.",
+  "author": "MKlolbullen",
   "main": "electron/main.cjs",
   "scripts": {
     "frontend:install": "npm --prefix frontend install",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
-    "backend:dev": "cd backend && python -m uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
-    "electron:dev": "concurrently -k \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5000 http://127.0.0.1:5173 && electron .\"",
+    "backend:dev": "cd backend && python3 -m uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
+    "dev": "concurrently -k -n be,fe,el -c red,cyan,yellow \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5000/api/health http://127.0.0.1:5173 && electron .\"",
+    "start": "npm run frontend:build && electron .",
+    "web": "concurrently -k -n be,fe -c red,cyan \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "electron:dev": "npm run dev",
     "electron:start": "electron .",
-    "desktop:dev": "npm run electron:dev",
-    "desktop:start": "npm run electron:start"
+    "desktop:dev": "npm run dev",
+    "desktop:start": "npm run start",
+    "desktop:build": "npm run frontend:build && electron-builder",
+    "desktop:build:mac": "npm run frontend:build && electron-builder --mac",
+    "desktop:build:win": "npm run frontend:build && electron-builder --win",
+    "desktop:build:linux": "npm run frontend:build && electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.minitricky.app",
+    "productName": "mini-tricky",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "!node_modules",
+      "!backend",
+      "!docs"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": ["**/*", "!.venv/**", "!__pycache__/**", "!*.pyc"]
+      }
+    ],
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "docs/images/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "darkModeSupport": true
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "docs/images/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "docs/images/icon.png",
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
     "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "wait-on": "^8.0.1"
   }
 }

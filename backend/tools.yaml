@@ -720,7 +720,7 @@ tools:
         type: string
       - flag: -H
         label: Header
-        description: Custom header 'Name: Value'
+        description: "Custom header 'Name: Value'"
         type: string
 
   # ── Crawling ───────────────────────────────────────────────
