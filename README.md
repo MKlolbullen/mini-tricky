@@ -7,14 +7,16 @@
 <p align="center">
   <strong>A locally hosted Trickest clone for security workflow automation.</strong>
   <br />
-  Visual DAG editor &middot; 38 security tools &middot; Real-time execution &middot; Zero cloud dependency
+  Visual DAG editor &middot; 75 security tools &middot; 21 categories &middot; Real-time execution &middot; Zero cloud dependency
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Electron-47848F?logo=electron&logoColor=white" alt="Electron" />
   <img src="https://img.shields.io/badge/frontend-React%20%2B%20React%20Flow-61DAFB?logo=react&logoColor=111827" alt="React" />
   <img src="https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/tools-38%20integrated-blueviolet" alt="38 Tools" />
+  <img src="https://img.shields.io/badge/tools-75%20integrated-blueviolet" alt="75 Tools" />
+  <img src="https://img.shields.io/badge/categories-21-9f7aea" alt="21 Categories" />
+  <img src="https://img.shields.io/badge/version-0.2.0--beta-orange" alt="v0.2.0-beta" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
@@ -38,7 +40,9 @@
 
 ## What is mini-tricky?
 
-**mini-tricky** is a local-first desktop application that replicates the Trickest workflow builder experience for offensive security automation. Build visual DAG workflows by dragging tools onto a canvas, connect them with typed sockets, and execute entire recon/scanning pipelines with real-time streaming output.
+**mini-tricky** is a local-first desktop application (with optional web GUI mode) that replicates the Trickest workflow builder experience for offensive security automation. Build visual DAG workflows by dragging tools onto a canvas, connect them with typed sockets, and execute entire recon/scanning pipelines with real-time streaming output.
+
+Ships as a **native Electron desktop app** for macOS / Windows / Linux with menus, tray, keyboard shortcuts, an embedded Python backend, and persisted window state — or run it as a **browser-only web GUI** if you prefer.
 
 No cloud. No accounts. No subscriptions. Just your tools, your machine, your workflows.
 
@@ -74,20 +78,35 @@ The right sidebar is a structured node arguments controller — just like Tricke
 ### Real-Time Execution
 WebSocket streaming sends `node_started`, `node_finished`, and log events as they happen. Watch nodes light up on the canvas with state badges (queued/running/success/failed) and animated pulse borders. Fall back to HTTP batch execution if needed.
 
-### 38 Integrated Security Tools
-Pre-configured tools across 9 categories, defined in `tools.yaml` with command templates, typed I/O sockets, and timeout settings:
+### 75 Integrated Security Tools
+Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` with command templates, typed I/O sockets, per-argument toggle switches, and timeout settings:
 
 | Category | Tools |
 |----------|-------|
-| **Recon** | subfinder, httpx, amass, assetfinder, dnsx, massdns, shuffledns |
-| **Enumeration** | naabu, gobuster, dirsearch, wappalyzer |
-| **Vulnerability** | nuclei, dalfox, sqlmap, xsstrike, commix |
-| **Fuzzing** | ffuf, feroxbuster, wfuzz, arjun |
-| **Crawling** | katana, gospider, hakrawler, linkfinder |
-| **Network** | nmap, masscan, rustscan, testssl |
-| **OSINT** | theHarvester, shodan-cli, censys, spiderfoot |
-| **Archive** | gau, waybackurls, waymore |
-| **Utility** | jq, anew, unfurl, qsreplace |
+| **Recon** | Subfinder, HTTPX, Amass, Assetfinder, Findomain, DNSx, ShuffleDNS, Chaos |
+| **Enumeration** | Gobuster, Dirsearch, Feroxbuster, Wfuzz |
+| **Vulnerability** | Nuclei, Nikto, WPScan, SQLMap, XSStrike, Dalfox |
+| **Fuzzing** | FFUF |
+| **Params** | Arjun, ParamSpider, x8, Paraminer |
+| **Crawling** | Katana, GoSpider, Hakrawler, Waybackurls |
+| **Network** | Nmap, Masscan, Naabu, RustScan |
+| **OSINT** | theHarvester, Shodan CLI, Censys, SpiderFoot |
+| **Archive** | GAU, Waymore |
+| **API** | Kiterunner, APIFuzzer, OpenAPI Diff, RESTler |
+| **SSRF** | SSRFmap, Gopherus, Interactsh, SSRF Sheriff |
+| **SSTI** | SSTImap, Tplmap |
+| **CSRF** | XSRFProbe |
+| **CORS** | CORScanner, CRLFuzz |
+| **Takeover** | Subjack, Subzy, Nuclei Takeover |
+| **Headers** | Shcheck, Hakcheckurl |
+| **JSAnalysis** | LinkFinder, SecretFinder, GetJS, SubJS |
+| **Wordlist** | CeWL, Wordlister |
+| **Cloud** | S3Scanner, Cloud Enum |
+| **Secrets** | TruffleHog, Gitleaks |
+| **Utility** | Anew, QSReplace, URO, Unfurl, JQ Filter, GF Patterns, Interlace, Rush, Notify, Meg |
+
+### Trickest-Style Argument Toggle Switches
+Each tool exposes its CLI flags as **typed argument toggles** in the right-hand inspector. Flip a `flag` switch on to include `-recursive`, set a `string` field for `-wordlist`, an `int` for `-threads`, a `float` for rate limits — the engine builds the final command from your toggles. Same UX as Trickest, fully local.
 
 ### Workflow Templates
 8 built-in templates for common security workflows. Create and save your own custom templates.
@@ -165,87 +184,112 @@ Conditional branching and loop/iterator nodes enable complex workflow logic beyo
 ### Prerequisites
 - **Node.js** 18+ and npm
 - **Python** 3.10+
-- Security tools installed on your system PATH (subfinder, httpx, nuclei, etc.)
+- Security tools installed on your system `PATH` (subfinder, httpx, nuclei, ffuf, etc.)
 
-### 1. Clone the repository
+### 1. Clone & install dependencies
 
 ```bash
 git clone https://github.com/MKlolbullen/mini-tricky.git
 cd mini-tricky
-```
 
-### 2. Install and start the backend
+# Root deps (Electron, electron-builder, concurrently)
+npm install
 
-```bash
+# Frontend deps
+npm run frontend:install
+
+# Backend deps (in a virtualenv)
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload
+cd ..
 ```
 
-### 3. Install and start the frontend
+### 2. Run the desktop app (recommended)
 
 ```bash
-cd frontend
-npm install
 npm run dev
 ```
 
-The frontend runs on `http://localhost:5173` and connects to the backend at `http://127.0.0.1:5000`.
+This launches **everything** at once:
+- FastAPI backend on `127.0.0.1:5000`
+- Vite dev server on `127.0.0.1:5173`
+- Electron window once both are healthy
 
-### 4. (Optional) Run the Electron desktop app
+When the Electron window opens you get full native menus (`Cmd/Ctrl+N` new workflow, `Cmd/Ctrl+S` save, `Cmd/Ctrl+R` run, `Cmd/Ctrl+1..4` switch views), system tray, and persisted window state.
+
+### 3. Run as web GUI only (no Electron)
+
+If you just want a browser-based experience:
 
 ```bash
-# From the root directory
-npm install
-npm run desktop:dev
+npm run web
 ```
 
-### 5. (Optional) Build for production
+Then open `http://127.0.0.1:5173` in your browser. The backend at `127.0.0.1:5000` is started for you.
+
+### 4. Build a production desktop installer
 
 ```bash
-cd frontend && npm run build    # Build frontend
-npm run desktop:build           # Package Electron app
+# All-in-one (current platform)
+npm run desktop:build
+
+# Platform-specific
+npm run desktop:build:mac     # → dist-electron/*.dmg, *.zip
+npm run desktop:build:win     # → dist-electron/*.exe, *.nsis
+npm run desktop:build:linux   # → dist-electron/*.AppImage, *.deb
 ```
+
+The installer bundles the frontend `dist/` and the entire `backend/` directory as `extraResources`, so end users only need Python 3.10+ on their system — no manual install of the app's Python deps.
 
 ---
 
 ## Architecture
 
+mini-tricky has **two run modes** that share the exact same backend and frontend code:
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Electron Shell                         │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              React + React Flow                    │   │
-│  │  ┌──────────┬──────────────┬──────────────────┐  │   │
-│  │  │  Tool    │   Canvas     │  Arguments       │  │   │
-│  │  │  Sidebar │   (DAG)      │  Panel           │  │   │
-│  │  │          │              │                   │  │   │
-│  │  └──────────┴──────────────┴──────────────────┘  │   │
-│  │  ┌────────────────────────────────────────────┐  │   │
-│  │  │  Console (stdout / stderr / artifacts)      │  │   │
-│  │  └────────────────────────────────────────────┘  │   │
-│  └──────────────────────────────────────────────────┘   │
-│            │ HTTP + WebSocket                             │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │              FastAPI Backend                       │   │
-│  │  ┌────────┐ ┌──────────┐ ┌────────────────────┐ │   │
-│  │  │  Graph  │ │ DAG Exec │ │  Artifact Manager  │ │   │
-│  │  │  Valid. │ │ Engine   │ │  + Preview         │ │   │
-│  │  └────────┘ └──────────┘ └────────────────────┘ │   │
-│  │  ┌────────┐ ┌──────────┐ ┌────────────────────┐ │   │
-│  │  │ Sched. │ │ Version  │ │  Template + Preset │ │   │
-│  │  │ (cron) │ │ Store    │ │  Manager           │ │   │
-│  │  └────────┘ └──────────┘ └────────────────────┘ │   │
-│  └──────────────────────────────────────────────────┘   │
-│            │ subprocess                                   │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │         Local Security Tools (PATH)               │   │
-│  │  subfinder  httpx  nuclei  ffuf  katana  nmap ... │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+                ┌──────────────────────┐    ┌──────────────────────┐
+                │  Desktop (Electron)  │    │   Web GUI (browser)  │
+                │  npm run dev         │    │   npm run web        │
+                └──────────┬───────────┘    └──────────┬───────────┘
+                           │                            │
+                           ▼                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                React 18 + @xyflow/react (Vite)                   │
+│  ┌──────────┬──────────────┬──────────────────────────────────┐ │
+│  │  Tool    │   Canvas     │  Inspector / Arg Toggles         │ │
+│  │  Sidebar │   (DAG)      │  (Trickest-style switches)       │ │
+│  └──────────┴──────────────┴──────────────────────────────────┘ │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Console (stdout / stderr / artifacts / live node states) │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                           │  HTTP + WebSocket
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    FastAPI + Uvicorn Backend                     │
+│  ┌────────┐ ┌──────────┐ ┌────────────────┐ ┌────────────────┐  │
+│  │  Graph │ │ DAG Exec │ │ Artifact Mgr   │ │ Result         │  │
+│  │  Valid │ │ Engine   │ │ + Preview      │ │ Normalizer     │  │
+│  └────────┘ └──────────┘ └────────────────┘ └────────────────┘  │
+│  ┌────────┐ ┌──────────┐ ┌────────────────┐ ┌────────────────┐  │
+│  │ Sched. │ │ Version  │ │ Template/Preset│ │ Profile Store  │  │
+│  │ (cron) │ │ Store    │ │ Manager        │ │ + Reports      │  │
+│  └────────┘ └──────────┘ └────────────────┘ └────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                           │ subprocess
+                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              75 Local Security Tools (system PATH)               │
+│  subfinder  httpx  nuclei  ffuf  katana  nmap  arjun  x8 ...    │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+In **desktop mode**, the Electron main process (`electron/main.cjs`) spawns the Python backend as a child process, polls `/api/health` until it's ready, then loads the Vite dev server (or the built `frontend/dist/index.html` in production). It also wires up native menus, the system tray, IPC handlers (`get-app-info`, `restart-backend`, `show-save-dialog`, `read-file`, `write-file`, ...), and persists window state to `userData/window-state.json`.
+
+In **web mode**, you skip Electron entirely — `concurrently` runs the backend and Vite, and you point a browser at `http://127.0.0.1:5173`.
 
 ### Execution Model
 - Workflows are validated as **Directed Acyclic Graphs (DAGs)**
@@ -293,13 +337,13 @@ Output Node (collects artifacts)
 ```
 mini-tricky/
 ├── electron/                    # Electron main process + preload
-│   ├── main.cjs
-│   └── preload.cjs
+│   ├── main.cjs                # Window/menus/tray/IPC/backend spawn
+│   └── preload.cjs             # Secure contextBridge → window.miniTricky
 ├── backend/
 │   ├── src/
 │   │   └── main.py             # FastAPI app (all endpoints + execution engine)
-│   ├── tools.yaml              # 38 tool definitions with command templates
-│   ├── templates.yaml          # 8 built-in workflow templates
+│   ├── tools.yaml              # 75 tool definitions across 21 categories
+│   ├── templates.yaml          # Built-in workflow templates
 │   └── requirements.txt        # Python dependencies
 ├── frontend/
 │   ├── src/
@@ -329,12 +373,22 @@ mini-tricky/
 │   ├── vite.config.ts
 │   └── tsconfig.json
 ├── docs/images/                 # UI mockups and diagrams
-└── package.json                 # Root package (Electron)
+└── package.json                 # Root package (Electron + electron-builder)
 ```
 
 ---
 
 ## API Reference
+
+### System
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Backend health check (used by Electron auto-spawn) |
+| `GET` | `/api/profiles` | List environment profiles (per target scope) |
+| `POST` | `/api/profiles` | Create / update an environment profile |
+| `POST` | `/api/generate` | AI-assisted workflow generation from a goal description |
+| `POST` | `/api/normalize` | Normalize raw tool output into a unified findings schema |
+| `GET` | `/api/runs/{id}/report` | Render Markdown / JSON report from a completed run |
 
 ### Workflows
 | Method | Endpoint | Description |
@@ -420,17 +474,27 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 
 ### Completed
 - [x] Visual DAG workflow editor with drag-and-drop
-- [x] 38 security tools across 9 categories
+- [x] **75 security tools across 21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, etc.)
+- [x] **Trickest-style argument toggle switches** (flag / string / int / float per CLI option)
+- [x] **Color-coded typed sockets** (domain, targets, findings, params, urls, ...)
+- [x] **Full Electron desktop app** with native menus, system tray, keyboard shortcuts, and persisted window state
+- [x] **Embedded backend auto-spawn** in Electron with health-check polling
+- [x] **Web GUI mode** (`npm run web`) as a no-Electron alternative
+- [x] **Cross-platform installers** via electron-builder (`.dmg`, `.zip`, `.exe`, `.nsis`, `.AppImage`, `.deb`)
 - [x] WebSocket streaming execution with live node states
-- [x] Trickest-style node arguments panel
+- [x] Trickest-style node arguments panel / inspector
 - [x] Conditional branching (if/else nodes)
-- [x] Loop/iterator nodes
+- [x] Loop/iterator nodes (per-line, per-chunk)
 - [x] Composable sub-workflow modules
 - [x] Custom script nodes (Bash/Python)
-- [x] 8 built-in workflow templates
-- [x] Cron scheduling
+- [x] Built-in workflow templates
+- [x] Cron scheduling (APScheduler)
 - [x] Workflow versioning with restore
 - [x] Parameter presets
+- [x] Environment profiles (per target scope)
+- [x] Result normalization across tools
+- [x] AI-assisted workflow generation (`/api/generate`)
+- [x] Report export from run artifacts (`/api/runs/{id}/report`)
 - [x] Toast + browser notifications
 - [x] Animated directional edges
 - [x] Category-colored minimap
@@ -439,12 +503,12 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 - [x] Import/export workflows as JSON
 
 ### Planned
-- [ ] Per-tool install/bootstrap manager (check if tools are in PATH)
-- [ ] Environment profiles (different tool configs per target scope)
-- [ ] Richer result normalization across tools
-- [ ] AI-assisted workflow generation
-- [ ] Report export (Markdown/PDF) from run artifacts
-- [ ] Dark/light theme toggle
+- [ ] Per-tool install/bootstrap manager (auto-check `PATH` and offer install commands)
+- [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux
+- [ ] Auto-update channel via electron-updater
+- [ ] Dark/light theme toggle (currently dark-only)
+- [ ] Distributed worker support for very large scans
+- [ ] Per-run resource limits (CPU/RAM/network rate)
 
 ---
 
