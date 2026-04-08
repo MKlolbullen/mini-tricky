@@ -80,6 +80,8 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
                 type="target"
                 position={Position.Left}
                 id={`in:${input}`}
+                isConnectableStart={false}
+                isConnectableEnd={true}
                 style={{ background: socketColor(input), borderColor: socketColor(input) }}
               />
               <span className="socket-label">
@@ -104,6 +106,8 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
                 type="source"
                 position={Position.Right}
                 id={`out:${output}`}
+                isConnectableStart={true}
+                isConnectableEnd={false}
                 style={{ background: socketColor(output), borderColor: socketColor(output) }}
               />
             </div>

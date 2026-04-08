@@ -316,7 +316,28 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const onConnect = useCallback((params: Connection) => {
     const { source, target, sourceHandle, targetHandle } = params;
     if (!source || !target || !sourceHandle || !targetHandle) return;
-    if (!sourceHandle.startsWith('out:') || !targetHandle.startsWith('in:')) return;
+    if (source === target) {
+      setConsoleLines([`[-] Cannot connect a node to itself.`]);
+      return;
+    }
+    // Direction guards: prevent input->input and output->output wiring.
+    // Source handle MUST be an output (id prefix `out:`); target MUST be
+    // an input (id prefix `in:`). Anything else is a user error we reject
+    // with an explicit console message.
+    const sourceIsOutput = sourceHandle.startsWith('out:');
+    const targetIsInput = targetHandle.startsWith('in:');
+    if (!sourceIsOutput && !targetIsInput) {
+      setConsoleLines([`[-] Cannot connect input to input.`]);
+      return;
+    }
+    if (!sourceIsOutput) {
+      setConsoleLines([`[-] Cannot drag from an input socket. Start from an output (right side).`]);
+      return;
+    }
+    if (!targetIsInput) {
+      setConsoleLines([`[-] Cannot connect output to output.`]);
+      return;
+    }
     const sourceType = sourceHandle.slice(4);
     const targetType = targetHandle.slice(3);
     if (targetType !== 'any' && sourceType !== targetType) {

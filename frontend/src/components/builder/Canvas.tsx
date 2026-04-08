@@ -12,6 +12,25 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, color: '#5bdcff', width: 16, height: 16 },
 };
 
+// Live drag-time guard: React Flow calls this as the user drags an edge and
+// refuses to draw the preview line when this returns false. It's the first
+// line of defence against input->input and output->output connections.
+function isValidConnection(connection: Connection | Edge): boolean {
+  const { source, target, sourceHandle, targetHandle } = connection as Connection;
+  if (!source || !target || !sourceHandle || !targetHandle) return false;
+  // No self-loops.
+  if (source === target) return false;
+  // Source handle must be an output (id prefix `out:`).
+  if (!sourceHandle.startsWith('out:')) return false;
+  // Target handle must be an input (id prefix `in:`).
+  if (!targetHandle.startsWith('in:')) return false;
+  const sourceType = sourceHandle.slice(4);
+  const targetType = targetHandle.slice(3);
+  // Type check: `any` accepts everything, otherwise names must match.
+  if (targetType !== 'any' && sourceType !== targetType) return false;
+  return true;
+}
+
 function minimapNodeColor(node: Node<WorkflowNodePayload>): string {
   const payload = node.data as WorkflowNodePayload;
   if (payload.kind === 'variable') return '#43d9ad';
@@ -67,6 +86,7 @@ export default function Canvas({ nodes, edges, onNodesChange, onEdgesChange, onC
         onEdgesChange={onEdgesChange}
         onNodeClick={(_, node) => onNodeClick(node.id)}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         onDragOver={onDragOver}
         onDrop={onDrop}
         fitView
