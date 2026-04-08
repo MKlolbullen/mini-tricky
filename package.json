@@ -25,6 +25,10 @@
   "build": {
     "appId": "com.minitricky.app",
     "productName": "mini-tricky",
+    "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
+    "extraMetadata": {
+      "version": "0.2.0-beta"
+    },
     "directories": {
       "output": "dist-electron"
     },
@@ -39,23 +43,21 @@
       {
         "from": "backend",
         "to": "backend",
-        "filter": ["**/*", "!.venv/**", "!__pycache__/**", "!*.pyc"]
+        "filter": ["**/*", "!.venv/**", "!src/__pycache__/**"]
       }
     ],
     "mac": {
       "target": ["dmg", "zip"],
-      "icon": "docs/images/icon.icns",
       "category": "public.app-category.developer-tools",
       "darkModeSupport": true
     },
     "win": {
-      "target": ["nsis", "portable"],
-      "icon": "docs/images/icon.ico"
+      "target": ["nsis", "portable"]
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "docs/images/icon.png",
-      "category": "Development"
+      "category": "Development",
+      "artifactName": "${name}-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

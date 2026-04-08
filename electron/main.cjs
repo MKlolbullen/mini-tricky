@@ -43,6 +43,20 @@ function saveWindowState() {
 }
 
 // ── Backend Process Management ───────────────────────────────────
+function getBundledPython() {
+  // In packaged mode, prefer the Python runtime bundled by the release
+  // workflow into backend/runtime/python/ via python-build-standalone.
+  const runtime = path.join(process.resourcesPath, 'backend', 'runtime', 'python');
+  const exe = process.platform === 'win32'
+    ? path.join(runtime, 'python.exe')
+    : path.join(runtime, 'bin', 'python3');
+  try {
+    return fs.existsSync(exe) ? exe : null;
+  } catch {
+    return null;
+  }
+}
+
 function startBackend() {
   if (backendProcess) return;
 
@@ -50,7 +64,10 @@ function startBackend() {
     ? path.join(__dirname, '..', 'backend')
     : path.join(process.resourcesPath, 'backend');
 
-  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+  const systemPython = process.platform === 'win32' ? 'python' : 'python3';
+  const pythonCmd = IS_DEV
+    ? systemPython
+    : (getBundledPython() || systemPython);
 
   backendProcess = spawn(pythonCmd, [
     '-m', 'uvicorn', 'src.main:app',

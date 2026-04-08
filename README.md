@@ -38,6 +38,22 @@
 
 ---
 
+## Download
+
+Pre-built beta installers are published on the [**Releases page**](https://github.com/MKlolbullen/mini-tricky/releases):
+
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `mini-tricky-0.2.0-beta-mac-arm64.dmg` |
+| Windows (x64) | `mini-tricky-0.2.0-beta-win-x64.exe` (NSIS installer) |
+| Linux (x64) | `mini-tricky-0.2.0-beta.AppImage` / `mini-tricky-0.2.0-beta.deb` |
+
+Installers **bundle a self-contained Python runtime** — no separate Python installation required. You still need the security tools themselves (`subfinder`, `nuclei`, `ffuf`, etc.) on your system `PATH`; mini-tricky ships the orchestration layer, not the tools.
+
+> **Beta builds are unsigned.** On macOS right-click the `.app` → **Open** on first launch. On Windows click **More info** → **Run anyway** when SmartScreen warns. On Linux: `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage`.
+
+---
+
 ## What is mini-tricky?
 
 **mini-tricky** is a local-first desktop application (with optional web GUI mode) that replicates the Trickest workflow builder experience for offensive security automation. Build visual DAG workflows by dragging tools onto a canvas, connect them with typed sockets, and execute entire recon/scanning pipelines with real-time streaming output.

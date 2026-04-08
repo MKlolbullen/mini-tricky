@@ -1,0 +1,186 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to release (e.g. v0.2.0-beta)'
+        required: true
+        default: 'v0.2.0-beta'
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_PBS_DATE: '20241016'
+  PYTHON_PBS_VERSION: '3.12.7'
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: mac
+            python_arch: aarch64-apple-darwin
+            build_script: desktop:build:mac
+          - os: windows-latest
+            name: win
+            python_arch: x86_64-pc-windows-msvc
+            build_script: desktop:build:win
+          - os: ubuntu-latest
+            name: linux
+            python_arch: x86_64-unknown-linux-gnu
+            build_script: desktop:build:linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm run frontend:install
+
+      - name: Build frontend
+        run: npm run frontend:build
+
+      - name: Download bundled Python (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p backend/runtime
+          URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_PBS_DATE}/cpython-${PYTHON_PBS_VERSION}+${PYTHON_PBS_DATE}-${{ matrix.python_arch }}-install_only.tar.gz"
+          echo "Fetching $URL"
+          curl -fsSL "$URL" -o /tmp/python.tar.gz
+          tar -xzf /tmp/python.tar.gz -C backend/runtime
+          rm /tmp/python.tar.gz
+          ls backend/runtime/python
+          backend/runtime/python/bin/python3 --version
+          backend/runtime/python/bin/python3 -m pip install --no-cache-dir --upgrade pip
+          backend/runtime/python/bin/python3 -m pip install --no-cache-dir -r backend/requirements.txt
+
+      - name: Download bundled Python (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path backend/runtime | Out-Null
+          $url = "https://github.com/astral-sh/python-build-standalone/releases/download/$env:PYTHON_PBS_DATE/cpython-$env:PYTHON_PBS_VERSION+$env:PYTHON_PBS_DATE-${{ matrix.python_arch }}-install_only.tar.gz"
+          Write-Host "Fetching $url"
+          Invoke-WebRequest -Uri $url -OutFile python.tar.gz
+          tar -xzf python.tar.gz -C backend/runtime
+          Remove-Item python.tar.gz
+          backend/runtime/python/python.exe --version
+          backend/runtime/python/python.exe -m pip install --no-cache-dir --upgrade pip
+          backend/runtime/python/python.exe -m pip install --no-cache-dir -r backend/requirements.txt
+
+      - name: Package desktop app
+        run: npm run ${{ matrix.build_script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          WIN_CSC_LINK: ''
+          CSC_LINK: ''
+
+      - name: List build output
+        shell: bash
+        run: ls -lh dist-electron || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-dist
+          if-no-files-found: error
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.zip
+            dist-electron/*.exe
+            dist-electron/*.AppImage
+            dist-electron/*.deb
+            dist-electron/*.blockmap
+            dist-electron/latest*.yml
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: '*-dist'
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: ls -lh artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: mini-tricky ${{ github.ref_name }}
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            ## mini-tricky ${{ github.ref_name }}
+
+            First public beta of **mini-tricky** — a local-first Trickest-style workflow builder for bug bounty / offensive security automation.
+
+            ### What's in the box
+            - **75 security tools** across **21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, ...)
+            - Full **Electron desktop app** with native menus, system tray, keyboard shortcuts, and persisted window state
+            - **Bundled Python runtime** — no Python installation required
+            - Visual React Flow DAG editor with typed, color-coded sockets
+            - Trickest-style argument toggle switches per tool
+            - Real-time WebSocket execution with live node states
+            - Conditional branching, loop nodes, sub-workflow modules, custom script nodes
+
+            ### Downloads
+
+            | Platform | File |
+            |----------|------|
+            | macOS (Apple Silicon) | `mini-tricky-<version>-arm64.dmg` |
+            | Windows (x64) | `mini-tricky-<version>-x64.exe` (NSIS installer) |
+            | Linux (x64) | `mini-tricky-<version>.AppImage` / `.deb` |
+
+            ### Prerequisites
+            You still need the **security tools themselves** (subfinder, nuclei, ffuf, etc.) installed on your system `PATH`. mini-tricky ships the orchestration layer, not the tools.
+
+            ### Important: Unsigned Beta
+            These installers are **not code-signed**. You will see OS warnings on first launch:
+
+            - **macOS**: right-click the `.app` → **Open** → confirm the dialog. After the first launch, normal double-click works.
+            - **Windows**: SmartScreen will prompt — click **More info** → **Run anyway**.
+            - **Linux**: no warning; `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage`.
+
+            ### Known Issues
+            - Default Electron icon is used (custom icons coming in a later beta)
+            - macOS x64 (Intel) build not yet shipped — only arm64
+
+            ### Feedback
+            Open an issue at https://github.com/MKlolbullen/mini-tricky/issues
+          files: |
+            artifacts/*.dmg
+            artifacts/*.zip
+            artifacts/*.exe
+            artifacts/*.AppImage
+            artifacts/*.deb
