@@ -17,7 +17,12 @@ permissions:
 env:
   PYTHON_PBS_DATE: '20241016'
   PYTHON_PBS_VERSION: '3.12.7'
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
+  # Silence the "Node.js 20 actions are deprecated" warning by opting every
+  # JavaScript action (actions/checkout@v4, actions/setup-node@v4, etc.)
+  # into the Node 24 runtime now. Documented opt-in from
+  # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
@@ -47,12 +52,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Show runtime versions
+        shell: bash
+        run: |
+          echo "node: $(node --version)"
+          echo "npm:  $(npm --version)"
+          echo "ref:  ${{ github.event.inputs.tag || github.ref_name }}"
+          git log -1 --oneline || true
 
       - name: Install root dependencies
         run: npm ci
@@ -128,7 +143,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
