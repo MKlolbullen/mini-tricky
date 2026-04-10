@@ -20,15 +20,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from . import db
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
 TEMPLATES_FILE = BASE_DIR / 'templates.yaml'
 STATE_DIR = BASE_DIR / 'state'
+# Legacy JSON paths kept for the one-shot import only; the backend no longer
+# reads or writes these files after startup (see src/db.py).
 WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
 VERSIONS_DIR = STATE_DIR / 'versions'
 RUNS_FILE = STATE_DIR / 'runs.json'
 USER_TEMPLATES_FILE = STATE_DIR / 'user_templates.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
+
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+db.init_db(STATE_DIR)
 
 TEXT_SUFFIXES = {
     '.txt', '.log', '.md', '.csv', '.xml', '.yaml', '.yml',
@@ -244,18 +251,15 @@ def validate_graph(graph: WorkflowGraph) -> dict[str, Any]:
 
 
 def workflow_records() -> list[dict[str, Any]]:
-    return read_json(WORKFLOWS_FILE)
+    return db.list_workflows()
 
 
 def run_records() -> list[dict[str, Any]]:
-    return read_json(RUNS_FILE)
+    return db.list_runs()
 
 
 def persist_run_record(updated_run: dict[str, Any]) -> None:
-    runs = run_records()
-    runs = [run for run in runs if run.get('id') != updated_run.get('id')]
-    runs.insert(0, updated_run)
-    write_json(RUNS_FILE, runs)
+    db.upsert_run(updated_run)
 
 
 def truncate_text(value: str, limit: int = 6000) -> str:
@@ -1085,7 +1089,6 @@ def _list_versions(workflow_id: str) -> list[dict[str, Any]]:
 
 @app.post('/api/workflows')
 def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
-    records = workflow_records()
     workflow_id = payload.id or f'wf-{uuid4().hex[:10]}'
     item = {
         'id': workflow_id,
@@ -1097,9 +1100,7 @@ def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
     version = _save_version(workflow_id, item)
     item['version'] = version
 
-    records = [record for record in records if record['id'] != workflow_id]
-    records.insert(0, item)
-    write_json(WORKFLOWS_FILE, records)
+    db.upsert_workflow(item)
     return item
 
 
@@ -1356,12 +1357,9 @@ def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
 
 @app.delete('/api/runs/{run_id}')
 def delete_run(run_id: str) -> dict[str, Any]:
-    runs = run_records()
-    before = len(runs)
-    runs = [r for r in runs if r.get('id') != run_id]
-    if len(runs) == before:
+    if db.get_run(run_id) is None:
         return {'ok': False, 'error': f'Run {run_id} not found'}
-    write_json(RUNS_FILE, runs)
+    db.delete_run(run_id)
     run_dir = ARTIFACTS_DIR / run_id
     if run_dir.exists():
         import shutil
@@ -1399,14 +1397,7 @@ def load_builtin_templates() -> list[dict[str, Any]]:
 
 
 def load_user_templates() -> list[dict[str, Any]]:
-    ensure_state()
-    if not USER_TEMPLATES_FILE.exists():
-        USER_TEMPLATES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(USER_TEMPLATES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_user_templates()
 
 
 @app.get('/api/templates')
@@ -1424,7 +1415,6 @@ def get_template(template_id: str) -> dict[str, Any]:
 
 @app.post('/api/templates')
 def save_template(payload: TemplatePayload) -> dict[str, Any]:
-    ensure_state()
     templates = load_user_templates()
     template_id = f'tpl-{uuid4().hex[:10]}'
     item = {
@@ -1438,7 +1428,7 @@ def save_template(payload: TemplatePayload) -> dict[str, Any]:
         'created_at': datetime.now(timezone.utc).isoformat(),
     }
     templates.insert(0, item)
-    USER_TEMPLATES_FILE.write_text(json.dumps(templates, indent=2))
+    db.save_user_templates(templates)
     return item
 
 
@@ -1638,19 +1628,11 @@ class SchedulePayload(BaseModel):
 
 
 def load_schedules() -> list[dict[str, Any]]:
-    ensure_state()
-    if not SCHEDULES_FILE.exists():
-        SCHEDULES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(SCHEDULES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_schedules()
 
 
 def save_schedules(schedules: list[dict[str, Any]]) -> None:
-    ensure_state()
-    SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
+    db.save_schedules(schedules)
 
 
 def execute_scheduled_run(schedule: dict[str, Any]) -> None:
@@ -1762,19 +1744,11 @@ class PresetPayload(BaseModel):
 
 
 def load_presets() -> list[dict[str, Any]]:
-    ensure_state()
-    if not PRESETS_FILE.exists():
-        PRESETS_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(PRESETS_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_presets()
 
 
 def save_presets(presets: list[dict[str, Any]]) -> None:
-    ensure_state()
-    PRESETS_FILE.write_text(json.dumps(presets, indent=2))
+    db.save_presets(presets)
 
 
 @app.get('/api/presets')
@@ -2103,19 +2077,11 @@ class ProfilePayload(BaseModel):
 
 
 def load_profiles() -> list[dict[str, Any]]:
-    ensure_state()
-    if not PROFILES_FILE.exists():
-        PROFILES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(PROFILES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_profiles()
 
 
 def save_profiles(profiles: list[dict[str, Any]]) -> None:
-    ensure_state()
-    PROFILES_FILE.write_text(json.dumps(profiles, indent=2))
+    db.save_profiles(profiles)
 
 
 @app.get('/api/profiles')
