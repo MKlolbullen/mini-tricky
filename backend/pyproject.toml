@@ -1,0 +1,47 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [
+    "state",
+    "runtime",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+# A pragmatic set — catches real bugs without going crusade-mode on the
+# existing codebase. Expand when the tests are green.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "E701",  # multiple statements on one line — used deliberately for terse config blocks
+    "E741",  # ambiguous variable name `l`/`I`/`O` — the existing code uses `l` for lines
+    "B007",  # unused loop variable — harmless in for/else and retry loops
+    "B008",  # FastAPI uses function-call defaults (Depends, Query, etc.)
+    "B904",  # raise from chain — not always desirable for simple re-raises
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F401", "F811"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_configs = true
+# Permissive: this is a retrofitted project, not a greenfield one.
+check_untyped_defs = false
+disallow_untyped_defs = false
+no_implicit_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

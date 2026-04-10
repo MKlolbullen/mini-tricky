@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -71,7 +71,7 @@ def replay_node(run_id: str, node_id: str) -> dict:
         'id': replay_id,
         'run_id': run_id,
         'node_id': node_id,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
         'used_cached_upstream_from': parent_ids,
         'result': result,
     }

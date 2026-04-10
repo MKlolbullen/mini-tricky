@@ -15,7 +15,8 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
 // Live drag-time guard: React Flow calls this as the user drags an edge and
 // refuses to draw the preview line when this returns false. It's the first
 // line of defence against input->input and output->output connections.
-function isValidConnection(connection: Connection | Edge): boolean {
+// Exported for unit testing.
+export function isValidConnection(connection: Connection | Edge): boolean {
   const { source, target, sourceHandle, targetHandle } = connection as Connection;
   if (!source || !target || !sourceHandle || !targetHandle) return false;
   // No self-loops.
@@ -80,7 +81,7 @@ function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, on
   }, [screenToFlowPosition, onDropNode]);
 
   return (
-    <main className="canvas-wrap">
+    <main className="canvas-wrap" data-testid="canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}
