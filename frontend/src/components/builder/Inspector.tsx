@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Editor from '@monaco-editor/react';
 import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
@@ -446,14 +447,25 @@ export default function Inspector({
                       <span className="arg-field-name">Script Body</span>
                       <span className="arg-field-type">{selectedNode.data.scriptLanguage || 'bash'}</span>
                     </div>
-                    <textarea
-                      className="arg-field-input script-editor"
-                      value={selectedNode.data.scriptBody || ''}
-                      placeholder={selectedNode.data.scriptLanguage === 'python' ? '# Python script...' : '#!/bin/bash\n# Script...'}
-                      onChange={(e) => onUpdateNodeData(selectedNode.id, { scriptBody: e.target.value })}
-                      spellCheck={false}
-                      rows={10}
-                    />
+                    <div className="script-editor-monaco" style={{ border: '1px solid #1a2744', borderRadius: 4, overflow: 'hidden' }}>
+                      <Editor
+                        height="240px"
+                        theme="vs-dark"
+                        language={selectedNode.data.scriptLanguage === 'python' ? 'python' : 'shell'}
+                        value={selectedNode.data.scriptBody || ''}
+                        onChange={(val) => onUpdateNodeData(selectedNode.id, { scriptBody: val || '' })}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 12,
+                          tabSize: 2,
+                          scrollBeyondLastLine: false,
+                          lineNumbers: 'on',
+                          renderLineHighlight: 'line',
+                          automaticLayout: true,
+                          wordWrap: 'on',
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}

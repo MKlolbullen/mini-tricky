@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { addEdge, useEdgesState, useNodesState, type Connection, type Edge, type Node } from '@xyflow/react';
+import { addEdge, applyEdgeChanges, applyNodeChanges, useEdgesState, useNodesState, type Connection, type Edge, type EdgeChange, type Node, type NodeChange } from '@xyflow/react';
 import type { Tool, WorkflowNodePayload, WorkflowRecord, RunRecord, ArtifactItem, ArtifactPreview, ReplayResponse, FlowNode, TemplateRecord, WsEvent } from '../../types';
 import * as api from '../../api';
 import Toolbar from './Toolbar';
@@ -8,6 +8,8 @@ import Canvas from './Canvas';
 import Inspector from './Inspector';
 import Console from './Console';
 import Notifications, { type Notification } from './Notifications';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useHistory } from './hooks/useHistory';
 
 type Props = {
   tools: Tool[];
@@ -108,8 +110,36 @@ function applyRunState(nodes: FlowNode[], nodeStates: Record<string, string>): F
 }
 
 export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows, pendingTemplate, onTemplateClaimed }: Props) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes] = useNodesState(initialNodes);
+  const [edges, setEdges] = useEdgesState(initialEdges);
+  const history = useHistory({ nodes: initialNodes, edges: initialEdges });
+
+  // Intercept changes to push a history snapshot on structural events
+  // (add/remove/replace) and on the final commit of a drag (position with
+  // `dragging: false`). Per-frame drag noise only updates the live snapshot
+  // so undo rolls back an entire drag, not each pixel.
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const structural = changes.some((c) =>
+      c.type === 'add' || c.type === 'remove' || c.type === 'replace' ||
+      (c.type === 'position' && (c as { dragging?: boolean }).dragging === false)
+    );
+    setNodes((cur) => {
+      const next = applyNodeChanges(changes, cur) as Node<WorkflowNodePayload>[];
+      if (structural) history.push({ nodes: next, edges });
+      else history.replaceCurrent({ nodes: next, edges });
+      return next;
+    });
+  }, [edges, history, setNodes]);
+
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    const structural = changes.some((c) => c.type === 'add' || c.type === 'remove' || c.type === 'replace');
+    setEdges((cur) => {
+      const next = applyEdgeChanges(changes, cur);
+      if (structural) history.push({ nodes, edges: next });
+      else history.replaceCurrent({ nodes, edges: next });
+      return next;
+    });
+  }, [history, nodes, setEdges]);
   const [workflowName, setWorkflowName] = useState('Starter Recon Chain');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [consoleTab, setConsoleTab] = useState<'stdout' | 'stderr' | 'stdin' | 'artifacts'>('stdout');
@@ -125,14 +155,14 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  function addNotification(type: Notification['type'], title: string, message: string) {
+  const addNotification = useCallback((type: Notification['type'], title: string, message: string) => {
     const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setNotifications((cur) => [...cur, { id, type, title, message, timestamp: Date.now() }]);
     // Also trigger browser notification if available
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body: message, icon: type === 'success' ? undefined : undefined });
     }
-  }
+  }, []);
 
   function dismissNotification(id: string) {
     setNotifications((cur) => cur.filter((n) => n.id !== id));
@@ -317,42 +347,105 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     const { source, target, sourceHandle, targetHandle } = params;
     if (!source || !target || !sourceHandle || !targetHandle) return;
     if (source === target) {
-      setConsoleLines([`[-] Cannot connect a node to itself.`]);
+      addNotification('warning', 'Invalid connection', 'Cannot connect a node to itself.');
       return;
     }
     // Direction guards: prevent input->input and output->output wiring.
     // Source handle MUST be an output (id prefix `out:`); target MUST be
     // an input (id prefix `in:`). Anything else is a user error we reject
-    // with an explicit console message.
+    // with an explicit toast so the user sees immediate feedback.
     const sourceIsOutput = sourceHandle.startsWith('out:');
     const targetIsInput = targetHandle.startsWith('in:');
     if (!sourceIsOutput && !targetIsInput) {
-      setConsoleLines([`[-] Cannot connect input to input.`]);
+      addNotification('warning', 'Invalid connection', 'Cannot connect input to input.');
       return;
     }
     if (!sourceIsOutput) {
-      setConsoleLines([`[-] Cannot drag from an input socket. Start from an output (right side).`]);
+      addNotification('warning', 'Invalid connection', 'Cannot drag from an input socket. Start from an output (right side).');
       return;
     }
     if (!targetIsInput) {
-      setConsoleLines([`[-] Cannot connect output to output.`]);
+      addNotification('warning', 'Invalid connection', 'Cannot connect output to output.');
       return;
     }
     const sourceType = sourceHandle.slice(4);
     const targetType = targetHandle.slice(3);
     if (targetType !== 'any' && sourceType !== targetType) {
-      setConsoleLines([`[-] Socket type mismatch: ${sourceType} -> ${targetType}`]);
+      addNotification('warning', 'Socket type mismatch', `${sourceType} → ${targetType}`);
       return;
     }
     setEdges((cur) => {
       if (cur.some((e) => e.target === target && e.targetHandle === targetHandle)) {
-        setConsoleLines([`[-] Target socket ${targetHandle} is already occupied.`]);
+        addNotification('warning', 'Target occupied', `${targetHandle} already has a connection.`);
         return cur;
       }
-      return addEdge({ ...params, id: `edge-${cur.length + 1}` }, cur);
+      const next = addEdge({ ...params, id: `edge-${cur.length + 1}` }, cur);
+      history.push({ nodes, edges: next });
+      return next;
     });
     setConsoleLines([`[+] Connected ${sourceHandle} -> ${targetHandle}`]);
-  }, [setEdges]);
+  }, [addNotification, history, nodes, setEdges]);
+
+  // ── Undo / redo / delete / duplicate ─────────────────────
+
+  const handleUndo = useCallback(() => {
+    const snap = history.undo();
+    if (!snap) return;
+    setNodes(snap.nodes as Node<WorkflowNodePayload>[]);
+    setEdges(snap.edges);
+    setConsoleLines(['[+] Undo']);
+  }, [history, setEdges, setNodes]);
+
+  const handleRedo = useCallback(() => {
+    const snap = history.redo();
+    if (!snap) return;
+    setNodes(snap.nodes as Node<WorkflowNodePayload>[]);
+    setEdges(snap.edges);
+    setConsoleLines(['[+] Redo']);
+  }, [history, setEdges, setNodes]);
+
+  const handleDeleteSelected = useCallback(() => {
+    let removed = 0;
+    setNodes((cur) => {
+      const kept = cur.filter((n) => !n.selected);
+      removed += cur.length - kept.length;
+      if (kept.length !== cur.length) history.push({ nodes: kept, edges });
+      return kept;
+    });
+    setEdges((cur) => {
+      const kept = cur.filter((e) => !e.selected);
+      const nodeIds = new Set((nodes.filter((n) => n.selected)).map((n) => n.id));
+      const survivors = kept.filter((e) => !nodeIds.has(e.source) && !nodeIds.has(e.target));
+      if (survivors.length !== cur.length) history.push({ nodes, edges: survivors });
+      return survivors;
+    });
+    if (removed > 0) setConsoleLines([`[+] Deleted ${removed} node(s).`]);
+  }, [edges, history, nodes, setEdges, setNodes]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    const selected = nodes.filter((n) => n.selected);
+    if (selected.length === 0) return;
+    const newNodes: Node<WorkflowNodePayload>[] = selected.map((n) => {
+      counterRef.current += 1;
+      return {
+        ...n,
+        id: `${n.id}-copy-${counterRef.current}`,
+        position: { x: n.position.x + 40, y: n.position.y + 40 },
+        selected: false,
+        data: { ...n.data, runState: undefined },
+      };
+    });
+    setNodes((cur) => {
+      const next = [...cur.map((n) => ({ ...n, selected: false })), ...newNodes];
+      history.push({ nodes: next, edges });
+      return next;
+    });
+    setConsoleLines([`[+] Duplicated ${newNodes.length} node(s).`]);
+  }, [edges, history, nodes, setNodes]);
+
+  const handleSelectAll = useCallback(() => {
+    setNodes((cur) => cur.map((n) => ({ ...n, selected: true })));
+  }, [setNodes]);
 
   // ── WebSocket streaming run ───────────────────────────────
 
@@ -534,6 +627,19 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     };
     input.click();
   }
+
+  // Wire global keyboard shortcuts. Must be declared after every handler
+  // it references so the closures see the latest functions.
+  useKeyboardShortcuts({
+    onSave: handleSave,
+    onRun: handleRun,
+    onExport: handleExport,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onDelete: handleDeleteSelected,
+    onDuplicate: handleDuplicateSelected,
+    onSelectAll: handleSelectAll,
+  });
 
   return (
     <>

@@ -75,7 +75,12 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
       {payload.inputs.length > 0 && (
         <div className="socket-list left">
           {payload.inputs.map((input, index) => (
-            <div key={input} className="socket-row left" style={{ top: 52 + index * 28 }}>
+            <div
+              key={input}
+              className="socket-row left"
+              style={{ top: 52 + index * 28 }}
+              title={`Input socket — type: ${input}${input === 'any' ? ' (accepts any output)' : ` (accepts: ${input}, any)`}`}
+            >
               <Handle
                 type="target"
                 position={Position.Left}
@@ -97,7 +102,12 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
       {payload.outputs.length > 0 && (
         <div className="socket-list right">
           {payload.outputs.map((output, index) => (
-            <div key={output} className="socket-row right" style={{ top: 52 + index * 28 }}>
+            <div
+              key={output}
+              className="socket-row right"
+              style={{ top: 52 + index * 28 }}
+              title={`Output socket — type: ${output} (connects to: ${output} or any inputs)`}
+            >
               <span className="socket-label">
                 {output}
                 <span className="socket-dot" style={{ background: socketColor(output) }} />
