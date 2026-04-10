@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, llm
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
@@ -1793,13 +1793,80 @@ class GeneratePayload(BaseModel):
     scope: str = ''
 
 
+def _collect_env_vars_from_profiles() -> dict[str, str]:
+    """Merge ``env_vars`` from every stored profile into a single dict.
+
+    Profiles earlier in the list win on conflict (matches the UI's
+    "active profile first" ordering). Used to source ``ANTHROPIC_API_KEY``
+    for the LLM-backed generator when the env var is not set.
+    """
+    merged: dict[str, str] = {}
+    try:
+        profiles = load_profiles()
+    except Exception:
+        return merged
+    for p in profiles:
+        env = p.get('env_vars') or {}
+        if not isinstance(env, dict):
+            continue
+        for k, v in env.items():
+            if k not in merged and isinstance(v, str) and v:
+                merged[k] = v
+    return merged
+
+
 @app.post('/api/generate')
 def generate_workflow(payload: GeneratePayload) -> dict[str, Any]:
-    """Generate a workflow from a natural language description."""
+    """Generate a workflow from a natural language description.
+
+    Tries the Anthropic-backed generator first (see ``llm.py``). If the SDK
+    or API key is missing, or Claude returns an invalid workflow after a
+    retry, falls back to the legacy keyword-matcher implementation. The
+    response includes a ``source`` field of ``'claude'`` or ``'fallback'``
+    so the UI can show which path produced the graph.
+    """
+    tools = load_tools()
+
+    # Try LLM first.
+    try:
+        env_vars = _collect_env_vars_from_profiles()
+        llm_result = llm.generate_workflow_via_claude(
+            payload.prompt, payload.scope.strip(), tools, env_vars
+        )
+        # Validate through the same pydantic schema used by the save endpoint.
+        try:
+            WorkflowGraph(**llm_result['graph'])
+        except Exception as e:  # noqa: BLE001
+            raise llm.LLMGenerationError(f'schema validation failed: {e}')
+        return {
+            'ok': True,
+            'name': llm_result['name'],
+            'graph': llm_result['graph'],
+            'description': llm_result['description'],
+            'source': 'claude',
+        }
+    except llm.LLMNotAvailable as e:
+        fallback_reason = f'llm unavailable: {e}'
+    except llm.LLMGenerationError as e:
+        fallback_reason = f'llm generation failed: {e}'
+    except Exception as e:  # noqa: BLE001
+        fallback_reason = f'llm error: {e}'
+
+    result = _generate_workflow_via_keywords(payload, tools)
+    result['source'] = 'fallback'
+    result['fallback_reason'] = fallback_reason
+    return result
+
+
+def _generate_workflow_via_keywords(payload: GeneratePayload, tools: list[Tool]) -> dict[str, Any]:
+    """Legacy keyword-based workflow generator (fallback path).
+
+    Retained for offline operation and as a hard fallback when the LLM path
+    fails. Identical behaviour to the pre-LLM implementation.
+    """
     prompt = payload.prompt.lower()
     scope = payload.scope.strip()
 
-    tools = load_tools()
     tools_by_id = {t.id: t for t in tools}
 
     # Pattern matching for workflow generation
