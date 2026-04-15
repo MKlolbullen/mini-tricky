@@ -7,7 +7,7 @@
 <p align="center">
   <strong>A locally hosted Trickest clone for security workflow automation.</strong>
   <br />
-  Visual DAG editor &middot; 75 security tools &middot; 21 categories &middot; Real-time execution &middot; Zero cloud dependency
+  Visual DAG editor &middot; 75 security tools &middot; 21 categories &middot; 20 ready-to-run templates &middot; Real-time execution &middot; Zero cloud dependency
 </p>
 
 <p align="center">
@@ -15,18 +15,19 @@
   <img src="https://img.shields.io/badge/frontend-React%20%2B%20React%20Flow-61DAFB?logo=react&logoColor=111827" alt="React" />
   <img src="https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/tools-75%20integrated-blueviolet" alt="75 Tools" />
-  <img src="https://img.shields.io/badge/categories-21-9f7aea" alt="21 Categories" />
+  <img src="https://img.shields.io/badge/templates-20%20built--in-ff66c4" alt="20 Templates" />
+  <img src="https://img.shields.io/badge/secrets-OS%20keychain-0ea5e9" alt="OS keychain secrets" />
   <img src="https://img.shields.io/badge/version-0.2.0--beta-orange" alt="v0.2.0-beta" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
 <p align="center">
+  <a href="#download">Download</a> &middot;
   <a href="#features">Features</a> &middot;
-  <a href="#screenshots">Screenshots</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#architecture">Architecture</a> &middot;
-  <a href="#tool-library">Tool Library</a> &middot;
-  <a href="#node-types">Node Types</a> &middot;
+  <a href="#api-reference">API</a> &middot;
+  <a href="#project-structure">Project Structure</a> &middot;
   <a href="#roadmap">Roadmap</a>
 </p>
 
@@ -44,13 +45,13 @@ Pre-built beta installers are published on the [**Releases page**](https://githu
 
 | Platform | File |
 |----------|------|
-| macOS (Apple Silicon) | `mini-tricky-0.2.0-beta-mac-arm64.dmg` |
+| macOS (Apple Silicon / Intel) | `mini-tricky-0.2.0-beta-mac-arm64.dmg` / `-x64.dmg` |
 | Windows (x64) | `mini-tricky-0.2.0-beta-win-x64.exe` (NSIS installer) |
 | Linux (x64) | `mini-tricky-0.2.0-beta.AppImage` / `mini-tricky-0.2.0-beta.deb` |
 
-Installers **bundle a self-contained Python runtime** — no separate Python installation required. You still need the security tools themselves (`subfinder`, `nuclei`, `ffuf`, etc.) on your system `PATH`; mini-tricky ships the orchestration layer, not the tools.
+Installers **bundle a self-contained Python runtime** — no separate Python installation required. You still need the security tools themselves (`subfinder`, `nuclei`, `ffuf`, etc.) on your system `PATH`; mini-tricky ships the orchestration layer, not the tools. Use [`scripts/install-tools.sh`](scripts/install-tools.sh) or the in-app **Settings → Tool Manager → Copy install script** button to bootstrap them in one command.
 
-> **Beta builds are unsigned.** On macOS right-click the `.app` → **Open** on first launch. On Windows click **More info** → **Run anyway** when SmartScreen warns. On Linux: `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage`.
+> **Beta builds are unsigned.** On macOS right-click the `.app` → **Open** on first launch. On Windows click **More info** → **Run anyway** when SmartScreen warns. On Linux: `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage` — or install the `.deb` with `sudo dpkg -i mini-tricky-*.deb && sudo apt -f install`.
 
 ---
 
@@ -124,8 +125,8 @@ Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` w
 ### Trickest-Style Argument Toggle Switches
 Each tool exposes its CLI flags as **typed argument toggles** in the right-hand inspector. Flip a `flag` switch on to include `-recursive`, set a `string` field for `-wordlist`, an `int` for `-threads`, a `float` for rate limits — the engine builds the final command from your toggles. Same UX as Trickest, fully local.
 
-### Workflow Templates
-8 built-in templates for common security workflows. Create and save your own custom templates.
+### 20 Built-In Workflow Templates
+20 ready-to-run Trickest-style templates grouped by attack surface — recon chains, vulnerability scans, fuzzing sweeps, cloud enumeration, secret hunting, takeover checks, API fuzzing, and more. Drag one into the canvas, set the domain variable, and hit **Run**. Save your own workflows as reusable templates with one click.
 
 <p align="center">
   <img src="docs/images/templates-view.svg" alt="Templates gallery" width="100%" />
@@ -161,6 +162,12 @@ Toast notifications slide in on run completion, errors, and saves. Browser Notif
 
 ### Parameter Presets
 Save frequently-used parameter configurations per tool. One-click apply from the arguments panel. Never re-type the same flags again.
+
+### Keychain-Backed Secrets
+API keys, tokens, and passwords in environment profiles are routed to the **OS keychain** — macOS Keychain, Windows Credential Manager, or Linux SecretService — via the Python [`keyring`](https://pypi.org/project/keyring/) library. The SQLite profile blob only stores a sentinel marker, and the `/api/profiles` endpoints mask sensitive fields as `••••••••` before they leave the backend. Headless hosts without a keyring backend transparently fall back to an `0600`-permissioned JSON file. See `backend/src/secrets_store.py` for the split-storage contract.
+
+### Tool Install Script
+Every binary referenced in `backend/tools.yaml` is covered by an idempotent installer script generated on the fly. Fetch it via `GET /api/tools/install-script`, copy it from **Settings → Tool Manager**, or just `bash scripts/install-tools.sh` at the repo root. Each tool is guarded by `command -v` so you can re-run safely to pick up new additions.
 
 ### Artifact Explorer
 Per-node artifact browsing with inline preview for text, JSON, HTML, and images. Download individual artifacts or open them in a new tab.
@@ -272,14 +279,33 @@ Then open `http://127.0.0.1:5173` in your browser. The backend at `127.0.0.1:500
 npm run desktop:build
 
 # Platform-specific
-npm run desktop:build:mac     # → dist-electron/*.dmg, *.zip
-npm run desktop:build:win     # → dist-electron/*.exe, *.nsis
-npm run desktop:build:linux   # → dist-electron/*.AppImage, *.deb
+npm run desktop:build:mac     # → dist-electron/*.dmg, *.zip          (macOS host)
+npm run desktop:build:win     # → dist-electron/*.exe, portable.exe   (Windows host or wine CI)
+npm run desktop:build:linux   # → dist-electron/*.AppImage, *.deb     (Linux host)
 ```
 
-The installer bundles the frontend `dist/` and the entire `backend/` directory as `extraResources`, so end users only need Python 3.10+ on their system — no manual install of the app's Python deps.
+Cross-compiling `.dmg` / `.exe` from Linux is possible but requires extra toolchains; the `.github/workflows/release.yml` runner handles all three targets on native runners. A fresh Linux build from a clean checkout produces:
 
-App icons live in `build/` (`icon.svg` is the hand-authored source of truth, `icon.png` is the 1024×1024 master electron-builder consumes for macOS/Linux, `icon.ico` is the Windows multi-res icon). If you tweak the SVG, regenerate the PNG + ICO + tray-icon.png with:
+```
+dist-electron/
+├── mini-tricky-0.2.0-beta.AppImage   (~100 MB, portable)
+├── mini-tricky-0.2.0-beta.deb        (~73 MB, dpkg installable)
+└── linux-unpacked/                   (runnable without install)
+    └── mini-tricky                   (launch directly to smoke-test)
+```
+
+The installer bundles the frontend `dist/` and the entire `backend/` directory as `extraResources`, so end users only need Python 3.10+ on their system — no manual install of the app's Python deps. The Debian package declares `libgtk-3-0`, `libnss3`, `libsecret-1-0`, and friends as `Depends`, so `apt` will pull them automatically.
+
+### 5. Regenerate the app icons (optional)
+
+App icons live in `build/`:
+- `icon.svg` — hand-authored 512×512 source of truth
+- `icon.png` — 1024×1024 master electron-builder consumes for macOS/Linux
+- `icon.ico` — Windows multi-resolution icon
+- `icon-{16,32,64,128,256,512}.png` — intermediate sizes
+- `electron/tray-icon.png` — 32×32 tray bitmap
+
+If you tweak the SVG, regenerate every variant with:
 
 ```bash
 pip install Pillow
@@ -379,44 +405,49 @@ Output Node (collects artifacts)
 
 ```
 mini-tricky/
-├── electron/                    # Electron main process + preload
-│   ├── main.cjs                # Window/menus/tray/IPC/backend spawn
-│   └── preload.cjs             # Secure contextBridge → window.miniTricky
+├── electron/                       # Electron main process + preload
+│   ├── main.cjs                    # Window/menus/tray/IPC/backend spawn
+│   ├── preload.cjs                 # Secure contextBridge → window.miniTricky
+│   └── tray-icon.png               # 32x32 tray bitmap
+├── build/                          # Icon source + generated rasters (electron-builder resources)
+│   ├── icon.svg                    # Hand-authored 512x512 source of truth
+│   ├── icon.png                    # 1024x1024 master (macOS + Linux)
+│   ├── icon-{16,32,64,128,256,512}.png
+│   ├── icon.ico                    # Windows multi-resolution icon
+│   └── generate_icons.py           # Pillow-based rasterizer (reproducible)
 ├── backend/
 │   ├── src/
-│   │   └── main.py             # FastAPI app (all endpoints + execution engine)
-│   ├── tools.yaml              # 75 tool definitions across 21 categories
-│   ├── templates.yaml          # Built-in workflow templates
-│   └── requirements.txt        # Python dependencies
+│   │   ├── main.py                 # FastAPI app (all endpoints + execution engine)
+│   │   ├── db.py                   # SQLModel tables + repository helpers
+│   │   ├── secrets_store.py        # OS keychain split-storage for profile env_vars
+│   │   ├── llm.py                  # Anthropic-backed `/api/generate` implementation
+│   │   └── replay_cli.py           # Per-node replay helpers
+│   ├── alembic/versions/           # Schema migrations (001_initial, 002_import_from_json, ...)
+│   ├── tests/                      # pytest suite (test_api, test_secrets_store, test_install_script, ...)
+│   ├── tools.yaml                  # 75 tool definitions across 21 categories
+│   ├── templates.yaml              # 20 built-in workflow templates
+│   ├── requirements.txt            # Runtime Python deps
+│   └── requirements-dev.txt        # pytest + ruff + mypy for CI
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx             # Root app with view routing
-│   │   ├── api.ts              # All API + WebSocket helpers
-│   │   ├── types.ts            # TypeScript type definitions
-│   │   ├── index.css           # Full dark-theme stylesheet
+│   │   ├── App.tsx                 # Root app with view routing
+│   │   ├── api.ts                  # All REST + WebSocket client helpers
+│   │   ├── types.ts                # TypeScript type definitions
+│   │   ├── index.css               # Dark-theme stylesheet
 │   │   └── components/
-│   │       ├── TopBar.tsx      # Navigation bar
-│   │       ├── builder/
-│   │       │   ├── BuilderView.tsx    # Core builder logic
-│   │       │   ├── Canvas.tsx         # React Flow wrapper
-│   │       │   ├── SocketNode.tsx     # Custom node renderer
-│   │       │   ├── ToolSidebar.tsx    # Draggable tool palette
-│   │       │   ├── Inspector.tsx      # Arguments panel
-│   │       │   ├── Toolbar.tsx        # Action buttons
-│   │       │   ├── Console.tsx        # Output console
-│   │       │   └── Notifications.tsx  # Toast notification system
-│   │       ├── templates/
-│   │       │   └── TemplatesView.tsx  # Template gallery
-│   │       ├── runs/
-│   │       │   ├── RunsView.tsx       # Run history table
-│   │       │   └── RunDetail.tsx      # Run detail + artifacts
-│   │       └── settings/
-│   │           └── SettingsView.tsx   # Health + config
+│   │       ├── TopBar.tsx
+│   │       ├── builder/            # BuilderView, Canvas, Inspector, Console, Notifications, ...
+│   │       ├── templates/TemplatesView.tsx
+│   │       ├── runs/{RunsView,RunDetail}.tsx
+│   │       └── settings/SettingsView.tsx  # Tool Manager, Copy install script, profiles
 │   ├── index.html
 │   ├── vite.config.ts
 │   └── tsconfig.json
-├── docs/images/                 # UI mockups and diagrams
-└── package.json                 # Root package (Electron + electron-builder)
+├── scripts/
+│   └── install-tools.sh            # Static, committed copy of the tool installer
+├── docs/images/                    # UI mockups and diagrams
+├── .github/workflows/              # CI (ci.yml) + Release (release.yml)
+└── package.json                    # Root package (Electron + electron-builder build config)
 ```
 
 ---
@@ -427,8 +458,10 @@ mini-tricky/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/health` | Backend health check (used by Electron auto-spawn) |
-| `GET` | `/api/profiles` | List environment profiles (per target scope) |
-| `POST` | `/api/profiles` | Create / update an environment profile |
+| `GET` | `/api/tools` | List all 75 tools with their typed I/O and arg schemas |
+| `GET` | `/api/tools/install-script` | Generate a `bash` script that installs every tool (`command -v` guarded, idempotent) |
+| `GET/POST` | `/api/profiles` | List / create environment profiles. Sensitive `env_vars` are masked on read and routed to the OS keychain on write |
+| `PUT/DELETE` | `/api/profiles/{id}` | Update / delete a profile (DELETE also purges the profile's keychain entries) |
 | `POST` | `/api/generate` | AI-assisted workflow generation from a goal description |
 | `POST` | `/api/normalize` | Normalize raw tool output into a unified findings schema |
 | `GET` | `/api/runs/{id}/report` | Render Markdown / JSON report from a completed run |
@@ -502,14 +535,16 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Desktop Shell | Electron | Native app experience, file access |
-| Frontend | React 18 + TypeScript | UI components |
+| Desktop Shell | Electron 33 + electron-builder 25 | Native app experience, file access, packaging |
+| Frontend | React 18 + TypeScript 5 | UI components |
 | Graph Editor | @xyflow/react (React Flow) | Visual DAG canvas |
-| Build Tool | Vite | Fast dev server + production builds |
-| Backend | FastAPI + Uvicorn | REST API + WebSocket server |
-| Execution | Python subprocess | Tool invocation + artifact capture |
+| Build Tool | Vite 5 | Fast dev server + production builds |
+| Backend | FastAPI + Uvicorn + Pydantic v2 | REST API + WebSocket server |
+| Execution | Python `subprocess` | Tool invocation + artifact capture |
 | Scheduling | APScheduler | Cron-based workflow automation |
-| Storage | JSON files | Workflows, runs, versions, presets |
+| Persistence | SQLite (via `sqlmodel`) + Alembic migrations | Workflows, runs, versions, presets, profiles |
+| Secrets | [`keyring`](https://pypi.org/project/keyring/) → OS keychain (file fallback `0600`) | API keys, tokens, passwords |
+| LLM (optional) | Anthropic SDK (`claude-haiku-4-5`) | AI-assisted workflow generation |
 
 ---
 
@@ -518,41 +553,36 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 ### Completed
 - [x] Visual DAG workflow editor with drag-and-drop
 - [x] **75 security tools across 21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, etc.)
-- [x] **Trickest-style argument toggle switches** (flag / string / int / float per CLI option)
+- [x] **Trickest-style argument toggle switches** (flag / string / int / float per CLI option) — every tool audited with its real CLI flags
 - [x] **Color-coded typed sockets** (domain, targets, findings, params, urls, ...)
-- [x] **Full Electron desktop app** with native menus, system tray, keyboard shortcuts, and persisted window state
+- [x] **20 built-in workflow templates** across attack-surface categories
+- [x] **Full Electron desktop app** with native menus, system tray, keyboard shortcuts, persisted window state, and custom app icons (1024x1024 master + Windows multi-res `.ico` + 32x32 tray bitmap)
 - [x] **Embedded backend auto-spawn** in Electron with health-check polling
 - [x] **Web GUI mode** (`npm run web`) as a no-Electron alternative
-- [x] **Cross-platform installers** via electron-builder (`.dmg`, `.zip`, `.exe`, `.nsis`, `.AppImage`, `.deb`)
+- [x] **Cross-platform installers** via electron-builder (`.dmg`, `.zip`, `.exe`, `.nsis`, `.AppImage`, `.deb`) — Linux `.deb` / `.AppImage` fully validated end-to-end
+- [x] **SQLite persistence** with Alembic migrations (`sqlmodel` schema, automatic import from legacy JSON state files)
+- [x] **OS keychain secrets** — API keys / tokens / passwords in profile `env_vars` are persisted via [`keyring`](https://pypi.org/project/keyring/) (macOS Keychain, Windows Credential Manager, Linux SecretService). The SQLite blob keeps a sentinel, and `/api/profiles` masks sensitive values as `••••••••` so the real secret never crosses the wire. Headless hosts fall back to a `state/secrets-fallback.json` file with `0600` perms
+- [x] **Tool install script** — `scripts/install-tools.sh`, `GET /api/tools/install-script`, and **Settings → Tool Manager → Copy install script** bootstrap every binary in `tools.yaml` in one idempotent pass
+- [x] **Real LLM workflow generation** — `/api/generate` delegates to Anthropic (`claude-haiku-4-5` by default) with the full tool catalog as context, with a keyword-matcher fallback when no API key is available
+- [x] **Baseline CI** — pytest + ruff + mypy for backend, vitest + tsc + vite-build for frontend, Playwright smoke for e2e
 - [x] WebSocket streaming execution with live node states
-- [x] Trickest-style node arguments panel / inspector
-- [x] Conditional branching (if/else nodes)
-- [x] Loop/iterator nodes (per-line, per-chunk)
+- [x] Conditional branching (if/else nodes), loop/iterator nodes (per-line, per-chunk)
 - [x] Composable sub-workflow modules
 - [x] Custom script nodes (Bash/Python)
-- [x] Built-in workflow templates
-- [x] Cron scheduling (APScheduler)
-- [x] Workflow versioning with restore
-- [x] Parameter presets
-- [x] Environment profiles (per target scope)
-- [x] Result normalization across tools
-- [x] AI-assisted workflow generation (`/api/generate`)
-- [x] Report export from run artifacts (`/api/runs/{id}/report`)
-- [x] Toast + browser notifications
-- [x] Animated directional edges
-- [x] Category-colored minimap
-- [x] Artifact explorer with inline preview
-- [x] Node replay with cached upstream
+- [x] Cron scheduling (APScheduler), workflow versioning with restore
+- [x] Parameter presets, environment profiles (per target scope)
+- [x] Result normalization, report export (`/api/runs/{id}/report`)
+- [x] Toast + browser notifications, animated directional edges, category-colored minimap
+- [x] Artifact explorer with inline preview, node replay with cached upstream
 - [x] Import/export workflows as JSON
 
 ### Planned
-- [x] Per-tool install/bootstrap manager (auto-check `PATH` and offer install commands) — `scripts/install-tools.sh` + `GET /api/tools/install-script` + **Settings → Tool Manager → Copy install script**
-- [x] **Secrets in OS keychain** — API keys / tokens / passwords in profile `env_vars` are now persisted via [`keyring`](https://pypi.org/project/keyring/) (macOS Keychain, Windows Credential Manager, Linux SecretService). The SQLite blob keeps a sentinel, and the `/api/profiles` endpoints mask sensitive values as `••••••••` so the real secret never crosses the wire. Headless hosts without a keyring backend fall back to a `state/secrets-fallback.json` file with `0600` perms.
-- [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux
+- [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux (Linux builds already reproducible locally via `npm run desktop:build:linux`; cross-compile for macOS / Windows still requires CI runners)
 - [ ] Auto-update channel via electron-updater
 - [ ] Dark/light theme toggle (currently dark-only)
 - [ ] Distributed worker support for very large scans
 - [ ] Per-run resource limits (CPU/RAM/network rate)
+- [ ] Tool sandboxing (firejail / bwrap / rootless Docker) for untrusted targets
 
 ---
 

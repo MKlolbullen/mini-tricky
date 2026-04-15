@@ -170,14 +170,42 @@ tools:
     timeout_seconds: 300
     args:
       - flag: -r
-        label: Resolvers
-        description: Use resolvers for discovery
+        label: Resolved Only
+        description: Return only subdomains that resolve to an IP
+        type: flag
+      - flag: -i
+        label: Show IPs
+        description: Resolve discovered subdomains to their IP addresses
+        type: flag
+      - flag: --http-status
+        label: HTTP Status
+        description: Check HTTP status code for each resolved subdomain
+        type: flag
+      - flag: --external-subdomains
+        label: External Sources
+        description: Include external subdomain sources (Sublist3r, Amass, Assetfinder)
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Enable verbose logging output
         type: flag
       - flag: --threads
         label: Threads
-        description: Number of threads
+        description: Number of concurrent threads
         type: int
         default: '50'
+      - flag: --rate-limit
+        label: Rate Limit
+        description: Maximum HTTP requests per second when resolving
+        type: int
+      - flag: --user-agent
+        label: User Agent
+        description: Custom User-Agent header for HTTP requests
+        type: string
+      - flag: --excluded-sources
+        label: Excluded Sources
+        description: Comma-separated list of data sources to exclude
+        type: string
 
   - id: dnsx
     name: DNSx
@@ -238,15 +266,47 @@ tools:
     output_mode: stdout
     timeout_seconds: 600
     args:
+      - flag: -mode
+        label: Mode
+        description: 'Operating mode: bruteforce, resolve, filter'
+        type: string
+        default: 'bruteforce'
       - flag: -strict-wildcard
         label: Strict Wildcard
-        description: Perform strict wildcard check
+        description: Perform strict wildcard check (compare all answers)
+        type: flag
+      - flag: -nW
+        label: No Wildcard
+        description: Skip wildcard filtering entirely
+        type: flag
+      - flag: -json
+        label: JSON Output
+        description: Write output in JSONL format
+        type: flag
+      - flag: -nC
+        label: No Color
+        description: Disable colors in CLI output
         type: flag
       - flag: -t
         label: Threads
-        description: Number of concurrent threads
+        description: Number of concurrent massdns resolvers
         type: int
         default: '100'
+      - flag: -mt
+        label: Massdns Threads
+        description: Number of threads for massdns to use
+        type: int
+        default: '500'
+      - flag: -wt
+        label: Wildcard Threads
+        description: Number of threads for wildcard filtering
+        type: int
+        default: '250'
+      - flag: -retries
+        label: Retries
+        description: Number of retries for DNS resolution
+        type: int
+        default: '5'
 
   - id: chaos
     name: Chaos
@@ -261,6 +321,14 @@ tools:
       - flag: -count
         label: Count Only
         description: Show only subdomain count
+        type: flag
+      - flag: -json
+        label: JSON Output
+        description: Output in JSON format
+        type: flag
+      - flag: -jsonl
+        label: JSONL Output
+        description: Output in JSON lines format
         type: flag
 
   # ── Enumeration ────────────────────────────────────────────
@@ -942,7 +1010,15 @@ tools:
     args:
       - flag: --banners
         label: Banners
-        description: Grab banners from services
+        description: Grab service banners from open ports
+        type: flag
+      - flag: --ping
+        label: ICMP Ping
+        description: Include ICMP ping in the scan
+        type: flag
+      - flag: --open-only
+        label: Open Only
+        description: Only output results for open ports
         type: flag
       - flag: --rate
         label: Rate
@@ -951,9 +1027,26 @@ tools:
         default: '1000'
       - flag: -p
         label: Ports
-        description: Port range to scan
+        description: Port range to scan (e.g. 80,443 or 1-65535)
         type: string
         default: '1-65535'
+      - flag: --exclude
+        label: Exclude
+        description: Exclude IP ranges (CIDR or file)
+        type: string
+      - flag: --wait
+        label: Wait
+        description: Seconds to wait for responses after transmit
+        type: int
+        default: '10'
+      - flag: --source-port
+        label: Source Port
+        description: Use a specific source port
+        type: int
+      - flag: -oJ
+        label: JSON Output
+        description: Output results to a JSON file
+        type: string
 
   - id: naabu
     name: Naabu
@@ -1081,14 +1174,27 @@ tools:
     args:
       - flag: --fields
         label: Fields
-        description: List of properties to show
+        description: Comma-separated list of properties to show in output
         type: string
         default: 'ip_str,port,org,hostnames'
       - flag: --limit
         label: Limit
-        description: Number of results to return
+        description: Maximum number of results to return (1 credit per 100)
         type: int
         default: '100'
+      - flag: --separator
+        label: Separator
+        description: Separator character between fields
+        type: string
+        default: '\t'
+      - flag: --facets
+        label: Facets
+        description: Comma-separated facets to return (e.g. country,port)
+        type: string
+      - flag: --color
+        label: Color Output
+        description: Enable colored terminal output
+        type: flag
 
   - id: censys
     name: Censys
@@ -1100,11 +1206,30 @@ tools:
     output_mode: stdout
     timeout_seconds: 300
     args:
+      - flag: --index-type
+        label: Index
+        description: 'Censys index to query: hosts or certificates'
+        type: string
+        default: 'hosts'
       - flag: --pages
         label: Pages
-        description: Number of pages of results
+        description: Number of pages of results to return
         type: int
         default: '1'
+      - flag: --max-records
+        label: Max Records
+        description: Maximum total records to return
+        type: int
+        default: '100'
+      - flag: -f
+        label: Fields
+        description: Comma-separated fields to include in output
+        type: string
+      - flag: --format
+        label: Format
+        description: 'Output format: screen, csv, json'
+        type: string
+        default: 'json'
 
   - id: spiderfoot
     name: SpiderFoot
@@ -1118,13 +1243,33 @@ tools:
     args:
       - flag: -m
         label: Modules
-        description: Modules to enable
+        description: Comma-separated list of modules to enable (e.g. sfp_dnsresolve,sfp_crt)
         type: string
-      - flag: -M
-        label: Max Threads
-        description: Maximum number of threads
-        type: int
-        default: '3'
+      - flag: -t
+        label: Event Types
+        description: Comma-separated list of event types to collect
+        type: string
+      - flag: -F
+        label: Filter Events
+        description: Only return events of this type (filter)
+        type: string
+      - flag: -o
+        label: Output Format
+        description: 'Output format: tab, csv, or json'
+        type: string
+        default: 'json'
+      - flag: -q
+        label: Quiet
+        description: Disable logging output on stderr
+        type: flag
+      - flag: -n
+        label: Strip Newlines
+        description: Strip newlines from data
+        type: flag
+      - flag: -H
+        label: No Header
+        description: Don't print the field header row
+        type: flag
 
   # ── Archive ────────────────────────────────────────────────
   - id: gau
@@ -1193,7 +1338,15 @@ tools:
     args:
       - flag: -q
         label: Quiet
-        description: Don't print to stdout
+        description: Don't print new lines to stdout
+        type: flag
+      - flag: -d
+        label: Dry Run
+        description: Print new lines to stdout without appending to the file
+        type: flag
+      - flag: -t
+        label: Trim
+        description: Trim leading and trailing whitespace before comparing
         type: flag
 
   - id: qsreplace
@@ -1220,7 +1373,19 @@ tools:
     command: [uro]
     output_mode: stdout
     timeout_seconds: 120
-    args: []
+    args:
+      - flag: -f
+        label: Filters
+        description: 'Prebuilt filters: hasparams, nocontent, noparams, keepcontent, keepslash, keepquery, vuln, allexts'
+        type: string
+      - flag: -w
+        label: Whitelist
+        description: Comma-separated extensions to keep (e.g. php,asp,jsp)
+        type: string
+      - flag: -b
+        label: Blacklist
+        description: Comma-separated extensions to remove (e.g. css,jpg,png)
+        type: string
 
   - id: unfurl
     name: Unfurl
@@ -1234,7 +1399,11 @@ tools:
     args:
       - flag: -u
         label: Unique
-        description: Only output unique values
+        description: Only output unique values (deduplicate)
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Show the URL alongside the extracted value
         type: flag
 
   - id: jq-filter
@@ -1249,11 +1418,27 @@ tools:
     args:
       - flag: -r
         label: Raw Output
-        description: Output raw strings instead of JSON
+        description: Output raw strings instead of JSON-encoded strings
         type: flag
       - flag: -c
         label: Compact
-        description: Compact output
+        description: Produce compact output (one line per result)
+        type: flag
+      - flag: -s
+        label: Slurp
+        description: Read all inputs into an array and apply filter once
+        type: flag
+      - flag: -S
+        label: Sort Keys
+        description: Sort object keys in the output
+        type: flag
+      - flag: -e
+        label: Exit Status
+        description: Set exit status based on filter results (1 if null/false)
+        type: flag
+      - flag: -n
+        label: Null Input
+        description: Use null as single input (useful with --arg)
         type: flag
 
   - id: gf
@@ -1279,9 +1464,21 @@ tools:
     args:
       - flag: -threads
         label: Threads
-        description: Number of threads
+        description: Number of concurrent threads
         type: int
         default: '5'
+      - flag: -p
+        label: Port
+        description: Port to use in command substitutions
+        type: string
+      - flag: -silent
+        label: Silent
+        description: Don't display banner
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Enable verbose output
+        type: flag
 
   - id: rush
     name: Rush
@@ -1295,9 +1492,34 @@ tools:
     args:
       - flag: -j
         label: Jobs
-        description: Number of parallel jobs
+        description: Number of parallel jobs to run
         type: int
         default: '4'
+      - flag: -k
+        label: Keep Order
+        description: Keep output in same order as input
+        type: flag
+      - flag: -n
+        label: Dry Run
+        description: Print commands without executing
+        type: flag
+      - flag: -c
+        label: Continue
+        description: Continue running even after a job errors
+        type: flag
+      - flag: -q
+        label: Quiet
+        description: Suppress progress output
+        type: flag
+      - flag: -t
+        label: Timeout
+        description: Per-job timeout in seconds (0 disables)
+        type: int
+        default: '0'
+      - flag: -v
+        label: Verbose
+        description: Enable verbose logging
+        type: flag
 
   - id: notify
     name: Notify
@@ -1311,11 +1533,24 @@ tools:
     args:
       - flag: -bulk
         label: Bulk
-        description: Enable bulk processing
+        description: Enable bulk processing for high-volume notifications
         type: flag
       - flag: -id
         label: Provider ID
-        description: Provider ID to send notification
+        description: Provider ID (from config) to send notifications through
+        type: string
+      - flag: -provider-config
+        label: Provider Config
+        description: Path to provider config YAML file
+        type: string
+      - flag: -char-limit
+        label: Char Limit
+        description: Character limit per notification message
+        type: int
+        default: '4000'
+      - flag: -msg
+        label: Message
+        description: Message format string with {{data}} placeholder
         type: string
 
   - id: meg
@@ -1670,13 +1905,22 @@ tools:
     args:
       - flag: --callback
         label: Callback URL
-        description: OOB callback URL for detection
+        description: Out-of-band callback URL for SSRF detection
         type: string
       - flag: -t
         label: Threads
-        description: Number of threads
+        description: Number of concurrent threads
         type: int
         default: '10'
+      - flag: --timeout
+        label: Timeout
+        description: HTTP request timeout in seconds
+        type: int
+        default: '10'
+      - flag: --verbose
+        label: Verbose
+        description: Enable verbose logging
+        type: flag
 
   # ── SSTI ───────────────────────────────────────────────────
   - id: sstimap
@@ -1964,9 +2208,19 @@ tools:
     args:
       - flag: -t
         label: Threads
-        description: Number of threads
+        description: Number of concurrent workers
         type: int
         default: '32'
+      - flag: -timeout
+        label: Timeout
+        description: HTTP request timeout in seconds
+        type: int
+        default: '10'
+      - flag: -X
+        label: Method
+        description: HTTP method to use
+        type: string
+        default: 'HEAD'
 
   # ── JavaScript Analysis ────────────────────────────────────
   - id: linkfinder
@@ -2004,12 +2258,29 @@ tools:
     args:
       - flag: -r
         label: Regex
-        description: Custom regex pattern
+        description: Custom regex pattern to look for
         type: string
       - flag: -e
         label: Entropy
-        description: Calculate Shannon entropy for findings
+        description: Calculate Shannon entropy for entropy-based detection
         type: flag
+      - flag: -o
+        label: Output Mode
+        description: 'Output mode: cli or html'
+        type: string
+        default: 'cli'
+      - flag: -c
+        label: Cookies
+        description: Cookies to use when fetching JavaScript files
+        type: string
+      - flag: -g
+        label: Extract JS
+        description: Extract JavaScript files from the page and scan them for secrets
+        type: flag
+      - flag: -b
+        label: Burp File
+        description: Path to Burp XML file to parse
+        type: string
 
   - id: getjs
     name: GetJS
@@ -2129,13 +2400,31 @@ tools:
     args:
       - flag: --dump
         label: Dump
-        description: Dump the contents of open buckets
+        description: Dump the contents of open buckets to disk
         type: flag
+      - flag: --enumerate
+        label: Enumerate
+        description: List all objects in discovered open buckets
+        type: flag
+      - flag: --provider
+        label: Provider
+        description: 'Cloud provider: aws, digitalocean, dreamhost, gcp, linode, scaleway'
+        type: string
+        default: 'aws'
       - flag: --threads
         label: Threads
-        description: Number of threads
+        description: Number of concurrent worker threads
         type: int
         default: '4'
+      - flag: --timeout
+        label: Timeout
+        description: HTTP request timeout in seconds
+        type: int
+        default: '30'
+      - flag: --json
+        label: JSON Output
+        description: Output results in JSON format
+        type: flag
 
   - id: cloudenum
     name: Cloud Enum
