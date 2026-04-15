@@ -15,7 +15,7 @@ from uuid import uuid4
 import yaml
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from . import db, llm
@@ -2037,96 +2037,183 @@ def tools_health() -> dict[str, Any]:
     }
 
 
+# Install hints keyed on the tool's *binary name* (first token of ``tool.command``),
+# not on its ``tool_id``. A few tools have mixed-case binaries (``theHarvester``,
+# ``SecretFinder``) or differ from their id entirely (``kr`` for kiterunner,
+# ``cloud_enum`` for cloudenum) — matching on the binary keeps those accurate.
+INSTALL_HINTS: dict[str, str] = {
+    'subfinder': 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
+    'httpx': 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest',
+    'nuclei': 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
+    'naabu': 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
+    'katana': 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest',
+    'dnsx': 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
+    'ffuf': 'go install -v github.com/ffuf/ffuf/v2@latest',
+    'amass': 'go install -v github.com/owasp-amass/amass/v4/...@master',
+    'assetfinder': 'go install -v github.com/tomnomnom/assetfinder@latest',
+    'gau': 'go install -v github.com/lc/gau/v2/cmd/gau@latest',
+    'waybackurls': 'go install -v github.com/tomnomnom/waybackurls@latest',
+    'gospider': 'go install -v github.com/jaeles-project/gospider@latest',
+    'hakrawler': 'go install -v github.com/hakluke/hakrawler@latest',
+    'anew': 'go install -v github.com/tomnomnom/anew@latest',
+    'unfurl': 'go install -v github.com/tomnomnom/unfurl@latest',
+    'qsreplace': 'go install -v github.com/tomnomnom/qsreplace@latest',
+    'uro': 'pip install uro',
+    'dalfox': 'go install -v github.com/hahwul/dalfox/v2@latest',
+    'arjun': 'pip install arjun',
+    'sqlmap': 'pip install sqlmap',
+    'feroxbuster': 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash',
+    'gobuster': 'go install github.com/OJ/gobuster/v3@latest',
+    'dirsearch': 'pip install dirsearch',
+    'nmap': 'apt install nmap  # or brew install nmap',
+    'masscan': 'apt install masscan  # or brew install masscan',
+    'rustscan': 'cargo install rustscan',
+    'jq': 'apt install jq  # or brew install jq',
+    'wfuzz': 'pip install wfuzz',
+    'massdns': 'apt install massdns  # or build from github.com/blechschmidt/massdns',
+    'shuffledns': 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest',
+    'testssl.sh': 'git clone https://github.com/drwetter/testssl.sh.git',
+    'theHarvester': 'pip install theHarvester',
+    'spiderfoot': 'pip install spiderfoot',
+    'shodan': 'pip install shodan',
+    'censys': 'pip install censys',
+    'nikto': 'apt install nikto  # or brew install nikto',
+    'wpscan': 'gem install wpscan  # or apt install wpscan',
+    'xsstrike': 'pip install XSStrike',
+    'commix': 'pip install commix',
+    'wappalyzer': 'npm install -g wappalyzer',
+    'linkfinder': 'pip install linkfinder',
+    'waymore': 'pip install waymore',
+    # Parameter Discovery
+    'paramspider': 'pip install paramspider',
+    'x8': 'cargo install x8',
+    'paraminer': 'pip install paraminer',
+    # API Testing
+    'kr': 'go install github.com/assetnote/kiterunner/cmd/kr@latest',
+    'APIFuzzer': 'pip install APIFuzzer',
+    'oasdiff': 'go install github.com/tufin/oasdiff@latest',
+    'restler': 'pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer',
+    # SSRF / OOB
+    'ssrfmap': 'pip install ssrfmap',
+    'gopherus': 'pip install gopherus',
+    'interactsh-client': 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest',
+    'ssrf-sheriff': 'pip install ssrf-sheriff',
+    # SSTI
+    'sstimap': 'pip install sstimap',
+    'tplmap': 'pip install tplmap',
+    # CSRF / CORS
+    'xsrfprobe': 'pip install xsrfprobe',
+    'cors_scan': 'pip install CORScanner',
+    'crlfuzz': 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest',
+    # Subdomain Takeover
+    'subjack': 'go install github.com/haccer/subjack@latest',
+    'subzy': 'go install -v github.com/PentestPad/subzy@latest',
+    # Headers
+    'shcheck': 'pip install shcheck',
+    'hakcheckurl': 'go install github.com/hakluke/hakcheckurl@latest',
+    # JS Analysis
+    'SecretFinder': 'pip install SecretFinder',
+    'getJS': 'go install github.com/003random/getJS/v2@latest',
+    'subjs': 'go install -v github.com/lc/subjs@latest',
+    # Wordlist
+    'cewl': 'gem install cewl  # or apt install cewl',
+    'wordlister': 'pip install wordlister',
+    # Cloud / Buckets
+    's3scanner': 'pip install s3scanner',
+    'cloud_enum': 'pip install cloud_enum',
+    # Secrets
+    'trufflehog': 'go install github.com/trufflesecurity/trufflehog/v3@latest',
+    'gitleaks': 'go install github.com/gitleaks/gitleaks/v8@latest',
+    # Utility
+    'gf': 'go install -v github.com/tomnomnom/gf@latest',
+    'interlace': 'pip install interlace',
+    'rush': 'go install github.com/shenwei356/rush@latest',
+    'notify': 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest',
+    'meg': 'go install github.com/tomnomnom/meg@latest',
+    'chaos': 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest',
+    'findomain': 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip',
+}
+
+
 def _get_install_hint(binary: str) -> str:
-    """Return install hints for common security tools."""
-    hints = {
-        'subfinder': 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
-        'httpx': 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest',
-        'nuclei': 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
-        'naabu': 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
-        'katana': 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest',
-        'dnsx': 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
-        'ffuf': 'go install -v github.com/ffuf/ffuf/v2@latest',
-        'amass': 'go install -v github.com/owasp-amass/amass/v4/...@master',
-        'assetfinder': 'go install -v github.com/tomnomnom/assetfinder@latest',
-        'gau': 'go install -v github.com/lc/gau/v2/cmd/gau@latest',
-        'waybackurls': 'go install -v github.com/tomnomnom/waybackurls@latest',
-        'gospider': 'go install -v github.com/jaeles-project/gospider@latest',
-        'hakrawler': 'go install -v github.com/hakluke/hakrawler@latest',
-        'anew': 'go install -v github.com/tomnomnom/anew@latest',
-        'unfurl': 'go install -v github.com/tomnomnom/unfurl@latest',
-        'qsreplace': 'go install -v github.com/tomnomnom/qsreplace@latest',
-        'dalfox': 'go install -v github.com/hahwul/dalfox/v2@latest',
-        'arjun': 'pip install arjun',
-        'sqlmap': 'pip install sqlmap',
-        'feroxbuster': 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash',
-        'gobuster': 'go install github.com/OJ/gobuster/v3@latest',
-        'dirsearch': 'pip install dirsearch',
-        'nmap': 'apt install nmap  # or brew install nmap',
-        'masscan': 'apt install masscan  # or brew install masscan',
-        'rustscan': 'cargo install rustscan',
-        'jq': 'apt install jq  # or brew install jq',
-        'wfuzz': 'pip install wfuzz',
-        'massdns': 'apt install massdns  # or build from github.com/blechschmidt/massdns',
-        'shuffledns': 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest',
-        'testssl.sh': 'git clone https://github.com/drwetter/testssl.sh.git',
-        'theHarvester': 'pip install theHarvester',
-        'spiderfoot': 'pip install spiderfoot',
-        'xsstrike': 'pip install XSStrike',
-        'commix': 'pip install commix',
-        'wappalyzer': 'npm install -g wappalyzer',
-        'linkfinder': 'pip install linkfinder',
-        'waymore': 'pip install waymore',
-        # Parameter Discovery
-        'paramspider': 'pip install paramspider',
-        'x8': 'cargo install x8',
-        'paraminer': 'pip install paraminer',
-        # API Testing
-        'kr': 'go install github.com/assetnote/kiterunner/cmd/kr@latest',
-        'APIFuzzer': 'pip install APIFuzzer',
-        'oasdiff': 'go install github.com/tufin/oasdiff@latest',
-        'restler': 'pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer',
-        # SSRF / OOB
-        'ssrfmap': 'pip install ssrfmap',
-        'gopherus': 'pip install gopherus',
-        'interactsh-client': 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest',
-        'ssrf-sheriff': 'pip install ssrf-sheriff',
-        # SSTI
-        'sstimap': 'pip install sstimap',
-        'tplmap': 'pip install tplmap',
-        # CSRF / CORS
-        'xsrfprobe': 'pip install xsrfprobe',
-        'cors_scan': 'pip install CORScanner',
-        'crlfuzz': 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest',
-        # Subdomain Takeover
-        'subjack': 'go install github.com/haccer/subjack@latest',
-        'subzy': 'go install -v github.com/PentestPad/subzy@latest',
-        # Headers
-        'shcheck': 'pip install shcheck',
-        'hakcheckurl': 'go install github.com/hakluke/hakcheckurl@latest',
-        # JS Analysis
-        'SecretFinder': 'pip install SecretFinder',
-        'getJS': 'go install github.com/003random/getJS/v2@latest',
-        'subjs': 'go install -v github.com/lc/subjs@latest',
-        # Wordlist
-        'cewl': 'gem install cewl  # or apt install cewl',
-        'wordlister': 'pip install wordlister',
-        # Cloud / Buckets
-        's3scanner': 'pip install s3scanner',
-        'cloud_enum': 'pip install cloud_enum',
-        # Secrets
-        'trufflehog': 'go install github.com/trufflesecurity/trufflehog/v3@latest',
-        'gitleaks': 'go install github.com/gitleaks/gitleaks/v8@latest',
-        # Utility
-        'gf': 'go install -v github.com/tomnomnom/gf@latest',
-        'interlace': 'pip install interlace',
-        'rush': 'go install github.com/shenwei356/rush@latest',
-        'notify': 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest',
-        'meg': 'go install github.com/tomnomnom/meg@latest',
-        'chaos': 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest',
-        'findomain': 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip',
-    }
-    return hints.get(binary, f'Install {binary} and ensure it is on your PATH')
+    """Return an install hint for ``binary`` or a generic fallback."""
+    return INSTALL_HINTS.get(binary, f'Install {binary} and ensure it is on your PATH')
+
+
+def _generate_install_script() -> str:
+    """Build a bash installer script covering every tool in ``tools.yaml``.
+
+    Each tool becomes a block guarded by ``command -v`` so the script is
+    idempotent: tools already on the PATH are skipped. Unknown binaries fall
+    through to a ``# TODO`` stub so the operator can fill them in manually.
+    """
+    tools = load_tools()
+    lines: list[str] = [
+        '#!/usr/bin/env bash',
+        '#',
+        '# install-tools.sh — bootstrap the 75+ binaries mini-tricky drives.',
+        '#',
+        '# Generated from backend/src/main.py::_generate_install_script. Re-generate with:',
+        '#   curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh',
+        '#',
+        '# Idempotent: each tool is guarded by `command -v`, so re-running only',
+        '# installs what is still missing. Requires go, python/pip, cargo, npm, and',
+        '# apt or brew on the host.',
+        '#',
+        'set -euo pipefail',
+        '',
+        'log() { printf "\\033[1;36m[install-tools]\\033[0m %s\\n" "$*"; }',
+        'skip() { printf "\\033[2m[install-tools] %s already installed at %s\\033[0m\\n" "$1" "$2"; }',
+        '',
+    ]
+
+    seen: set[str] = set()
+    missing: list[str] = []
+    # Group by category so the generated script reads top-down by domain.
+    by_category: dict[str, list[Tool]] = {}
+    for tool in tools:
+        by_category.setdefault(tool.category or 'Other', []).append(tool)
+
+    for category in sorted(by_category):
+        lines.append(f'# ── {category} ' + '─' * max(1, 60 - len(category)))
+        for tool in by_category[category]:
+            binary = tool.command[0] if tool.command else ''
+            if not binary or binary in seen:
+                continue
+            seen.add(binary)
+            hint = INSTALL_HINTS.get(binary)
+            if not hint:
+                missing.append(binary)
+                lines.append(f'# TODO: no install hint for {tool.name} ({binary})')
+                lines.append('')
+                continue
+            # Shell-safe single-quoted binary; hint is emitted verbatim so users
+            # can eyeball the command before running the script.
+            lines.append(f'if command -v {binary} >/dev/null 2>&1; then')
+            lines.append(f'  skip "{tool.name}" "$(command -v {binary})"')
+            lines.append('else')
+            lines.append(f'  log "Installing {tool.name} ({binary})"')
+            lines.append(f'  {hint}')
+            lines.append('fi')
+            lines.append('')
+
+    lines.append('log "All done. Run \'npm run dev\' or launch the desktop app."')
+    if missing:
+        lines.append('')
+        lines.append(f'# Note: {len(missing)} tools have no install hint yet: ' + ', '.join(missing))
+    lines.append('')
+    return '\n'.join(lines)
+
+
+@app.get('/api/tools/install-script')
+def tools_install_script() -> PlainTextResponse:
+    """Return a bash script that installs every tool in ``tools.yaml``."""
+    script = _generate_install_script()
+    return PlainTextResponse(
+        content=script,
+        media_type='text/x-shellscript',
+        headers={'Content-Disposition': 'attachment; filename="install-tools.sh"'},
+    )
 
 
 # ── Environment Profiles ──────────────────────────────────────────────────────

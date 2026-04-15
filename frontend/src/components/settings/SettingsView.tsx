@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { Health } from '../../types';
-import { fetchToolsHealth, fetchProfiles, saveProfile, deleteProfile, type ToolHealth, type Profile } from '../../api';
+import {
+  fetchToolsHealth,
+  fetchInstallScript,
+  fetchProfiles,
+  saveProfile,
+  deleteProfile,
+  type ToolHealth,
+  type Profile,
+} from '../../api';
 
 type Props = {
   health: Health | null;
@@ -16,6 +24,7 @@ export default function SettingsView({ health }: Props) {
   const [toolFilter, setToolFilter] = useState<'all' | 'installed' | 'missing'>('all');
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showNewProfile, setShowNewProfile] = useState(false);
+  const [installScriptStatus, setInstallScriptStatus] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
 
   function loadToolsHealth() {
     setToolsLoading(true);
@@ -30,6 +39,19 @@ export default function SettingsView({ health }: Props) {
 
   function loadProfiles() {
     fetchProfiles().then(setProfiles).catch(() => setProfiles([]));
+  }
+
+  async function copyInstallScript() {
+    setInstallScriptStatus('copying');
+    try {
+      const script = await fetchInstallScript();
+      await navigator.clipboard.writeText(script);
+      setInstallScriptStatus('copied');
+    } catch {
+      setInstallScriptStatus('error');
+    } finally {
+      setTimeout(() => setInstallScriptStatus('idle'), 2500);
+    }
   }
 
   useEffect(() => {
@@ -85,9 +107,22 @@ export default function SettingsView({ health }: Props) {
         <div className="settings-section">
           <div className="tools-health-header">
             <div className="section-title">Tool Manager</div>
-            <button className="action-btn small" onClick={loadToolsHealth} disabled={toolsLoading}>
-              {toolsLoading ? 'Scanning...' : 'Refresh'}
-            </button>
+            <div className="tools-health-actions">
+              <button
+                className="action-btn small"
+                onClick={copyInstallScript}
+                disabled={installScriptStatus === 'copying'}
+                title="Copy a bash script that installs every tool in tools.yaml"
+              >
+                {installScriptStatus === 'copying' && 'Generating...'}
+                {installScriptStatus === 'copied' && 'Copied!'}
+                {installScriptStatus === 'error' && 'Copy failed'}
+                {installScriptStatus === 'idle' && 'Copy install script'}
+              </button>
+              <button className="action-btn small" onClick={loadToolsHealth} disabled={toolsLoading}>
+                {toolsLoading ? 'Scanning...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           <div className="tools-health-summary">

@@ -20,7 +20,6 @@ from pathlib import Path
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_FILE = REPO_ROOT / 'templates.yaml'
 TOOLS_FILE = REPO_ROOT / 'tools.yaml'

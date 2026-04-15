@@ -1,0 +1,556 @@
+#!/usr/bin/env bash
+#
+# install-tools.sh — bootstrap the 75+ binaries mini-tricky drives.
+#
+# Generated from backend/src/main.py::_generate_install_script. Re-generate with:
+#   curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh
+#
+# Idempotent: each tool is guarded by `command -v`, so re-running only
+# installs what is still missing. Requires go, python/pip, cargo, npm, and
+# apt or brew on the host.
+#
+set -euo pipefail
+
+log() { printf "\033[1;36m[install-tools]\033[0m %s\n" "$*"; }
+skip() { printf "\033[2m[install-tools] %s already installed at %s\033[0m\n" "$1" "$2"; }
+
+# ── API ─────────────────────────────────────────────────────────
+if command -v kr >/dev/null 2>&1; then
+  skip "Kiterunner" "$(command -v kr)"
+else
+  log "Installing Kiterunner (kr)"
+  go install github.com/assetnote/kiterunner/cmd/kr@latest
+fi
+
+if command -v APIFuzzer >/dev/null 2>&1; then
+  skip "APIFuzzer" "$(command -v APIFuzzer)"
+else
+  log "Installing APIFuzzer (APIFuzzer)"
+  pip install APIFuzzer
+fi
+
+if command -v oasdiff >/dev/null 2>&1; then
+  skip "OpenAPI Diff" "$(command -v oasdiff)"
+else
+  log "Installing OpenAPI Diff (oasdiff)"
+  go install github.com/tufin/oasdiff@latest
+fi
+
+if command -v restler >/dev/null 2>&1; then
+  skip "RESTler" "$(command -v restler)"
+else
+  log "Installing RESTler (restler)"
+  pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer
+fi
+
+# ── Archive ─────────────────────────────────────────────────────
+if command -v gau >/dev/null 2>&1; then
+  skip "GAU" "$(command -v gau)"
+else
+  log "Installing GAU (gau)"
+  go install -v github.com/lc/gau/v2/cmd/gau@latest
+fi
+
+if command -v waymore >/dev/null 2>&1; then
+  skip "Waymore" "$(command -v waymore)"
+else
+  log "Installing Waymore (waymore)"
+  pip install waymore
+fi
+
+# ── CORS ────────────────────────────────────────────────────────
+if command -v cors_scan >/dev/null 2>&1; then
+  skip "CORScanner" "$(command -v cors_scan)"
+else
+  log "Installing CORScanner (cors_scan)"
+  pip install CORScanner
+fi
+
+if command -v crlfuzz >/dev/null 2>&1; then
+  skip "CRLFuzz" "$(command -v crlfuzz)"
+else
+  log "Installing CRLFuzz (crlfuzz)"
+  go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest
+fi
+
+# ── CSRF ────────────────────────────────────────────────────────
+if command -v xsrfprobe >/dev/null 2>&1; then
+  skip "XSRFProbe" "$(command -v xsrfprobe)"
+else
+  log "Installing XSRFProbe (xsrfprobe)"
+  pip install xsrfprobe
+fi
+
+# ── Cloud ───────────────────────────────────────────────────────
+if command -v s3scanner >/dev/null 2>&1; then
+  skip "S3Scanner" "$(command -v s3scanner)"
+else
+  log "Installing S3Scanner (s3scanner)"
+  pip install s3scanner
+fi
+
+if command -v cloud_enum >/dev/null 2>&1; then
+  skip "Cloud Enum" "$(command -v cloud_enum)"
+else
+  log "Installing Cloud Enum (cloud_enum)"
+  pip install cloud_enum
+fi
+
+# ── Crawling ────────────────────────────────────────────────────
+if command -v katana >/dev/null 2>&1; then
+  skip "Katana" "$(command -v katana)"
+else
+  log "Installing Katana (katana)"
+  go install -v github.com/projectdiscovery/katana/cmd/katana@latest
+fi
+
+if command -v gospider >/dev/null 2>&1; then
+  skip "GoSpider" "$(command -v gospider)"
+else
+  log "Installing GoSpider (gospider)"
+  go install -v github.com/jaeles-project/gospider@latest
+fi
+
+if command -v hakrawler >/dev/null 2>&1; then
+  skip "Hakrawler" "$(command -v hakrawler)"
+else
+  log "Installing Hakrawler (hakrawler)"
+  go install -v github.com/hakluke/hakrawler@latest
+fi
+
+if command -v waybackurls >/dev/null 2>&1; then
+  skip "Waybackurls" "$(command -v waybackurls)"
+else
+  log "Installing Waybackurls (waybackurls)"
+  go install -v github.com/tomnomnom/waybackurls@latest
+fi
+
+# ── Enumeration ─────────────────────────────────────────────────
+if command -v gobuster >/dev/null 2>&1; then
+  skip "Gobuster" "$(command -v gobuster)"
+else
+  log "Installing Gobuster (gobuster)"
+  go install github.com/OJ/gobuster/v3@latest
+fi
+
+if command -v dirsearch >/dev/null 2>&1; then
+  skip "Dirsearch" "$(command -v dirsearch)"
+else
+  log "Installing Dirsearch (dirsearch)"
+  pip install dirsearch
+fi
+
+if command -v feroxbuster >/dev/null 2>&1; then
+  skip "Feroxbuster" "$(command -v feroxbuster)"
+else
+  log "Installing Feroxbuster (feroxbuster)"
+  curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash
+fi
+
+if command -v wfuzz >/dev/null 2>&1; then
+  skip "Wfuzz" "$(command -v wfuzz)"
+else
+  log "Installing Wfuzz (wfuzz)"
+  pip install wfuzz
+fi
+
+# ── Fuzzing ─────────────────────────────────────────────────────
+if command -v ffuf >/dev/null 2>&1; then
+  skip "FFUF" "$(command -v ffuf)"
+else
+  log "Installing FFUF (ffuf)"
+  go install -v github.com/ffuf/ffuf/v2@latest
+fi
+
+# ── Headers ─────────────────────────────────────────────────────
+if command -v shcheck >/dev/null 2>&1; then
+  skip "Shcheck" "$(command -v shcheck)"
+else
+  log "Installing Shcheck (shcheck)"
+  pip install shcheck
+fi
+
+if command -v hakcheckurl >/dev/null 2>&1; then
+  skip "Hakcheckurl" "$(command -v hakcheckurl)"
+else
+  log "Installing Hakcheckurl (hakcheckurl)"
+  go install github.com/hakluke/hakcheckurl@latest
+fi
+
+# ── JSAnalysis ──────────────────────────────────────────────────
+if command -v linkfinder >/dev/null 2>&1; then
+  skip "LinkFinder" "$(command -v linkfinder)"
+else
+  log "Installing LinkFinder (linkfinder)"
+  pip install linkfinder
+fi
+
+if command -v SecretFinder >/dev/null 2>&1; then
+  skip "SecretFinder" "$(command -v SecretFinder)"
+else
+  log "Installing SecretFinder (SecretFinder)"
+  pip install SecretFinder
+fi
+
+if command -v getJS >/dev/null 2>&1; then
+  skip "GetJS" "$(command -v getJS)"
+else
+  log "Installing GetJS (getJS)"
+  go install github.com/003random/getJS/v2@latest
+fi
+
+if command -v subjs >/dev/null 2>&1; then
+  skip "SubJS" "$(command -v subjs)"
+else
+  log "Installing SubJS (subjs)"
+  go install -v github.com/lc/subjs@latest
+fi
+
+# ── Network ─────────────────────────────────────────────────────
+if command -v nmap >/dev/null 2>&1; then
+  skip "Nmap" "$(command -v nmap)"
+else
+  log "Installing Nmap (nmap)"
+  apt install nmap  # or brew install nmap
+fi
+
+if command -v masscan >/dev/null 2>&1; then
+  skip "Masscan" "$(command -v masscan)"
+else
+  log "Installing Masscan (masscan)"
+  apt install masscan  # or brew install masscan
+fi
+
+if command -v naabu >/dev/null 2>&1; then
+  skip "Naabu" "$(command -v naabu)"
+else
+  log "Installing Naabu (naabu)"
+  go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+fi
+
+if command -v rustscan >/dev/null 2>&1; then
+  skip "RustScan" "$(command -v rustscan)"
+else
+  log "Installing RustScan (rustscan)"
+  cargo install rustscan
+fi
+
+# ── OSINT ───────────────────────────────────────────────────────
+if command -v theHarvester >/dev/null 2>&1; then
+  skip "theHarvester" "$(command -v theHarvester)"
+else
+  log "Installing theHarvester (theHarvester)"
+  pip install theHarvester
+fi
+
+if command -v shodan >/dev/null 2>&1; then
+  skip "Shodan CLI" "$(command -v shodan)"
+else
+  log "Installing Shodan CLI (shodan)"
+  pip install shodan
+fi
+
+if command -v censys >/dev/null 2>&1; then
+  skip "Censys" "$(command -v censys)"
+else
+  log "Installing Censys (censys)"
+  pip install censys
+fi
+
+if command -v spiderfoot >/dev/null 2>&1; then
+  skip "SpiderFoot" "$(command -v spiderfoot)"
+else
+  log "Installing SpiderFoot (spiderfoot)"
+  pip install spiderfoot
+fi
+
+# ── Params ──────────────────────────────────────────────────────
+if command -v arjun >/dev/null 2>&1; then
+  skip "Arjun" "$(command -v arjun)"
+else
+  log "Installing Arjun (arjun)"
+  pip install arjun
+fi
+
+if command -v paramspider >/dev/null 2>&1; then
+  skip "ParamSpider" "$(command -v paramspider)"
+else
+  log "Installing ParamSpider (paramspider)"
+  pip install paramspider
+fi
+
+if command -v x8 >/dev/null 2>&1; then
+  skip "x8" "$(command -v x8)"
+else
+  log "Installing x8 (x8)"
+  cargo install x8
+fi
+
+if command -v paraminer >/dev/null 2>&1; then
+  skip "Paraminer" "$(command -v paraminer)"
+else
+  log "Installing Paraminer (paraminer)"
+  pip install paraminer
+fi
+
+# ── Recon ───────────────────────────────────────────────────────
+if command -v subfinder >/dev/null 2>&1; then
+  skip "Subfinder" "$(command -v subfinder)"
+else
+  log "Installing Subfinder (subfinder)"
+  go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+fi
+
+if command -v httpx >/dev/null 2>&1; then
+  skip "HTTPX" "$(command -v httpx)"
+else
+  log "Installing HTTPX (httpx)"
+  go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+fi
+
+if command -v amass >/dev/null 2>&1; then
+  skip "Amass" "$(command -v amass)"
+else
+  log "Installing Amass (amass)"
+  go install -v github.com/owasp-amass/amass/v4/...@master
+fi
+
+if command -v assetfinder >/dev/null 2>&1; then
+  skip "Assetfinder" "$(command -v assetfinder)"
+else
+  log "Installing Assetfinder (assetfinder)"
+  go install -v github.com/tomnomnom/assetfinder@latest
+fi
+
+if command -v findomain >/dev/null 2>&1; then
+  skip "Findomain" "$(command -v findomain)"
+else
+  log "Installing Findomain (findomain)"
+  curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip
+fi
+
+if command -v dnsx >/dev/null 2>&1; then
+  skip "DNSx" "$(command -v dnsx)"
+else
+  log "Installing DNSx (dnsx)"
+  go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+fi
+
+if command -v shuffledns >/dev/null 2>&1; then
+  skip "ShuffleDNS" "$(command -v shuffledns)"
+else
+  log "Installing ShuffleDNS (shuffledns)"
+  go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
+fi
+
+if command -v chaos >/dev/null 2>&1; then
+  skip "Chaos" "$(command -v chaos)"
+else
+  log "Installing Chaos (chaos)"
+  go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+fi
+
+# ── SSRF ────────────────────────────────────────────────────────
+if command -v ssrfmap >/dev/null 2>&1; then
+  skip "SSRFmap" "$(command -v ssrfmap)"
+else
+  log "Installing SSRFmap (ssrfmap)"
+  pip install ssrfmap
+fi
+
+if command -v gopherus >/dev/null 2>&1; then
+  skip "Gopherus" "$(command -v gopherus)"
+else
+  log "Installing Gopherus (gopherus)"
+  pip install gopherus
+fi
+
+if command -v interactsh-client >/dev/null 2>&1; then
+  skip "Interactsh" "$(command -v interactsh-client)"
+else
+  log "Installing Interactsh (interactsh-client)"
+  go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+fi
+
+if command -v ssrf-sheriff >/dev/null 2>&1; then
+  skip "SSRF Sheriff" "$(command -v ssrf-sheriff)"
+else
+  log "Installing SSRF Sheriff (ssrf-sheriff)"
+  pip install ssrf-sheriff
+fi
+
+# ── SSTI ────────────────────────────────────────────────────────
+if command -v sstimap >/dev/null 2>&1; then
+  skip "SSTImap" "$(command -v sstimap)"
+else
+  log "Installing SSTImap (sstimap)"
+  pip install sstimap
+fi
+
+if command -v tplmap >/dev/null 2>&1; then
+  skip "Tplmap" "$(command -v tplmap)"
+else
+  log "Installing Tplmap (tplmap)"
+  pip install tplmap
+fi
+
+# ── Secrets ─────────────────────────────────────────────────────
+if command -v trufflehog >/dev/null 2>&1; then
+  skip "TruffleHog" "$(command -v trufflehog)"
+else
+  log "Installing TruffleHog (trufflehog)"
+  go install github.com/trufflesecurity/trufflehog/v3@latest
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  skip "Gitleaks" "$(command -v gitleaks)"
+else
+  log "Installing Gitleaks (gitleaks)"
+  go install github.com/gitleaks/gitleaks/v8@latest
+fi
+
+# ── Takeover ────────────────────────────────────────────────────
+if command -v subjack >/dev/null 2>&1; then
+  skip "Subjack" "$(command -v subjack)"
+else
+  log "Installing Subjack (subjack)"
+  go install github.com/haccer/subjack@latest
+fi
+
+if command -v subzy >/dev/null 2>&1; then
+  skip "Subzy" "$(command -v subzy)"
+else
+  log "Installing Subzy (subzy)"
+  go install -v github.com/PentestPad/subzy@latest
+fi
+
+if command -v nuclei >/dev/null 2>&1; then
+  skip "Nuclei Takeover" "$(command -v nuclei)"
+else
+  log "Installing Nuclei Takeover (nuclei)"
+  go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+fi
+
+# ── Utility ─────────────────────────────────────────────────────
+if command -v anew >/dev/null 2>&1; then
+  skip "Anew" "$(command -v anew)"
+else
+  log "Installing Anew (anew)"
+  go install -v github.com/tomnomnom/anew@latest
+fi
+
+if command -v qsreplace >/dev/null 2>&1; then
+  skip "QSReplace" "$(command -v qsreplace)"
+else
+  log "Installing QSReplace (qsreplace)"
+  go install -v github.com/tomnomnom/qsreplace@latest
+fi
+
+if command -v uro >/dev/null 2>&1; then
+  skip "URO" "$(command -v uro)"
+else
+  log "Installing URO (uro)"
+  pip install uro
+fi
+
+if command -v unfurl >/dev/null 2>&1; then
+  skip "Unfurl" "$(command -v unfurl)"
+else
+  log "Installing Unfurl (unfurl)"
+  go install -v github.com/tomnomnom/unfurl@latest
+fi
+
+if command -v jq >/dev/null 2>&1; then
+  skip "JQ Filter" "$(command -v jq)"
+else
+  log "Installing JQ Filter (jq)"
+  apt install jq  # or brew install jq
+fi
+
+if command -v gf >/dev/null 2>&1; then
+  skip "GF Patterns" "$(command -v gf)"
+else
+  log "Installing GF Patterns (gf)"
+  go install -v github.com/tomnomnom/gf@latest
+fi
+
+if command -v interlace >/dev/null 2>&1; then
+  skip "Interlace" "$(command -v interlace)"
+else
+  log "Installing Interlace (interlace)"
+  pip install interlace
+fi
+
+if command -v rush >/dev/null 2>&1; then
+  skip "Rush" "$(command -v rush)"
+else
+  log "Installing Rush (rush)"
+  go install github.com/shenwei356/rush@latest
+fi
+
+if command -v notify >/dev/null 2>&1; then
+  skip "Notify" "$(command -v notify)"
+else
+  log "Installing Notify (notify)"
+  go install -v github.com/projectdiscovery/notify/cmd/notify@latest
+fi
+
+if command -v meg >/dev/null 2>&1; then
+  skip "Meg" "$(command -v meg)"
+else
+  log "Installing Meg (meg)"
+  go install github.com/tomnomnom/meg@latest
+fi
+
+# ── Vulnerability ───────────────────────────────────────────────
+if command -v nikto >/dev/null 2>&1; then
+  skip "Nikto" "$(command -v nikto)"
+else
+  log "Installing Nikto (nikto)"
+  apt install nikto  # or brew install nikto
+fi
+
+if command -v wpscan >/dev/null 2>&1; then
+  skip "WPScan" "$(command -v wpscan)"
+else
+  log "Installing WPScan (wpscan)"
+  gem install wpscan  # or apt install wpscan
+fi
+
+if command -v sqlmap >/dev/null 2>&1; then
+  skip "SQLMap" "$(command -v sqlmap)"
+else
+  log "Installing SQLMap (sqlmap)"
+  pip install sqlmap
+fi
+
+if command -v xsstrike >/dev/null 2>&1; then
+  skip "XSStrike" "$(command -v xsstrike)"
+else
+  log "Installing XSStrike (xsstrike)"
+  pip install XSStrike
+fi
+
+if command -v dalfox >/dev/null 2>&1; then
+  skip "Dalfox" "$(command -v dalfox)"
+else
+  log "Installing Dalfox (dalfox)"
+  go install -v github.com/hahwul/dalfox/v2@latest
+fi
+
+# ── Wordlist ────────────────────────────────────────────────────
+if command -v cewl >/dev/null 2>&1; then
+  skip "CeWL" "$(command -v cewl)"
+else
+  log "Installing CeWL (cewl)"
+  gem install cewl  # or apt install cewl
+fi
+
+if command -v wordlister >/dev/null 2>&1; then
+  skip "Wordlister" "$(command -v wordlister)"
+else
+  log "Installing Wordlister (wordlister)"
+  pip install wordlister
+fi
+
+log "All done. Run 'npm run dev' or launch the desktop app."

@@ -222,6 +222,26 @@ pip install -r requirements.txt
 cd ..
 ```
 
+### 1b. (Optional) Install the 75 security tools
+
+mini-tricky ships the orchestration layer, not the tools. To bootstrap every
+binary referenced in `backend/tools.yaml` in one go, run the generated
+installer script:
+
+```bash
+bash scripts/install-tools.sh
+```
+
+The script is idempotent (every tool is guarded by `command -v`, so re-running
+only installs what is still missing) and covers `go install`, `pip install`,
+`cargo install`, `npm install -g`, `apt`, and `brew` flavours. You can also
+fetch it fresh from a running backend — the same content is served by the
+in-app **Tool Manager → Copy install script** button:
+
+```bash
+curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh
+```
+
 ### 2. Run the desktop app (recommended)
 
 ```bash
@@ -519,7 +539,7 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 - [x] Import/export workflows as JSON
 
 ### Planned
-- [ ] Per-tool install/bootstrap manager (auto-check `PATH` and offer install commands)
+- [x] Per-tool install/bootstrap manager (auto-check `PATH` and offer install commands) — `scripts/install-tools.sh` + `GET /api/tools/install-script` + **Settings → Tool Manager → Copy install script**
 - [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux
 - [ ] Auto-update channel via electron-updater
 - [ ] Dark/light theme toggle (currently dark-only)
