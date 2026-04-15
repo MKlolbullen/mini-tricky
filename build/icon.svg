@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    mini-tricky app icon.
+
+    A stylised three-node DAG on a dark rounded square — mirrors the app's
+    visual identity: cyan accent (#5bdcff), dark blue panel (#0c1423), and
+    glowing connectors. Used as the master asset for Phase C; electron-builder
+    auto-converts the 512 PNG into .icns / .ico for mac and win builds, and
+    consumes the PNG directly for Linux AppImage.
+  -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1c33"/>
+      <stop offset="100%" stop-color="#060d18"/>
+    </linearGradient>
+    <linearGradient id="nodeGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#12243f"/>
+      <stop offset="100%" stop-color="#0a1627"/>
+    </linearGradient>
+    <radialGradient id="dotGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7fe8ff"/>
+      <stop offset="100%" stop-color="#5bdcff"/>
+    </radialGradient>
+    <filter id="edgeGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Rounded-square background (iOS-ish) -->
+  <rect x="0" y="0" width="512" height="512" rx="96" ry="96" fill="url(#bgGrad)"/>
+  <rect x="0" y="0" width="512" height="512" rx="96" ry="96"
+        fill="none" stroke="rgba(91,220,255,0.18)" stroke-width="2"/>
+
+  <!-- Subtle grid dots to evoke the canvas background -->
+  <g fill="rgba(91,220,255,0.08)">
+    <circle cx="80"  cy="80"  r="2"/>
+    <circle cx="160" cy="80"  r="2"/>
+    <circle cx="240" cy="80"  r="2"/>
+    <circle cx="320" cy="80"  r="2"/>
+    <circle cx="400" cy="80"  r="2"/>
+    <circle cx="80"  cy="160" r="2"/>
+    <circle cx="160" cy="160" r="2"/>
+    <circle cx="400" cy="160" r="2"/>
+    <circle cx="80"  cy="432" r="2"/>
+    <circle cx="160" cy="432" r="2"/>
+    <circle cx="240" cy="432" r="2"/>
+    <circle cx="320" cy="432" r="2"/>
+    <circle cx="400" cy="432" r="2"/>
+  </g>
+
+  <!-- DAG edges (behind the nodes so sockets sit cleanly on top) -->
+  <g stroke="rgba(91,220,255,0.75)" stroke-width="6" fill="none"
+     stroke-linecap="round" filter="url(#edgeGlow)">
+    <!-- upstream node (top-left) → middle node -->
+    <path d="M 176 176 C 232 176, 232 256, 288 256"/>
+    <!-- middle node → downstream node (bottom-right) -->
+    <path d="M 368 256 C 432 256, 408 336, 336 336"/>
+  </g>
+
+  <!-- Node cards -->
+  <g>
+    <!-- Upstream tool node -->
+    <rect x="96" y="144" width="112" height="64" rx="14" ry="14"
+          fill="url(#nodeGrad)" stroke="rgba(91,220,255,0.55)" stroke-width="2"/>
+    <rect x="96" y="144" width="112" height="6" rx="3" ry="3"
+          fill="rgba(91,220,255,0.7)"/>
+    <circle cx="176" cy="176" r="8" fill="url(#dotGrad)"/>
+
+    <!-- Middle processing node -->
+    <rect x="208" y="224" width="160" height="64" rx="14" ry="14"
+          fill="url(#nodeGrad)" stroke="rgba(91,220,255,0.7)" stroke-width="2.5"/>
+    <rect x="208" y="224" width="160" height="6" rx="3" ry="3"
+          fill="rgba(127,232,255,0.9)"/>
+    <circle cx="288" cy="256" r="8" fill="url(#dotGrad)"/>
+    <circle cx="368" cy="256" r="8" fill="url(#dotGrad)"/>
+
+    <!-- Downstream output node -->
+    <rect x="256" y="304" width="112" height="64" rx="14" ry="14"
+          fill="url(#nodeGrad)" stroke="rgba(91,220,255,0.55)" stroke-width="2"/>
+    <rect x="256" y="304" width="112" height="6" rx="3" ry="3"
+          fill="rgba(91,220,255,0.7)"/>
+    <circle cx="336" cy="336" r="8" fill="url(#dotGrad)"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="256" y="432"
+        font-family="Inter, system-ui, -apple-system, sans-serif"
+        font-size="40" font-weight="700" letter-spacing="1"
+        text-anchor="middle" fill="#d6e2ff">mini-tricky</text>
+</svg>

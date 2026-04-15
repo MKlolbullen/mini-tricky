@@ -30,11 +30,14 @@
       "version": "0.2.0-beta"
     },
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build"
     },
     "files": [
       "electron/**/*",
       "frontend/dist/**/*",
+      "build/icon.png",
+      "build/icon.ico",
       "!node_modules",
       "!backend",
       "!docs"
@@ -49,21 +52,29 @@
     "mac": {
       "target": ["dmg", "zip"],
       "category": "public.app-category.developer-tools",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "icon": "build/icon.png"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
     },
     "linux": {
       "target": ["AppImage", "deb"],
       "category": "Development",
-      "artifactName": "${name}-${version}.${ext}"
+      "artifactName": "${name}-${version}.${ext}",
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "dmg": {
+      "icon": "build/icon.png"
     }
   },
   "devDependencies": {

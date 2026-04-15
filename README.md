@@ -279,6 +279,13 @@ npm run desktop:build:linux   # → dist-electron/*.AppImage, *.deb
 
 The installer bundles the frontend `dist/` and the entire `backend/` directory as `extraResources`, so end users only need Python 3.10+ on their system — no manual install of the app's Python deps.
 
+App icons live in `build/` (`icon.svg` is the hand-authored source of truth, `icon.png` is the 1024×1024 master electron-builder consumes for macOS/Linux, `icon.ico` is the Windows multi-res icon). If you tweak the SVG, regenerate the PNG + ICO + tray-icon.png with:
+
+```bash
+pip install Pillow
+python3 build/generate_icons.py
+```
+
 ---
 
 ## Architecture
