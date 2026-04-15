@@ -5,3 +5,4 @@ PyYAML==6.0.2
 websockets==14.1
 apscheduler==3.10.4
 anthropic>=0.39.0
+keyring>=24.0.0

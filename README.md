@@ -547,6 +547,7 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 
 ### Planned
 - [x] Per-tool install/bootstrap manager (auto-check `PATH` and offer install commands) — `scripts/install-tools.sh` + `GET /api/tools/install-script` + **Settings → Tool Manager → Copy install script**
+- [x] **Secrets in OS keychain** — API keys / tokens / passwords in profile `env_vars` are now persisted via [`keyring`](https://pypi.org/project/keyring/) (macOS Keychain, Windows Credential Manager, Linux SecretService). The SQLite blob keeps a sentinel, and the `/api/profiles` endpoints mask sensitive values as `••••••••` so the real secret never crosses the wire. Headless hosts without a keyring backend fall back to a `state/secrets-fallback.json` file with `0600` perms.
 - [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux
 - [ ] Auto-update channel via electron-updater
 - [ ] Dark/light theme toggle (currently dark-only)

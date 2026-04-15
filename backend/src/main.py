@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from . import db, llm
+from . import db, llm, secrets_store
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
@@ -34,6 +34,15 @@ ARTIFACTS_DIR = STATE_DIR / 'artifacts'
 
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 db.init_db(STATE_DIR)
+secrets_store.init_secrets_store(STATE_DIR)
+
+# One-shot migration: any plaintext secrets left in the profile env_vars blob
+# from before Phase D gets rewritten into the keychain. Idempotent — profiles
+# that already have ``SENTINEL`` placeholders are skipped.
+_legacy_profiles = db.list_profiles()
+_migrated_count = secrets_store.migrate_legacy_plaintext(_legacy_profiles)
+if _migrated_count:
+    db.save_profiles(_legacy_profiles)
 
 TEXT_SUFFIXES = {
     '.txt', '.log', '.md', '.csv', '.xml', '.yaml', '.yml',
@@ -1796,7 +1805,10 @@ def _collect_env_vars_from_profiles() -> dict[str, str]:
 
     Profiles earlier in the list win on conflict (matches the UI's
     "active profile first" ordering). Used to source ``ANTHROPIC_API_KEY``
-    for the LLM-backed generator when the env var is not set.
+    for the LLM-backed generator when the env var is not set. Sensitive
+    keys live in the OS keychain via :mod:`secrets_store`; this function
+    hydrates them per-profile before merging so the LLM call sees real
+    values, never the ``SENTINEL`` placeholder.
     """
     merged: dict[str, str] = {}
     try:
@@ -1807,7 +1819,8 @@ def _collect_env_vars_from_profiles() -> dict[str, str]:
         env = p.get('env_vars') or {}
         if not isinstance(env, dict):
             continue
-        for k, v in env.items():
+        hydrated = secrets_store.hydrate_env_vars(p.get('id', ''), env)
+        for k, v in hydrated.items():
             if k not in merged and isinstance(v, str) and v:
                 merged[k] = v
     return merged
@@ -2236,26 +2249,41 @@ def save_profiles(profiles: list[dict[str, Any]]) -> None:
     db.save_profiles(profiles)
 
 
+def _profile_for_api(profile: dict[str, Any]) -> dict[str, Any]:
+    """Return a profile safe to send to the frontend.
+
+    Sensitive env_vars are stored as ``secrets_store.SENTINEL`` in the DB;
+    we hand the UI a bullet-mask so users can tell "a key is set" without
+    ever seeing the real value cross the wire.
+    """
+    view = dict(profile)
+    env = view.get('env_vars') or {}
+    if isinstance(env, dict):
+        view['env_vars'] = secrets_store.mask_env_vars(env)
+    return view
+
+
 @app.get('/api/profiles')
 def list_profiles() -> list[dict[str, Any]]:
-    return load_profiles()
+    return [_profile_for_api(p) for p in load_profiles()]
 
 
 @app.post('/api/profiles')
 def create_profile(payload: ProfilePayload) -> dict[str, Any]:
     profiles = load_profiles()
     profile_id = f'prof-{uuid4().hex[:10]}'
+    env_for_db = secrets_store.split_env_vars(profile_id, payload.env_vars, existing=None)
     item = {
         'id': profile_id,
         'name': payload.name,
         'description': payload.description,
         'tool_overrides': payload.tool_overrides,
-        'env_vars': payload.env_vars,
+        'env_vars': env_for_db,
         'created_at': datetime.now(UTC).isoformat(),
     }
     profiles.insert(0, item)
     save_profiles(profiles)
-    return item
+    return _profile_for_api(item)
 
 
 @app.delete('/api/profiles/{profile_id}')
@@ -2266,7 +2294,10 @@ def delete_profile(profile_id: str) -> dict[str, Any]:
     if len(profiles) == before:
         return {'ok': False, 'error': 'Profile not found'}
     save_profiles(profiles)
-    return {'ok': True, 'deleted': profile_id}
+    # Purge any keyring entries this profile owned so secrets don't outlive
+    # the profile record they belonged to.
+    removed = secrets_store.delete_profile_secrets(profile_id)
+    return {'ok': True, 'deleted': profile_id, 'secrets_removed': removed}
 
 
 @app.put('/api/profiles/{profile_id}')
@@ -2274,13 +2305,18 @@ def update_profile(profile_id: str, payload: ProfilePayload) -> dict[str, Any]:
     profiles = load_profiles()
     for p in profiles:
         if p.get('id') == profile_id:
+            env_for_db = secrets_store.split_env_vars(
+                profile_id,
+                payload.env_vars,
+                existing=p.get('env_vars') or {},
+            )
             p['name'] = payload.name
             p['description'] = payload.description
             p['tool_overrides'] = payload.tool_overrides
-            p['env_vars'] = payload.env_vars
+            p['env_vars'] = env_for_db
             p['updated_at'] = datetime.now(UTC).isoformat()
             save_profiles(profiles)
-            return p
+            return _profile_for_api(p)
     return {'ok': False, 'error': 'Profile not found'}
 
 
