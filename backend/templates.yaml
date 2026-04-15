@@ -414,3 +414,892 @@ templates:
           target: output-2
           source_handle: "out:targets"
           target_handle: "in:any"
+
+  - id: tpl-subdomain-takeover
+    name: Subdomain Takeover Hunt
+    description: Enumerate subdomains, resolve DNS, and check for dangling CNAMEs across three takeover scanners in parallel.
+    category: Takeover
+    tags: [takeover, subdomains, dns, recon]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: DNSx
+          tool_id: dnsx
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Subzy
+          tool_id: subzy
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: Subjack
+          tool_id: subjack
+          params: {}
+          position: { x: 960, y: 200 }
+        - id: tool-5
+          kind: tool
+          label: Nuclei Takeover Templates
+          tool_id: nuclei-takeover
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: Takeover Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-2
+          target: tool-5
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e6
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e7
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e8
+          source: tool-5
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-xss-archive-hunt
+    name: XSS Discovery via Archive URLs
+    description: Pull historical URLs from wayback/common-crawl, replace params with payloads, and fuzz for reflected XSS with Dalfox.
+    category: Vulnerability
+    tags: [xss, params, dalfox, archive]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: GAU
+          tool_id: gau
+          params: {}
+          position: { x: 360, y: 160 }
+        - id: tool-2
+          kind: tool
+          label: URO (dedupe)
+          tool_id: uro
+          params: {}
+          position: { x: 660, y: 160 }
+        - id: tool-3
+          kind: tool
+          label: QSReplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 960, y: 160 }
+        - id: tool-4
+          kind: tool
+          label: Dalfox
+          tool_id: dalfox
+          params: {}
+          position: { x: 1260, y: 160 }
+        - id: output-1
+          kind: output
+          label: XSS Findings
+          params: {}
+          position: { x: 1560, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-param-discovery
+    name: Parameter Discovery
+    description: Mine hidden GET/POST parameters from archive URLs (paramspider) and live endpoints (Arjun, x8) in parallel.
+    category: Params
+    tags: [params, discovery, arjun, x8]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: ParamSpider
+          tool_id: paramspider
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: Arjun
+          tool_id: arjun
+          params: {}
+          position: { x: 660, y: 80 }
+        - id: tool-3
+          kind: tool
+          label: x8
+          tool_id: x8
+          params: {}
+          position: { x: 660, y: 320 }
+        - id: output-1
+          kind: output
+          label: Parameter Findings
+          params: {}
+          position: { x: 960, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-js-secret-leaks
+    name: JS Secret Leaks
+    description: Harvest JS files from live targets and grep for hardcoded secrets, API keys, and tokens with SecretFinder + TruffleHog.
+    category: Secrets
+    tags: [secrets, jsanalysis, trufflehog, secretfinder]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: SubJS
+          tool_id: subjs
+          params: {}
+          position: { x: 960, y: 200 }
+        - id: tool-4
+          kind: tool
+          label: SecretFinder
+          tool_id: secretfinder
+          params: {}
+          position: { x: 1260, y: 80 }
+        - id: tool-5
+          kind: tool
+          label: TruffleHog
+          tool_id: trufflehog
+          params: {}
+          position: { x: 1260, y: 320 }
+        - id: output-1
+          kind: output
+          label: Secret Leak Findings
+          params: {}
+          position: { x: 1560, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: tool-5
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e7
+          source: tool-5
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-cloud-discovery
+    name: Cloud Storage Discovery
+    description: Enumerate cloud provider assets for a domain (cloud_enum) and probe discovered hosts for open S3 buckets (s3scanner).
+    category: Cloud
+    tags: [cloud, s3, azure, gcp]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: CloudEnum
+          tool_id: cloudenum
+          params: {}
+          position: { x: 360, y: 80 }
+        - id: tool-2
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 320 }
+        - id: tool-3
+          kind: tool
+          label: S3Scanner
+          tool_id: s3scanner
+          params: {}
+          position: { x: 660, y: 320 }
+        - id: output-1
+          kind: output
+          label: Cloud Asset Findings
+          params: {}
+          position: { x: 960, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-api-fuzzing
+    name: API Endpoint Fuzzing
+    description: Discover live API endpoints then fuzz them with Kiterunner (API routes) and APIFuzzer (parameter abuse).
+    category: API
+    tags: [api, kiterunner, apifuzzer]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Kiterunner
+          tool_id: kiterunner
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: APIFuzzer
+          tool_id: apifuzzer
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: API Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-ssrf-hunt
+    name: SSRF Hunt
+    description: Crawl archive URLs, filter for likely SSRF sinks with gf patterns, then probe with SSRFmap and ssrf-sheriff.
+    category: SSRF
+    tags: [ssrf, gf, ssrfmap, interactsh]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: GAU
+          tool_id: gau
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: gf (ssrf pattern)
+          tool_id: gf
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: SSRFmap
+          tool_id: ssrfmap
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: SSRF Sheriff
+          tool_id: ssrf-sheriff
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: SSRF Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-headers-audit
+    name: Security Headers Audit
+    description: Enumerate subdomains, probe live hosts, and audit their response headers with shcheck and hakcheckurl in parallel.
+    category: Headers
+    tags: [headers, shcheck, csp, hsts]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: shcheck
+          tool_id: shcheck
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: hakcheckurl
+          tool_id: hakcheckurl
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: Header Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-cors-misconfig
+    name: CORS Misconfiguration Scan
+    description: Discover live targets and scan for CORS misconfigs and CRLF injection in parallel.
+    category: CORS
+    tags: [cors, crlf, corscanner]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: CORScanner
+          tool_id: corscanner
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: CRLFuzz
+          tool_id: crlfuzz
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: CORS/CRLF Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-csrf-probe
+    name: CSRF Vulnerability Probe
+    description: Enumerate subdomains, probe live hosts, and run xsrfprobe against forms to detect missing or weak CSRF protections.
+    category: CSRF
+    tags: [csrf, xsrfprobe]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 160 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 160 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 660, y: 160 }
+        - id: tool-3
+          kind: tool
+          label: XSRFProbe
+          tool_id: xsrfprobe
+          params: {}
+          position: { x: 960, y: 160 }
+        - id: output-1
+          kind: output
+          label: CSRF Findings
+          params: {}
+          position: { x: 1260, y: 160 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-ssti-hunt
+    name: SSTI Injection Hunt
+    description: Pull archive URLs, replace parameters with SSTI test payloads, and run SSTImap + Tplmap against candidates.
+    category: SSTI
+    tags: [ssti, sstimap, tplmap]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: GAU
+          tool_id: gau
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: QSReplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: SSTImap
+          tool_id: sstimap
+          params: {}
+          position: { x: 960, y: 80 }
+        - id: tool-4
+          kind: tool
+          label: Tplmap
+          tool_id: tplmap
+          params: {}
+          position: { x: 960, y: 320 }
+        - id: output-1
+          kind: output
+          label: SSTI Findings
+          params: {}
+          position: { x: 1260, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-passive-recon
+    name: Passive Recon
+    description: Stealth reconnaissance using only passive sources — ProjectDiscovery chaos, wayback archives, and TheHarvester. No direct scanning.
+    category: Recon
+    tags: [passive, osint, stealth, no-scan]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Chaos
+          tool_id: chaos
+          params: {}
+          position: { x: 360, y: 80 }
+        - id: tool-2
+          kind: tool
+          label: Waybackurls
+          tool_id: waybackurls
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: TheHarvester
+          tool_id: theharvester
+          params: {}
+          position: { x: 360, y: 320 }
+        - id: tool-4
+          kind: tool
+          label: anew (dedupe)
+          tool_id: anew
+          params: {}
+          position: { x: 660, y: 200 }
+        - id: output-1
+          kind: output
+          label: Passive Recon Artifacts
+          params: {}
+          position: { x: 960, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e3
+          source: variable-1
+          target: tool-3
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e4
+          source: tool-1
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+        - id: e7
+          source: tool-3
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
