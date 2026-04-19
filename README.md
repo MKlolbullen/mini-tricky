@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/tools-75%20integrated-blueviolet" alt="75 Tools" />
   <img src="https://img.shields.io/badge/templates-20%20built--in-ff66c4" alt="20 Templates" />
   <img src="https://img.shields.io/badge/secrets-OS%20keychain-0ea5e9" alt="OS keychain secrets" />
-  <img src="https://img.shields.io/badge/version-0.2.0--beta-orange" alt="v0.2.0-beta" />
+  <img src="https://img.shields.io/badge/version-0.3.0--beta-orange" alt="v0.3.0-beta" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
@@ -45,9 +45,9 @@ Pre-built beta installers are published on the [**Releases page**](https://githu
 
 | Platform | File |
 |----------|------|
-| macOS (Apple Silicon / Intel) | `mini-tricky-0.2.0-beta-mac-arm64.dmg` / `-x64.dmg` |
-| Windows (x64) | `mini-tricky-0.2.0-beta-win-x64.exe` (NSIS installer) |
-| Linux (x64) | `mini-tricky-0.2.0-beta.AppImage` / `mini-tricky-0.2.0-beta.deb` |
+| macOS (Apple Silicon / Intel) | `mini-tricky-0.3.0-beta-mac-arm64.dmg` / `-x64.dmg` |
+| Windows (x64) | `mini-tricky-0.3.0-beta-win-x64.exe` (NSIS installer) |
+| Linux (x64) | `mini-tricky-0.3.0-beta.AppImage` / `mini-tricky-0.3.0-beta.deb` |
 
 Installers **bundle a self-contained Python runtime** — no separate Python installation required. You still need the security tools themselves (`subfinder`, `nuclei`, `ffuf`, etc.) on your system `PATH`; mini-tricky ships the orchestration layer, not the tools. Use [`scripts/install-tools.sh`](scripts/install-tools.sh) or the in-app **Settings → Tool Manager → Copy install script** button to bootstrap them in one command.
 
