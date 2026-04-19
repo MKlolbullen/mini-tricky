@@ -10,5 +10,6 @@ backend/src/__pycache__/
 .vscode/
 out/
 dist/
+dist-electron/
 backend/state/
 *.tsbuildinfo

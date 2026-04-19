@@ -120,6 +120,12 @@ export async function fetchToolsHealth(): Promise<{ ok: boolean; total: number; 
   return r.json();
 }
 
+export async function fetchInstallScript(): Promise<string> {
+  const r = await fetch(`${apiBase}/api/tools/install-script`);
+  if (!r.ok) throw new Error(`install-script fetch failed: ${r.status}`);
+  return r.text();
+}
+
 // ── Environment Profiles ────────────────────────────────────
 
 export type Profile = {

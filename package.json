@@ -1,9 +1,17 @@
 {
   "name": "mini-tricky",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Local-first Trickest-style bug bounty workflow builder — desktop app & web GUI.",
-  "author": "MKlolbullen",
+  "author": {
+    "name": "MKlolbullen",
+    "email": "mini-tricky@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/mklolbullen/mini-tricky",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mklolbullen/mini-tricky.git"
+  },
   "main": "electron/main.cjs",
   "scripts": {
     "frontend:install": "npm --prefix frontend install",
@@ -27,14 +35,17 @@
     "productName": "mini-tricky",
     "artifactName": "${name}-${version}-${os}-${arch}.${ext}",
     "extraMetadata": {
-      "version": "0.2.0-beta"
+      "version": "0.4.0-beta"
     },
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build"
     },
     "files": [
       "electron/**/*",
       "frontend/dist/**/*",
+      "build/icon.png",
+      "build/icon.ico",
       "!node_modules",
       "!backend",
       "!docs"
@@ -49,21 +60,32 @@
     "mac": {
       "target": ["dmg", "zip"],
       "category": "public.app-category.developer-tools",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "icon": "build/icon.png"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
     },
     "linux": {
       "target": ["AppImage", "deb"],
       "category": "Development",
-      "artifactName": "${name}-${version}.${ext}"
+      "artifactName": "${name}-${version}.${ext}",
+      "icon": "build/icon.png",
+      "maintainer": "MKlolbullen <mini-tricky@users.noreply.github.com>",
+      "synopsis": "Local-first Trickest-style bug bounty workflow builder",
+      "description": "mini-tricky is a local-first desktop app for building and running offensive security workflows. It wraps 75+ bug-bounty and red team tools behind a typed node-graph canvas, executes them via a Python/FastAPI backend, and ships as a self-contained Electron binary."
     },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "dmg": {
+      "icon": "build/icon.png"
     }
   },
   "devDependencies": {

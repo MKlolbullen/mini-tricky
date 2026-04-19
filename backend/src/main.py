@@ -4,12 +4,10 @@ import asyncio
 import base64
 import json
 import mimetypes
-import shutil
 import subprocess
-import tempfile
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -17,18 +15,34 @@ from uuid import uuid4
 import yaml
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
+
+from . import db, llm, secrets_store
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
 TEMPLATES_FILE = BASE_DIR / 'templates.yaml'
 STATE_DIR = BASE_DIR / 'state'
+# Legacy JSON paths kept for the one-shot import only; the backend no longer
+# reads or writes these files after startup (see src/db.py).
 WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
 VERSIONS_DIR = STATE_DIR / 'versions'
 RUNS_FILE = STATE_DIR / 'runs.json'
 USER_TEMPLATES_FILE = STATE_DIR / 'user_templates.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
+
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+db.init_db(STATE_DIR)
+secrets_store.init_secrets_store(STATE_DIR)
+
+# One-shot migration: any plaintext secrets left in the profile env_vars blob
+# from before Phase D gets rewritten into the keychain. Idempotent — profiles
+# that already have ``SENTINEL`` placeholders are skipped.
+_legacy_profiles = db.list_profiles()
+_migrated_count = secrets_store.migrate_legacy_plaintext(_legacy_profiles)
+if _migrated_count:
+    db.save_profiles(_legacy_profiles)
 
 TEXT_SUFFIXES = {
     '.txt', '.log', '.md', '.csv', '.xml', '.yaml', '.yml',
@@ -244,18 +258,15 @@ def validate_graph(graph: WorkflowGraph) -> dict[str, Any]:
 
 
 def workflow_records() -> list[dict[str, Any]]:
-    return read_json(WORKFLOWS_FILE)
+    return db.list_workflows()
 
 
 def run_records() -> list[dict[str, Any]]:
-    return read_json(RUNS_FILE)
+    return db.list_runs()
 
 
 def persist_run_record(updated_run: dict[str, Any]) -> None:
-    runs = run_records()
-    runs = [run for run in runs if run.get('id') != updated_run.get('id')]
-    runs.insert(0, updated_run)
-    write_json(RUNS_FILE, runs)
+    db.upsert_run(updated_run)
 
 
 def truncate_text(value: str, limit: int = 6000) -> str:
@@ -1085,21 +1096,18 @@ def _list_versions(workflow_id: str) -> list[dict[str, Any]]:
 
 @app.post('/api/workflows')
 def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
-    records = workflow_records()
     workflow_id = payload.id or f'wf-{uuid4().hex[:10]}'
     item = {
         'id': workflow_id,
         'name': payload.name,
         'graph': payload.graph.model_dump(),
-        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(UTC).isoformat(),
     }
 
     version = _save_version(workflow_id, item)
     item['version'] = version
 
-    records = [record for record in records if record['id'] != workflow_id]
-    records.insert(0, item)
-    write_json(WORKFLOWS_FILE, records)
+    db.upsert_workflow(item)
     return item
 
 
@@ -1272,7 +1280,7 @@ def run_workflow(payload: RunPayload) -> dict[str, Any]:
         'workflow_id': payload.workflow_id,
         'name': payload.name,
         'status': overall_status,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
         'graph': graph.model_dump(),
         'parallel_groups': validation['parallel_groups'],
         'node_states': node_states,
@@ -1330,7 +1338,7 @@ def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
     replay_record = {
         'id': replay_id,
         'node_id': node_id,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
         'used_cached_upstream_from': parent_ids,
         'result': result,
     }
@@ -1356,12 +1364,9 @@ def replay_node(run_id: str, node_id: str) -> dict[str, Any]:
 
 @app.delete('/api/runs/{run_id}')
 def delete_run(run_id: str) -> dict[str, Any]:
-    runs = run_records()
-    before = len(runs)
-    runs = [r for r in runs if r.get('id') != run_id]
-    if len(runs) == before:
+    if db.get_run(run_id) is None:
         return {'ok': False, 'error': f'Run {run_id} not found'}
-    write_json(RUNS_FILE, runs)
+    db.delete_run(run_id)
     run_dir = ARTIFACTS_DIR / run_id
     if run_dir.exists():
         import shutil
@@ -1399,14 +1404,7 @@ def load_builtin_templates() -> list[dict[str, Any]]:
 
 
 def load_user_templates() -> list[dict[str, Any]]:
-    ensure_state()
-    if not USER_TEMPLATES_FILE.exists():
-        USER_TEMPLATES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(USER_TEMPLATES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_user_templates()
 
 
 @app.get('/api/templates')
@@ -1424,7 +1422,6 @@ def get_template(template_id: str) -> dict[str, Any]:
 
 @app.post('/api/templates')
 def save_template(payload: TemplatePayload) -> dict[str, Any]:
-    ensure_state()
     templates = load_user_templates()
     template_id = f'tpl-{uuid4().hex[:10]}'
     item = {
@@ -1435,10 +1432,10 @@ def save_template(payload: TemplatePayload) -> dict[str, Any]:
         'tags': payload.tags,
         'builtin': False,
         'graph': payload.graph.model_dump(),
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
     }
     templates.insert(0, item)
-    USER_TEMPLATES_FILE.write_text(json.dumps(templates, indent=2))
+    db.save_user_templates(templates)
     return item
 
 
@@ -1523,7 +1520,7 @@ async def ws_run(websocket: WebSocket) -> None:
                 if data.get('type') == 'cancel':
                     cancelled = True
                     break
-        except (asyncio.TimeoutError, WebSocketDisconnect, json.JSONDecodeError):
+        except (TimeoutError, WebSocketDisconnect, json.JSONDecodeError):
             pass
 
         if cancelled:
@@ -1599,7 +1596,7 @@ async def ws_run(websocket: WebSocket) -> None:
         'workflow_id': payload.workflow_id,
         'name': payload.name,
         'status': overall_status,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
         'graph': graph.model_dump(),
         'parallel_groups': validation['parallel_groups'],
         'node_states': node_states,
@@ -1638,19 +1635,11 @@ class SchedulePayload(BaseModel):
 
 
 def load_schedules() -> list[dict[str, Any]]:
-    ensure_state()
-    if not SCHEDULES_FILE.exists():
-        SCHEDULES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(SCHEDULES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_schedules()
 
 
 def save_schedules(schedules: list[dict[str, Any]]) -> None:
-    ensure_state()
-    SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
+    db.save_schedules(schedules)
 
 
 def execute_scheduled_run(schedule: dict[str, Any]) -> None:
@@ -1718,7 +1707,7 @@ def create_schedule(payload: SchedulePayload) -> dict[str, Any]:
         'cron': payload.cron,
         'max_parallel': payload.max_parallel,
         'enabled': payload.enabled,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
     }
     schedules.insert(0, item)
     save_schedules(schedules)
@@ -1762,19 +1751,11 @@ class PresetPayload(BaseModel):
 
 
 def load_presets() -> list[dict[str, Any]]:
-    ensure_state()
-    if not PRESETS_FILE.exists():
-        PRESETS_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(PRESETS_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_presets()
 
 
 def save_presets(presets: list[dict[str, Any]]) -> None:
-    ensure_state()
-    PRESETS_FILE.write_text(json.dumps(presets, indent=2))
+    db.save_presets(presets)
 
 
 @app.get('/api/presets')
@@ -1794,7 +1775,7 @@ def create_preset(payload: PresetPayload) -> dict[str, Any]:
         'tool_id': payload.tool_id,
         'name': payload.name,
         'params': payload.params,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': datetime.now(UTC).isoformat(),
     }
     presets.insert(0, item)
     save_presets(presets)
@@ -1819,13 +1800,84 @@ class GeneratePayload(BaseModel):
     scope: str = ''
 
 
+def _collect_env_vars_from_profiles() -> dict[str, str]:
+    """Merge ``env_vars`` from every stored profile into a single dict.
+
+    Profiles earlier in the list win on conflict (matches the UI's
+    "active profile first" ordering). Used to source ``ANTHROPIC_API_KEY``
+    for the LLM-backed generator when the env var is not set. Sensitive
+    keys live in the OS keychain via :mod:`secrets_store`; this function
+    hydrates them per-profile before merging so the LLM call sees real
+    values, never the ``SENTINEL`` placeholder.
+    """
+    merged: dict[str, str] = {}
+    try:
+        profiles = load_profiles()
+    except Exception:
+        return merged
+    for p in profiles:
+        env = p.get('env_vars') or {}
+        if not isinstance(env, dict):
+            continue
+        hydrated = secrets_store.hydrate_env_vars(p.get('id', ''), env)
+        for k, v in hydrated.items():
+            if k not in merged and isinstance(v, str) and v:
+                merged[k] = v
+    return merged
+
+
 @app.post('/api/generate')
 def generate_workflow(payload: GeneratePayload) -> dict[str, Any]:
-    """Generate a workflow from a natural language description."""
+    """Generate a workflow from a natural language description.
+
+    Tries the Anthropic-backed generator first (see ``llm.py``). If the SDK
+    or API key is missing, or Claude returns an invalid workflow after a
+    retry, falls back to the legacy keyword-matcher implementation. The
+    response includes a ``source`` field of ``'claude'`` or ``'fallback'``
+    so the UI can show which path produced the graph.
+    """
+    tools = load_tools()
+
+    # Try LLM first.
+    try:
+        env_vars = _collect_env_vars_from_profiles()
+        llm_result = llm.generate_workflow_via_claude(
+            payload.prompt, payload.scope.strip(), tools, env_vars
+        )
+        # Validate through the same pydantic schema used by the save endpoint.
+        try:
+            WorkflowGraph(**llm_result['graph'])
+        except Exception as e:  # noqa: BLE001
+            raise llm.LLMGenerationError(f'schema validation failed: {e}')
+        return {
+            'ok': True,
+            'name': llm_result['name'],
+            'graph': llm_result['graph'],
+            'description': llm_result['description'],
+            'source': 'claude',
+        }
+    except llm.LLMNotAvailable as e:
+        fallback_reason = f'llm unavailable: {e}'
+    except llm.LLMGenerationError as e:
+        fallback_reason = f'llm generation failed: {e}'
+    except Exception as e:  # noqa: BLE001
+        fallback_reason = f'llm error: {e}'
+
+    result = _generate_workflow_via_keywords(payload, tools)
+    result['source'] = 'fallback'
+    result['fallback_reason'] = fallback_reason
+    return result
+
+
+def _generate_workflow_via_keywords(payload: GeneratePayload, tools: list[Tool]) -> dict[str, Any]:
+    """Legacy keyword-based workflow generator (fallback path).
+
+    Retained for offline operation and as a hard fallback when the LLM path
+    fails. Identical behaviour to the pre-LLM implementation.
+    """
     prompt = payload.prompt.lower()
     scope = payload.scope.strip()
 
-    tools = load_tools()
     tools_by_id = {t.id: t for t in tools}
 
     # Pattern matching for workflow generation
@@ -1998,96 +2050,183 @@ def tools_health() -> dict[str, Any]:
     }
 
 
+# Install hints keyed on the tool's *binary name* (first token of ``tool.command``),
+# not on its ``tool_id``. A few tools have mixed-case binaries (``theHarvester``,
+# ``SecretFinder``) or differ from their id entirely (``kr`` for kiterunner,
+# ``cloud_enum`` for cloudenum) — matching on the binary keeps those accurate.
+INSTALL_HINTS: dict[str, str] = {
+    'subfinder': 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
+    'httpx': 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest',
+    'nuclei': 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
+    'naabu': 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
+    'katana': 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest',
+    'dnsx': 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
+    'ffuf': 'go install -v github.com/ffuf/ffuf/v2@latest',
+    'amass': 'go install -v github.com/owasp-amass/amass/v4/...@master',
+    'assetfinder': 'go install -v github.com/tomnomnom/assetfinder@latest',
+    'gau': 'go install -v github.com/lc/gau/v2/cmd/gau@latest',
+    'waybackurls': 'go install -v github.com/tomnomnom/waybackurls@latest',
+    'gospider': 'go install -v github.com/jaeles-project/gospider@latest',
+    'hakrawler': 'go install -v github.com/hakluke/hakrawler@latest',
+    'anew': 'go install -v github.com/tomnomnom/anew@latest',
+    'unfurl': 'go install -v github.com/tomnomnom/unfurl@latest',
+    'qsreplace': 'go install -v github.com/tomnomnom/qsreplace@latest',
+    'uro': 'pip install uro',
+    'dalfox': 'go install -v github.com/hahwul/dalfox/v2@latest',
+    'arjun': 'pip install arjun',
+    'sqlmap': 'pip install sqlmap',
+    'feroxbuster': 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash',
+    'gobuster': 'go install github.com/OJ/gobuster/v3@latest',
+    'dirsearch': 'pip install dirsearch',
+    'nmap': 'apt install nmap  # or brew install nmap',
+    'masscan': 'apt install masscan  # or brew install masscan',
+    'rustscan': 'cargo install rustscan',
+    'jq': 'apt install jq  # or brew install jq',
+    'wfuzz': 'pip install wfuzz',
+    'massdns': 'apt install massdns  # or build from github.com/blechschmidt/massdns',
+    'shuffledns': 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest',
+    'testssl.sh': 'git clone https://github.com/drwetter/testssl.sh.git',
+    'theHarvester': 'pip install theHarvester',
+    'spiderfoot': 'pip install spiderfoot',
+    'shodan': 'pip install shodan',
+    'censys': 'pip install censys',
+    'nikto': 'apt install nikto  # or brew install nikto',
+    'wpscan': 'gem install wpscan  # or apt install wpscan',
+    'xsstrike': 'pip install XSStrike',
+    'commix': 'pip install commix',
+    'wappalyzer': 'npm install -g wappalyzer',
+    'linkfinder': 'pip install linkfinder',
+    'waymore': 'pip install waymore',
+    # Parameter Discovery
+    'paramspider': 'pip install paramspider',
+    'x8': 'cargo install x8',
+    'paraminer': 'pip install paraminer',
+    # API Testing
+    'kr': 'go install github.com/assetnote/kiterunner/cmd/kr@latest',
+    'APIFuzzer': 'pip install APIFuzzer',
+    'oasdiff': 'go install github.com/tufin/oasdiff@latest',
+    'restler': 'pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer',
+    # SSRF / OOB
+    'ssrfmap': 'pip install ssrfmap',
+    'gopherus': 'pip install gopherus',
+    'interactsh-client': 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest',
+    'ssrf-sheriff': 'pip install ssrf-sheriff',
+    # SSTI
+    'sstimap': 'pip install sstimap',
+    'tplmap': 'pip install tplmap',
+    # CSRF / CORS
+    'xsrfprobe': 'pip install xsrfprobe',
+    'cors_scan': 'pip install CORScanner',
+    'crlfuzz': 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest',
+    # Subdomain Takeover
+    'subjack': 'go install github.com/haccer/subjack@latest',
+    'subzy': 'go install -v github.com/PentestPad/subzy@latest',
+    # Headers
+    'shcheck': 'pip install shcheck',
+    'hakcheckurl': 'go install github.com/hakluke/hakcheckurl@latest',
+    # JS Analysis
+    'SecretFinder': 'pip install SecretFinder',
+    'getJS': 'go install github.com/003random/getJS/v2@latest',
+    'subjs': 'go install -v github.com/lc/subjs@latest',
+    # Wordlist
+    'cewl': 'gem install cewl  # or apt install cewl',
+    'wordlister': 'pip install wordlister',
+    # Cloud / Buckets
+    's3scanner': 'pip install s3scanner',
+    'cloud_enum': 'pip install cloud_enum',
+    # Secrets
+    'trufflehog': 'go install github.com/trufflesecurity/trufflehog/v3@latest',
+    'gitleaks': 'go install github.com/gitleaks/gitleaks/v8@latest',
+    # Utility
+    'gf': 'go install -v github.com/tomnomnom/gf@latest',
+    'interlace': 'pip install interlace',
+    'rush': 'go install github.com/shenwei356/rush@latest',
+    'notify': 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest',
+    'meg': 'go install github.com/tomnomnom/meg@latest',
+    'chaos': 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest',
+    'findomain': 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip',
+}
+
+
 def _get_install_hint(binary: str) -> str:
-    """Return install hints for common security tools."""
-    hints = {
-        'subfinder': 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest',
-        'httpx': 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest',
-        'nuclei': 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest',
-        'naabu': 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest',
-        'katana': 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest',
-        'dnsx': 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest',
-        'ffuf': 'go install -v github.com/ffuf/ffuf/v2@latest',
-        'amass': 'go install -v github.com/owasp-amass/amass/v4/...@master',
-        'assetfinder': 'go install -v github.com/tomnomnom/assetfinder@latest',
-        'gau': 'go install -v github.com/lc/gau/v2/cmd/gau@latest',
-        'waybackurls': 'go install -v github.com/tomnomnom/waybackurls@latest',
-        'gospider': 'go install -v github.com/jaeles-project/gospider@latest',
-        'hakrawler': 'go install -v github.com/hakluke/hakrawler@latest',
-        'anew': 'go install -v github.com/tomnomnom/anew@latest',
-        'unfurl': 'go install -v github.com/tomnomnom/unfurl@latest',
-        'qsreplace': 'go install -v github.com/tomnomnom/qsreplace@latest',
-        'dalfox': 'go install -v github.com/hahwul/dalfox/v2@latest',
-        'arjun': 'pip install arjun',
-        'sqlmap': 'pip install sqlmap',
-        'feroxbuster': 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash',
-        'gobuster': 'go install github.com/OJ/gobuster/v3@latest',
-        'dirsearch': 'pip install dirsearch',
-        'nmap': 'apt install nmap  # or brew install nmap',
-        'masscan': 'apt install masscan  # or brew install masscan',
-        'rustscan': 'cargo install rustscan',
-        'jq': 'apt install jq  # or brew install jq',
-        'wfuzz': 'pip install wfuzz',
-        'massdns': 'apt install massdns  # or build from github.com/blechschmidt/massdns',
-        'shuffledns': 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest',
-        'testssl.sh': 'git clone https://github.com/drwetter/testssl.sh.git',
-        'theHarvester': 'pip install theHarvester',
-        'spiderfoot': 'pip install spiderfoot',
-        'xsstrike': 'pip install XSStrike',
-        'commix': 'pip install commix',
-        'wappalyzer': 'npm install -g wappalyzer',
-        'linkfinder': 'pip install linkfinder',
-        'waymore': 'pip install waymore',
-        # Parameter Discovery
-        'paramspider': 'pip install paramspider',
-        'x8': 'cargo install x8',
-        'paraminer': 'pip install paraminer',
-        # API Testing
-        'kr': 'go install github.com/assetnote/kiterunner/cmd/kr@latest',
-        'APIFuzzer': 'pip install APIFuzzer',
-        'oasdiff': 'go install github.com/tufin/oasdiff@latest',
-        'restler': 'pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer',
-        # SSRF / OOB
-        'ssrfmap': 'pip install ssrfmap',
-        'gopherus': 'pip install gopherus',
-        'interactsh-client': 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest',
-        'ssrf-sheriff': 'pip install ssrf-sheriff',
-        # SSTI
-        'sstimap': 'pip install sstimap',
-        'tplmap': 'pip install tplmap',
-        # CSRF / CORS
-        'xsrfprobe': 'pip install xsrfprobe',
-        'cors_scan': 'pip install CORScanner',
-        'crlfuzz': 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest',
-        # Subdomain Takeover
-        'subjack': 'go install github.com/haccer/subjack@latest',
-        'subzy': 'go install -v github.com/PentestPad/subzy@latest',
-        # Headers
-        'shcheck': 'pip install shcheck',
-        'hakcheckurl': 'go install github.com/hakluke/hakcheckurl@latest',
-        # JS Analysis
-        'SecretFinder': 'pip install SecretFinder',
-        'getJS': 'go install github.com/003random/getJS/v2@latest',
-        'subjs': 'go install -v github.com/lc/subjs@latest',
-        # Wordlist
-        'cewl': 'gem install cewl  # or apt install cewl',
-        'wordlister': 'pip install wordlister',
-        # Cloud / Buckets
-        's3scanner': 'pip install s3scanner',
-        'cloud_enum': 'pip install cloud_enum',
-        # Secrets
-        'trufflehog': 'go install github.com/trufflesecurity/trufflehog/v3@latest',
-        'gitleaks': 'go install github.com/gitleaks/gitleaks/v8@latest',
-        # Utility
-        'gf': 'go install -v github.com/tomnomnom/gf@latest',
-        'interlace': 'pip install interlace',
-        'rush': 'go install github.com/shenwei356/rush@latest',
-        'notify': 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest',
-        'meg': 'go install github.com/tomnomnom/meg@latest',
-        'chaos': 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest',
-        'findomain': 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip',
-    }
-    return hints.get(binary, f'Install {binary} and ensure it is on your PATH')
+    """Return an install hint for ``binary`` or a generic fallback."""
+    return INSTALL_HINTS.get(binary, f'Install {binary} and ensure it is on your PATH')
+
+
+def _generate_install_script() -> str:
+    """Build a bash installer script covering every tool in ``tools.yaml``.
+
+    Each tool becomes a block guarded by ``command -v`` so the script is
+    idempotent: tools already on the PATH are skipped. Unknown binaries fall
+    through to a ``# TODO`` stub so the operator can fill them in manually.
+    """
+    tools = load_tools()
+    lines: list[str] = [
+        '#!/usr/bin/env bash',
+        '#',
+        '# install-tools.sh — bootstrap the 75+ binaries mini-tricky drives.',
+        '#',
+        '# Generated from backend/src/main.py::_generate_install_script. Re-generate with:',
+        '#   curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh',
+        '#',
+        '# Idempotent: each tool is guarded by `command -v`, so re-running only',
+        '# installs what is still missing. Requires go, python/pip, cargo, npm, and',
+        '# apt or brew on the host.',
+        '#',
+        'set -euo pipefail',
+        '',
+        'log() { printf "\\033[1;36m[install-tools]\\033[0m %s\\n" "$*"; }',
+        'skip() { printf "\\033[2m[install-tools] %s already installed at %s\\033[0m\\n" "$1" "$2"; }',
+        '',
+    ]
+
+    seen: set[str] = set()
+    missing: list[str] = []
+    # Group by category so the generated script reads top-down by domain.
+    by_category: dict[str, list[Tool]] = {}
+    for tool in tools:
+        by_category.setdefault(tool.category or 'Other', []).append(tool)
+
+    for category in sorted(by_category):
+        lines.append(f'# ── {category} ' + '─' * max(1, 60 - len(category)))
+        for tool in by_category[category]:
+            binary = tool.command[0] if tool.command else ''
+            if not binary or binary in seen:
+                continue
+            seen.add(binary)
+            hint = INSTALL_HINTS.get(binary)
+            if not hint:
+                missing.append(binary)
+                lines.append(f'# TODO: no install hint for {tool.name} ({binary})')
+                lines.append('')
+                continue
+            # Shell-safe single-quoted binary; hint is emitted verbatim so users
+            # can eyeball the command before running the script.
+            lines.append(f'if command -v {binary} >/dev/null 2>&1; then')
+            lines.append(f'  skip "{tool.name}" "$(command -v {binary})"')
+            lines.append('else')
+            lines.append(f'  log "Installing {tool.name} ({binary})"')
+            lines.append(f'  {hint}')
+            lines.append('fi')
+            lines.append('')
+
+    lines.append('log "All done. Run \'npm run dev\' or launch the desktop app."')
+    if missing:
+        lines.append('')
+        lines.append(f'# Note: {len(missing)} tools have no install hint yet: ' + ', '.join(missing))
+    lines.append('')
+    return '\n'.join(lines)
+
+
+@app.get('/api/tools/install-script')
+def tools_install_script() -> PlainTextResponse:
+    """Return a bash script that installs every tool in ``tools.yaml``."""
+    script = _generate_install_script()
+    return PlainTextResponse(
+        content=script,
+        media_type='text/x-shellscript',
+        headers={'Content-Disposition': 'attachment; filename="install-tools.sh"'},
+    )
 
 
 # ── Environment Profiles ──────────────────────────────────────────────────────
@@ -2103,41 +2242,48 @@ class ProfilePayload(BaseModel):
 
 
 def load_profiles() -> list[dict[str, Any]]:
-    ensure_state()
-    if not PROFILES_FILE.exists():
-        PROFILES_FILE.write_text('[]')
-        return []
-    try:
-        return json.loads(PROFILES_FILE.read_text())
-    except json.JSONDecodeError:
-        return []
+    return db.list_profiles()
 
 
 def save_profiles(profiles: list[dict[str, Any]]) -> None:
-    ensure_state()
-    PROFILES_FILE.write_text(json.dumps(profiles, indent=2))
+    db.save_profiles(profiles)
+
+
+def _profile_for_api(profile: dict[str, Any]) -> dict[str, Any]:
+    """Return a profile safe to send to the frontend.
+
+    Sensitive env_vars are stored as ``secrets_store.SENTINEL`` in the DB;
+    we hand the UI a bullet-mask so users can tell "a key is set" without
+    ever seeing the real value cross the wire.
+    """
+    view = dict(profile)
+    env = view.get('env_vars') or {}
+    if isinstance(env, dict):
+        view['env_vars'] = secrets_store.mask_env_vars(env)
+    return view
 
 
 @app.get('/api/profiles')
 def list_profiles() -> list[dict[str, Any]]:
-    return load_profiles()
+    return [_profile_for_api(p) for p in load_profiles()]
 
 
 @app.post('/api/profiles')
 def create_profile(payload: ProfilePayload) -> dict[str, Any]:
     profiles = load_profiles()
     profile_id = f'prof-{uuid4().hex[:10]}'
+    env_for_db = secrets_store.split_env_vars(profile_id, payload.env_vars, existing=None)
     item = {
         'id': profile_id,
         'name': payload.name,
         'description': payload.description,
         'tool_overrides': payload.tool_overrides,
-        'env_vars': payload.env_vars,
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'env_vars': env_for_db,
+        'created_at': datetime.now(UTC).isoformat(),
     }
     profiles.insert(0, item)
     save_profiles(profiles)
-    return item
+    return _profile_for_api(item)
 
 
 @app.delete('/api/profiles/{profile_id}')
@@ -2148,7 +2294,10 @@ def delete_profile(profile_id: str) -> dict[str, Any]:
     if len(profiles) == before:
         return {'ok': False, 'error': 'Profile not found'}
     save_profiles(profiles)
-    return {'ok': True, 'deleted': profile_id}
+    # Purge any keyring entries this profile owned so secrets don't outlive
+    # the profile record they belonged to.
+    removed = secrets_store.delete_profile_secrets(profile_id)
+    return {'ok': True, 'deleted': profile_id, 'secrets_removed': removed}
 
 
 @app.put('/api/profiles/{profile_id}')
@@ -2156,13 +2305,18 @@ def update_profile(profile_id: str, payload: ProfilePayload) -> dict[str, Any]:
     profiles = load_profiles()
     for p in profiles:
         if p.get('id') == profile_id:
+            env_for_db = secrets_store.split_env_vars(
+                profile_id,
+                payload.env_vars,
+                existing=p.get('env_vars') or {},
+            )
             p['name'] = payload.name
             p['description'] = payload.description
             p['tool_overrides'] = payload.tool_overrides
-            p['env_vars'] = payload.env_vars
-            p['updated_at'] = datetime.now(timezone.utc).isoformat()
+            p['env_vars'] = env_for_db
+            p['updated_at'] = datetime.now(UTC).isoformat()
             save_profiles(profiles)
-            return p
+            return _profile_for_api(p)
     return {'ok': False, 'error': 'Profile not found'}
 
 
@@ -2382,6 +2536,6 @@ def _generate_markdown_report(run: dict[str, Any], normalized: list[dict[str, An
     lines.append('```')
     lines.append('')
     lines.append('---')
-    lines.append(f'*Generated by mini-tricky on {datetime.now(timezone.utc).isoformat()}*')
+    lines.append(f'*Generated by mini-tricky on {datetime.now(UTC).isoformat()}*')
 
     return '\n'.join(lines)

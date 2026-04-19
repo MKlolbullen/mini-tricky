@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag name to release (e.g. v0.2.0-beta)'
+        description: 'Tag name to release (e.g. v0.3.0-beta)'
         required: true
-        default: 'v0.2.0-beta'
+        default: 'v0.4.0-beta'
 
 permissions:
   contents: write
@@ -167,40 +167,45 @@ jobs:
           body: |
             ## mini-tricky ${{ github.event.inputs.tag || github.ref_name }}
 
-            First public beta of **mini-tricky** — a local-first Trickest-style workflow builder for bug bounty / offensive security automation.
+            Local-first Trickest-style workflow builder for bug bounty and offensive security automation.
 
             ### What's in the box
-            - **75 security tools** across **21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, ...)
-            - Full **Electron desktop app** with native menus, system tray, keyboard shortcuts, and persisted window state
+
+            - **75 security tools** across **21 categories** — every tool audited with real CLI flags exposed as typed argument toggles in the Inspector panel
+            - **20 built-in workflow templates** across attack-surface categories (recon, vuln scan, fuzzing, cloud, secret hunting, takeover, API fuzzing, …)
+            - **Full Electron desktop app** with custom app icons, native menus, system tray, keyboard shortcuts, and persisted window state
             - **Bundled Python runtime** — no Python installation required
+            - **SQLite persistence** with Alembic migrations (replaces legacy JSON state files)
+            - **OS keychain secrets** — API keys, tokens, and passwords in environment profiles are routed to the OS keychain (macOS Keychain, Windows Credential Manager, Linux SecretService) with a masked sentinel in the API
+            - **Real LLM workflow generation** — `/api/generate` delegates to Anthropic Claude with the full tool catalog as context
+            - **Tool install script** — `scripts/install-tools.sh` bootstraps every binary in one idempotent pass
             - Visual React Flow DAG editor with typed, color-coded sockets
             - Trickest-style argument toggle switches per tool
             - Real-time WebSocket execution with live node states
             - Conditional branching, loop nodes, sub-workflow modules, custom script nodes
+            - Cron scheduling, workflow versioning, parameter presets, node replay
 
             ### Downloads
 
-            | Platform | File |
-            |----------|------|
-            | macOS (Apple Silicon) | `mini-tricky-<version>-arm64.dmg` |
-            | Windows (x64) | `mini-tricky-<version>-x64.exe` (NSIS installer) |
-            | Linux (x64) | `mini-tricky-<version>.AppImage` / `.deb` |
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | macOS (Apple Silicon) | `mini-tricky-*-mac-arm64.dmg` | Unsigned — right-click → **Open** on first launch |
+            | Windows (x64) | `mini-tricky-*-win-x64.exe` | NSIS installer — click **More info → Run anyway** on SmartScreen |
+            | Linux (x64) | `mini-tricky-*.AppImage` / `mini-tricky-*.deb` | `chmod +x` the AppImage, or `sudo dpkg -i` the .deb |
 
             ### Prerequisites
-            You still need the **security tools themselves** (subfinder, nuclei, ffuf, etc.) installed on your system `PATH`. mini-tricky ships the orchestration layer, not the tools.
+
+            You still need the **security tools themselves** (subfinder, nuclei, ffuf, etc.) installed on your system `PATH`. mini-tricky ships the orchestration layer, not the tools. Run `bash scripts/install-tools.sh` or use the in-app **Settings → Tool Manager → Copy install script** button to bootstrap them.
 
             ### Important: Unsigned Beta
+
             These installers are **not code-signed**. You will see OS warnings on first launch:
-
-            - **macOS**: right-click the `.app` → **Open** → confirm the dialog. After the first launch, normal double-click works.
+            - **macOS**: right-click the `.app` → **Open** → confirm the dialog.
             - **Windows**: SmartScreen will prompt — click **More info** → **Run anyway**.
-            - **Linux**: no warning; `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage`.
-
-            ### Known Issues
-            - Default Electron icon is used (custom icons coming in a later beta)
-            - macOS x64 (Intel) build not yet shipped — only arm64
+            - **Linux**: no warning needed for AppImage; `.deb` installs normally via `dpkg`.
 
             ### Feedback
+
             Open an issue at https://github.com/MKlolbullen/mini-tricky/issues
           files: |
             artifacts/*.dmg

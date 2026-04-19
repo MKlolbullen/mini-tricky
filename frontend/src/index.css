@@ -2046,6 +2046,12 @@ nav { display: flex; gap: 8px; }
   align-items: center;
 }
 
+.tools-health-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .tools-health-summary {
   display: flex;
   gap: 16px;
