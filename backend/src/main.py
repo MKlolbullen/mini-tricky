@@ -24,12 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / 'tools.yaml'
 TEMPLATES_FILE = BASE_DIR / 'templates.yaml'
 STATE_DIR = BASE_DIR / 'state'
-# Legacy JSON paths kept for the one-shot import only; the backend no longer
-# reads or writes these files after startup (see src/db.py).
-WORKFLOWS_FILE = STATE_DIR / 'workflows.json'
 VERSIONS_DIR = STATE_DIR / 'versions'
-RUNS_FILE = STATE_DIR / 'runs.json'
-USER_TEMPLATES_FILE = STATE_DIR / 'user_templates.json'
 ARTIFACTS_DIR = STATE_DIR / 'artifacts'
 
 STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,23 +124,6 @@ app.add_middleware(
 def ensure_state() -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    if not WORKFLOWS_FILE.exists():
-        WORKFLOWS_FILE.write_text('[]')
-    if not RUNS_FILE.exists():
-        RUNS_FILE.write_text('[]')
-
-
-def read_json(path: Path) -> list[dict[str, Any]]:
-    ensure_state()
-    try:
-        return json.loads(path.read_text())
-    except json.JSONDecodeError:
-        return []
-
-
-def write_json(path: Path, data: list[dict[str, Any]]) -> None:
-    ensure_state()
-    path.write_text(json.dumps(data, indent=2))
 
 
 def load_tools() -> list[Tool]:
@@ -1623,9 +1601,6 @@ async def ws_run(websocket: WebSocket) -> None:
 
 # ── Workflow Scheduling ──────────────────────────────────────────────────────
 
-SCHEDULES_FILE = STATE_DIR / 'schedules.json'
-
-
 class SchedulePayload(BaseModel):
     workflow_id: str
     name: str = 'Scheduled Run'
@@ -1740,8 +1715,6 @@ def toggle_schedule(schedule_id: str) -> dict[str, Any]:
 
 
 # ── Parameter Presets ──────────────────────────────────────────────────────────
-
-PRESETS_FILE = STATE_DIR / 'presets.json'
 
 
 class PresetPayload(BaseModel):
@@ -2230,8 +2203,6 @@ def tools_install_script() -> PlainTextResponse:
 
 
 # ── Environment Profiles ──────────────────────────────────────────────────────
-
-PROFILES_FILE = STATE_DIR / 'profiles.json'
 
 
 class ProfilePayload(BaseModel):

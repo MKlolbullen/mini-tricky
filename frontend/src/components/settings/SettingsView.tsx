@@ -95,7 +95,11 @@ export default function SettingsView({ health }: Props) {
 
           <div className="section-title">Keyboard Shortcuts</div>
           <div className="shortcuts-grid">
+            <div className="shortcut-row"><kbd>Ctrl+Z</kbd> <span>Undo</span></div>
+            <div className="shortcut-row"><kbd>Ctrl+Shift+Z</kbd> <span>Redo</span></div>
             <div className="shortcut-row"><kbd>Delete</kbd> <span>Remove selected node</span></div>
+            <div className="shortcut-row"><kbd>Ctrl+D</kbd> <span>Duplicate selected node</span></div>
+            <div className="shortcut-row"><kbd>Ctrl+A</kbd> <span>Select all nodes</span></div>
             <div className="shortcut-row"><kbd>Ctrl+S</kbd> <span>Save workflow</span></div>
             <div className="shortcut-row"><kbd>Ctrl+Enter</kbd> <span>Run workflow</span></div>
             <div className="shortcut-row"><kbd>Ctrl+E</kbd> <span>Export workflow</span></div>
