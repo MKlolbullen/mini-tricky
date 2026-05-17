@@ -35,36 +35,36 @@ logger = logging.getLogger(__name__)
 
 # ── Public constants ─────────────────────────────────────────────────────────
 
-SERVICE_NAME = 'mini-tricky'
-SENTINEL = '__mini_tricky_secret__'
+SERVICE_NAME = "mini-tricky"
+SENTINEL = "__mini_tricky_secret__"
 # Stable placeholder the API returns for sensitive values. Keeping the exact
 # string pinned makes it round-trippable: when the UI echoes this back on a
 # PUT the server can recognise "no change, keep the existing keychain value".
-MASK_PLACEHOLDER = '\u2022' * 8
+MASK_PLACEHOLDER = "\u2022" * 8
 
 # Keys matching any of these fnmatch patterns (case-insensitive) are treated
 # as sensitive. Additive over time — add new vendor-specific patterns here.
 SENSITIVE_KEY_PATTERNS: tuple[str, ...] = (
-    '*_API_KEY',
-    '*_APIKEY',
-    '*_TOKEN',
-    '*_SECRET',
-    '*_PASSWORD',
-    '*_PWD',
-    '*_PRIVATE_KEY',
-    'ANTHROPIC_API_KEY',
-    'OPENAI_API_KEY',
-    'SHODAN_API_KEY',
-    'CENSYS_API_ID',
-    'CENSYS_API_SECRET',
-    'VT_API_KEY',
-    'VIRUSTOTAL_API_KEY',
-    'GITHUB_TOKEN',
-    'GITLAB_TOKEN',
-    'CHAOS_KEY',
-    'GOOGLE_API_KEY',
-    'AWS_ACCESS_KEY_ID',
-    'AWS_SECRET_ACCESS_KEY',
+    "*_API_KEY",
+    "*_APIKEY",
+    "*_TOKEN",
+    "*_SECRET",
+    "*_PASSWORD",
+    "*_PWD",
+    "*_PRIVATE_KEY",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "SHODAN_API_KEY",
+    "CENSYS_API_ID",
+    "CENSYS_API_SECRET",
+    "VT_API_KEY",
+    "VIRUSTOTAL_API_KEY",
+    "GITHUB_TOKEN",
+    "GITLAB_TOKEN",
+    "CHAOS_KEY",
+    "GOOGLE_API_KEY",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
 )
 
 
@@ -82,10 +82,10 @@ def mask(value: str) -> str:
     * otherwise → ``'••••' + last 4 chars``
     """
     if not value or value == SENTINEL:
-        return ''
+        return ""
     if len(value) <= 4:
-        return '****'
-    return '\u2022' * 4 + value[-4:]
+        return "****"
+    return "\u2022" * 4 + value[-4:]
 
 
 # ── Backend plumbing ─────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ _fallback_path: Path | None = None
 class _Backend:
     """Interface that both the keyring and fallback backends implement."""
 
-    name: str = 'unknown'
+    name: str = "unknown"
 
     def get(self, username: str) -> str | None:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -118,14 +118,14 @@ class _Backend:
 
 
 class _KeyringBackend(_Backend):
-    name = 'keyring'
+    name = "keyring"
 
     def __init__(self, module: Any) -> None:
         self._kr = module
         # A session-only index so delete_profile_secrets can find everything
         # we ever stored for a profile. Keyring has no ``list`` API, so we
         # keep a side index in the fallback JSON file to share state.
-        self._index_path = _fallback_path.with_suffix('.index.json') if _fallback_path else None
+        self._index_path = _fallback_path.with_suffix(".index.json") if _fallback_path else None
 
     def _load_index(self) -> dict[str, list[str]]:
         if not self._index_path or not self._index_path.exists():
@@ -143,13 +143,13 @@ class _KeyringBackend(_Backend):
             self._index_path.write_text(json.dumps(index, indent=2, sort_keys=True))
             os.chmod(self._index_path, stat.S_IRUSR | stat.S_IWUSR)
         except OSError as e:
-            logger.warning('Failed to persist secrets index: %s', e)
+            logger.warning("Failed to persist secrets index: %s", e)
 
     def get(self, username: str) -> str | None:
         try:
             return self._kr.get_password(SERVICE_NAME, username)
         except Exception as e:  # noqa: BLE001 - keyring raises many subclasses
-            logger.warning('keyring get failed for %s: %s', username, e)
+            logger.warning("keyring get failed for %s: %s", username, e)
             return None
 
     def set(self, username: str, value: str) -> None:
@@ -164,7 +164,7 @@ class _KeyringBackend(_Backend):
         try:
             self._kr.delete_password(SERVICE_NAME, username)
         except Exception as e:  # noqa: BLE001
-            logger.debug('keyring delete for %s: %s', username, e)
+            logger.debug("keyring delete for %s: %s", username, e)
         index = self._load_index()
         known = [u for u in index.get(SERVICE_NAME, []) if u != username]
         index[SERVICE_NAME] = known
@@ -177,7 +177,7 @@ class _KeyringBackend(_Backend):
 class _FileBackend(_Backend):
     """Plaintext JSON fallback. ``0600`` perms on POSIX, best-effort on Windows."""
 
-    name = 'file'
+    name = "file"
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -229,7 +229,7 @@ def init_secrets_store(state_dir: Path) -> None:
         return
 
     state_dir.mkdir(parents=True, exist_ok=True)
-    _fallback_path = state_dir / 'secrets-fallback.json'
+    _fallback_path = state_dir / "secrets-fallback.json"
 
     # Try the real keyring first. A missing module, no backend, a dbus
     # failure on headless Linux, or a broken transitive C-extension
@@ -243,7 +243,7 @@ def init_secrets_store(state_dir: Path) -> None:
         # Smoke-test the backend — some platforms return a fake backend that
         # raises ``NoKeyringError`` on first use, not on import.
         try:
-            keyring.get_password(SERVICE_NAME, '__ping__')
+            keyring.get_password(SERVICE_NAME, "__ping__")
         except NoKeyringError:
             raise
         except BaseException:
@@ -254,33 +254,35 @@ def init_secrets_store(state_dir: Path) -> None:
             pass
 
         _backend = _KeyringBackend(keyring)
-        logger.info('secrets_store: using OS keychain (%s)', type(keyring.get_keyring()).__name__)
+        logger.info("secrets_store: using OS keychain (%s)", type(keyring.get_keyring()).__name__)
     except BaseException as e:  # noqa: BLE001 — ImportError, NoKeyringError, PanicException, ...
         _backend = _FileBackend(_fallback_path)
         logger.warning(
-            'secrets_store: OS keychain unavailable (%s); falling back to %s. '
-            'Secrets will be stored plaintext with 0600 perms — install '
-            '`keyring` and a backend (macOS: built-in; Windows: built-in; '
-            'Linux: secretstorage + dbus) for the hardened path.',
-            e, _fallback_path,
+            "secrets_store: OS keychain unavailable (%s); falling back to %s. "
+            "Secrets will be stored plaintext with 0600 perms — install "
+            "`keyring` and a backend (macOS: built-in; Windows: built-in; "
+            "Linux: secretstorage + dbus) for the hardened path.",
+            e,
+            _fallback_path,
         )
 
 
 def backend_name() -> str:
     """Return ``'keyring'`` or ``'file'`` (for diagnostics / health endpoints)."""
-    return _backend.name if _backend else 'uninitialized'
+    return _backend.name if _backend else "uninitialized"
 
 
 def _require_backend() -> _Backend:
     if _backend is None:
-        raise RuntimeError('secrets_store.init_secrets_store() must be called first')
+        raise RuntimeError("secrets_store.init_secrets_store() must be called first")
     return _backend
 
 
 # ── Public CRUD ──────────────────────────────────────────────────────────────
 
+
 def _username(profile_id: str, env_key: str) -> str:
-    return f'{profile_id}::{env_key}'
+    return f"{profile_id}::{env_key}"
 
 
 def get_secret(profile_id: str, env_key: str) -> str | None:
@@ -301,7 +303,7 @@ def delete_secret(profile_id: str, env_key: str) -> None:
 def delete_profile_secrets(profile_id: str) -> int:
     """Remove every secret belonging to ``profile_id``. Returns the count."""
     backend = _require_backend()
-    prefix = f'{profile_id}::'
+    prefix = f"{profile_id}::"
     removed = 0
     for username in backend.list_usernames():
         if username.startswith(prefix):
@@ -343,7 +345,7 @@ def split_env_vars(
         if not is_sensitive(key):
             out[key] = value
             continue
-        existing_value = existing.get(key, '')
+        existing_value = existing.get(key, "")
         # Preserve-existing paths: the UI echoed back the mask or sentinel.
         if value in (SENTINEL, MASK_PLACEHOLDER) and existing_value == SENTINEL:
             out[key] = SENTINEL
@@ -392,6 +394,7 @@ def mask_env_vars(env_vars: dict[str, str]) -> dict[str, str]:
 
 # ── Legacy migration ────────────────────────────────────────────────────────
 
+
 def migrate_legacy_plaintext(profiles: list[dict[str, Any]]) -> int:
     """Move any plaintext sensitive env_vars into the keyring in-place.
 
@@ -401,8 +404,8 @@ def migrate_legacy_plaintext(profiles: list[dict[str, Any]]) -> int:
     """
     migrated = 0
     for profile in profiles:
-        profile_id = profile.get('id')
-        env = profile.get('env_vars') or {}
+        profile_id = profile.get("id")
+        env = profile.get("env_vars") or {}
         if not profile_id or not isinstance(env, dict):
             continue
         updated = False
@@ -418,5 +421,5 @@ def migrate_legacy_plaintext(profiles: list[dict[str, Any]]) -> int:
             updated = True
             migrated += 1
         if updated:
-            profile['env_vars'] = env
+            profile["env_vars"] = env
     return migrated

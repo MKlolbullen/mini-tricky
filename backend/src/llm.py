@@ -25,7 +25,7 @@ import json
 import os
 from typing import Any
 
-DEFAULT_MODEL = 'claude-haiku-4-5-20251001'
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 class LLMNotAvailable(RuntimeError):
@@ -37,11 +37,11 @@ class LLMGenerationError(RuntimeError):
 
 
 def _resolve_api_key(env_vars: dict[str, str] | None) -> str | None:
-    key = os.environ.get('ANTHROPIC_API_KEY')
+    key = os.environ.get("ANTHROPIC_API_KEY")
     if key:
         return key
-    if env_vars and env_vars.get('ANTHROPIC_API_KEY'):
-        return env_vars['ANTHROPIC_API_KEY']
+    if env_vars and env_vars.get("ANTHROPIC_API_KEY"):
+        return env_vars["ANTHROPIC_API_KEY"]
     return None
 
 
@@ -53,14 +53,16 @@ def _tool_catalog(tools: list[Any]) -> list[dict[str, Any]]:
     """
     catalog: list[dict[str, Any]] = []
     for t in tools:
-        catalog.append({
-            'id': getattr(t, 'id', ''),
-            'name': getattr(t, 'name', ''),
-            'category': getattr(t, 'category', ''),
-            'description': getattr(t, 'description', ''),
-            'inputs': list(getattr(t, 'inputs', []) or []),
-            'outputs': list(getattr(t, 'outputs', []) or []),
-        })
+        catalog.append(
+            {
+                "id": getattr(t, "id", ""),
+                "name": getattr(t, "name", ""),
+                "category": getattr(t, "category", ""),
+                "description": getattr(t, "description", ""),
+                "inputs": list(getattr(t, "inputs", []) or []),
+                "outputs": list(getattr(t, "outputs", []) or []),
+            }
+        )
     return catalog
 
 
@@ -117,10 +119,9 @@ Tool catalog ({len(catalog)} tools):
 
 
 def _user_prompt(prompt: str, scope: str) -> str:
-    scope_line = f'Scope / target: {scope}\n' if scope else ''
+    scope_line = f"Scope / target: {scope}\n" if scope else ""
     return (
-        f'{scope_line}Goal: {prompt}\n\n'
-        'Emit the workflow JSON now. No prose, no markdown fences, just the JSON object.'
+        f"{scope_line}Goal: {prompt}\n\nEmit the workflow JSON now. No prose, no markdown fences, just the JSON object."
     )
 
 
@@ -128,37 +129,37 @@ def _call_claude(system: str, user: str, api_key: str, model: str) -> str:
     try:
         from anthropic import Anthropic  # type: ignore[import-not-found]
     except ImportError as e:
-        raise LLMNotAvailable('anthropic SDK not installed (pip install anthropic)') from e
+        raise LLMNotAvailable("anthropic SDK not installed (pip install anthropic)") from e
 
     client = Anthropic(api_key=api_key)
     msg = client.messages.create(
         model=model,
         max_tokens=4096,
         system=system,
-        messages=[{'role': 'user', 'content': user}],
+        messages=[{"role": "user", "content": user}],
     )
     parts: list[str] = []
     for block in msg.content:
-        text = getattr(block, 'text', None)
+        text = getattr(block, "text", None)
         if text:
             parts.append(text)
-    return ''.join(parts).strip()
+    return "".join(parts).strip()
 
 
 def _extract_json(text: str) -> dict[str, Any]:
     """Tolerant JSON extraction that strips ```json fences if present."""
     s = text.strip()
-    if s.startswith('```'):
+    if s.startswith("```"):
         lines = s.splitlines()
         lines = lines[1:]
-        if lines and lines[-1].startswith('```'):
+        if lines and lines[-1].startswith("```"):
             lines = lines[:-1]
-        s = '\n'.join(lines).strip()
+        s = "\n".join(lines).strip()
     try:
         return json.loads(s)
     except json.JSONDecodeError:
-        start = s.find('{')
-        end = s.rfind('}')
+        start = s.find("{")
+        end = s.rfind("}")
         if start >= 0 and end > start:
             return json.loads(s[start : end + 1])
         raise
@@ -182,7 +183,7 @@ def generate_workflow_via_claude(
     """
     api_key = _resolve_api_key(env_vars)
     if not api_key:
-        raise LLMNotAvailable('ANTHROPIC_API_KEY not set')
+        raise LLMNotAvailable("ANTHROPIC_API_KEY not set")
 
     catalog = _tool_catalog(tools)
     system = _system_prompt(catalog)
@@ -198,31 +199,27 @@ def generate_workflow_via_claude(
         except Exception as e:  # noqa: BLE001 — we want to retry on anything non-fatal
             last_error = e
             user = (
-                user
-                + f'\n\nYour previous attempt failed with: {e!s}. '
-                'Return a valid JSON object matching the schema.'
+                user + f"\n\nYour previous attempt failed with: {e!s}. Return a valid JSON object matching the schema."
             )
             continue
 
         # Accept either {nodes, edges} at top level or {graph: {nodes, edges}}
-        if isinstance(obj.get('graph'), dict):
-            graph = obj['graph']
+        if isinstance(obj.get("graph"), dict):
+            graph = obj["graph"]
         else:
-            graph = {'nodes': obj.get('nodes', []), 'edges': obj.get('edges', [])}
+            graph = {"nodes": obj.get("nodes", []), "edges": obj.get("edges", [])}
 
-        if not isinstance(graph.get('nodes'), list) or not isinstance(graph.get('edges'), list):
-            last_error = LLMGenerationError('response missing nodes/edges arrays')
+        if not isinstance(graph.get("nodes"), list) or not isinstance(graph.get("edges"), list):
+            last_error = LLMGenerationError("response missing nodes/edges arrays")
             user = (
-                user
-                + '\n\nYour previous attempt missed the nodes/edges arrays. '
-                'Return valid JSON matching the schema.'
+                user + "\n\nYour previous attempt missed the nodes/edges arrays. Return valid JSON matching the schema."
             )
             continue
 
         return {
-            'name': obj.get('name') or 'Generated Workflow',
-            'description': obj.get('description') or '',
-            'graph': graph,
+            "name": obj.get("name") or "Generated Workflow",
+            "description": obj.get("description") or "",
+            "graph": graph,
         }
 
-    raise LLMGenerationError(f'Claude generation failed after retries: {last_error}')
+    raise LLMGenerationError(f"Claude generation failed after retries: {last_error}")
