@@ -43,7 +43,29 @@ _legacy_profiles = db.list_profiles()
 _migrated_count = secrets_store.migrate_legacy_plaintext(_legacy_profiles)
 if _migrated_count:
     db.save_profiles(_legacy_profiles)
+from fastapi import APIRouter
+from .llm import generate_workflow, explain_workflow
 
+router = APIRouter(prefix="/api/ai", tags=["AI"])
+
+@router.post("/generate-workflow")
+async def api_generate_workflow(request: dict):
+    """Generate workflow from natural language"""
+    prompt = request.get("prompt")
+    if not prompt:
+        return {"error": "prompt is required"}
+    
+    try:
+        workflow = generate_workflow(prompt)
+        return {"success": True, "workflow": workflow}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@router.post("/explain-workflow")
+async def api_explain_workflow(request: dict):
+    workflow = request.get("workflow")
+    explanation = explain_workflow(workflow)
+    return {"explanation": explanation}
 TEXT_SUFFIXES = {
     '.txt', '.log', '.md', '.csv', '.xml', '.yaml', '.yml',
     '.py', '.js', '.ts', '.tsx', '.jsx', '.go', '.rs', '.sh',
