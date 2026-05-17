@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        step: [lint, test]
+        step: [lint, typecheck, test]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,7 +82,14 @@ jobs:
       - name: Ruff lint
         if: matrix.step == 'lint'
         working-directory: backend
-        run: ruff check .
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Mypy type check
+        if: matrix.step == 'typecheck'
+        working-directory: backend
+        run: mypy src --ignore-missing-imports
 
       - name: Pytest
         if: matrix.step == 'test'

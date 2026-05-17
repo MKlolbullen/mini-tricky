@@ -658,6 +658,10 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         onExport={handleExport}
         onImport={handleImport}
         onGenerate={handleGenerate}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={history.canUndo}
+        canRedo={history.canRedo}
       />
       <div className="workspace">
         <ToolSidebar

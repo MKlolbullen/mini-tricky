@@ -15,12 +15,17 @@ type Props = {
   onExport: () => void;
   onImport: () => void;
   onGenerate: (prompt: string, scope: string) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 };
 
 export default function Toolbar({
   workflowName, onNameChange, maxParallel, onMaxParallelChange,
   onSave, onValidate, onRun, onRunFallback, onCancel, isRunning,
   onSaveAsTemplate, onExport, onImport, onGenerate,
+  onUndo, onRedo, canUndo, canRedo,
 }: Props) {
   const [showGenerator, setShowGenerator] = useState(false);
   const [genPrompt, setGenPrompt] = useState('');
@@ -46,7 +51,9 @@ export default function Toolbar({
             onChange={(e) => onMaxParallelChange(Math.max(1, Number(e.target.value) || 1))}
           />
         </label>
-        <button className="action-btn" onClick={onSave}>Save</button>
+        <button className="action-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</button>
+        <button className="action-btn" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</button>
+        <button className="action-btn" onClick={onSave} title="Save (Ctrl+S)">Save</button>
         <button className="action-btn" onClick={onSaveAsTemplate}>Template</button>
         <button className="action-btn" onClick={onExport}>Export</button>
         <button className="action-btn" onClick={onImport}>Import</button>

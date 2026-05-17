@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.57.1
+    hooks:
+      - id: eslint
+        files: ^frontend/src/.*\.(ts|tsx)$
+        additional_dependencies:
+          - eslint@8.57.1
+          - '@typescript-eslint/eslint-plugin@8.15.0'
+          - '@typescript-eslint/parser@8.15.0'
+          - eslint-plugin-react-hooks@5.0.0
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+        exclude: ^frontend/tsconfig.*\.json$
