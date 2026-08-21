@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { WorkflowNodePayload } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
+import { toolGlyph } from '../../toolIcons';
 
 /** Color map for socket data types */
 const SOCKET_COLORS: Record<string, string> = {
@@ -52,7 +53,9 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
         ? '\u{1F9E9}'
         : isScript
           ? (payload.scriptLanguage === 'python' ? '\u{1F40D}' : '\u{1F4DC}')
-          : payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
+          : payload.kind === 'tool'
+            ? toolGlyph(payload.toolId, payload.category)
+            : payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
 
   const subtitle = isCondition ? 'condition' : isLoop ? 'loop' : isModule ? 'module' : isScript ? payload.scriptLanguage : payload.kind === 'tool' ? payload.toolId : payload.kind;
 

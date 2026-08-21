@@ -3291,3 +3291,24 @@ select.form-input { cursor: pointer; }
   max-width: 340px;
   line-height: 1.55;
 }
+
+/* ── Per-tool glyph badge in the sidebar tool cards ─────────── */
+
+.tool-card-header { gap: 8px; }
+.tool-glyph {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.tool-card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

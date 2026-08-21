@@ -1,6 +1,7 @@
 import { type DragEvent, useMemo, useState } from 'react';
 import type { Tool, WorkflowRecord } from '../../types';
 import { variableCatalog, outputCatalog, CATEGORY_COLORS } from '../../types';
+import { toolGlyph, toolColor } from '../../toolIcons';
 
 type Props = {
   tools: Tool[];
@@ -163,7 +164,10 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
               onClick={() => onAddTool(tool)}
             >
               <div className="tool-card-header">
-                <strong>{tool.name}</strong>
+                <span className="tool-glyph" style={{ background: `${toolColor(tool.category)}22`, color: toolColor(tool.category) }}>
+                  {toolGlyph(tool.id, tool.category)}
+                </span>
+                <strong className="tool-card-name">{tool.name}</strong>
                 <span className="tool-cat-badge" style={{ background: CATEGORY_COLORS[tool.category] || '#5bdcff' }}>
                   {tool.category}
                 </span>

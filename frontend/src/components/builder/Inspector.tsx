@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion, WorkflowRecord } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
+import { toolGlyph } from '../../toolIcons';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
 import type { Edge } from '@xyflow/react';
 
@@ -817,6 +818,7 @@ function getCategoryIcon(node: FlowNode): string {
   if (d.kind === 'script') return d.scriptLanguage === 'python' ? '\u{1F40D}' : '\u{1F4DC}';
   if (d.kind === 'variable') return '\u{1F4E5}';
   if (d.kind === 'output') return '\u{1F4E4}';
+  if (d.kind === 'tool') return toolGlyph(d.toolId, d.category);
   return d.category ? CATEGORY_ICONS[d.category] || '\u{1F527}' : '\u{1F527}';
 }
 
