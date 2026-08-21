@@ -31,6 +31,13 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 db.init_db(STATE_DIR)
 secrets_store.init_secrets_store(STATE_DIR)
 
+# A fresh process has no live runs, so any record still marked "running" was
+# interrupted by a previous shutdown — reconcile it so it can't linger forever.
+for _stale in db.list_runs():
+    if _stale.get("status") == "running":
+        _stale["status"] = "interrupted"
+        db.upsert_run(_stale)
+
 # One-shot migration: any plaintext secrets left in the profile env_vars blob
 # from before Phase D gets rewritten into the keychain. Idempotent — profiles
 # that already have ``SENTINEL`` placeholders are skipped.
@@ -1564,6 +1571,26 @@ async def ws_run(websocket: WebSocket) -> None:
     logs: list[str] = [f'[+] Run {run_id} accepted for "{payload.name}".']
 
     await websocket.send_json({"type": "run_started", "run_id": run_id, "node_states": node_states})
+
+    # Persist an in-flight record so the run surfaces (as "running") in the
+    # Executions list and the dashboard while it streams. The final record at
+    # run_finished replaces this by id (upsert).
+    persist_run_record(
+        {
+            "id": run_id,
+            "workflow_id": payload.workflow_id,
+            "name": payload.name,
+            "status": "running",
+            "created_at": datetime.now(UTC).isoformat(),
+            "graph": graph.model_dump(),
+            "parallel_groups": validation["parallel_groups"],
+            "node_states": node_states,
+            "node_results": {},
+            "artifact_root": str(run_dir),
+            "replays": [],
+            "logs": list(logs),
+        }
+    )
 
     max_workers = max(1, payload.max_parallel)
     cancelled = False

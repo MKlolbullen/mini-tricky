@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../../api';
 import type { Health, RunRecord, WorkflowRecord } from '../../types';
 import { PlusIcon, PlayIcon, SparkleIcon, TemplatesIcon, NodesIcon, ClockIcon } from '../Icons';
+
+const POLL_MS = 5000;
+
+function nodeProgress(run: RunRecord): { done: number; total: number } {
+  const states = Object.values(run.node_states || {});
+  const total = states.length;
+  const done = states.filter((s) => s === 'success' || s === 'completed' || s === 'failed' || s === 'blocked').length;
+  return { done, total };
+}
 
 type Props = {
   workflows: WorkflowRecord[];
@@ -46,29 +55,43 @@ export default function DashboardView({
   onViewLibrary,
 }: Props) {
   const [runs, setRuns] = useState<RunRecord[]>([]);
+  const [wfList, setWfList] = useState<WorkflowRecord[]>(workflows);
   const [toolStats, setToolStats] = useState<{ installed: number; total: number } | null>(null);
 
-  useEffect(() => {
-    api.fetchRuns().then(setRuns).catch(() => setRuns([]));
+  const refresh = useCallback(() => {
+    api.fetchRuns().then(setRuns).catch(() => undefined);
+    api.fetchWorkflows().then(setWfList).catch(() => undefined);
     api
       .fetchToolsHealth()
       .then((h) => setToolStats({ installed: h.installed, total: h.total }))
-      .catch(() => setToolStats(null));
+      .catch(() => undefined);
   }, []);
+
+  // Poll on an interval so the dashboard reflects runs finishing and workflows
+  // being added without a manual refresh. Skipped while the tab is hidden.
+  useEffect(() => {
+    refresh();
+    const id = window.setInterval(() => {
+      if (!document.hidden) refresh();
+    }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
+  const inFlight = useMemo(() => runs.filter((r) => r.status === 'running'), [runs]);
 
   const stats = useMemo(() => {
     const finished = runs.filter((r) => r.status === 'success' || r.status === 'failed' || r.status === 'completed' || r.status === 'error');
     const succeeded = runs.filter((r) => r.status === 'success' || r.status === 'completed').length;
     const successRate = finished.length ? Math.round((succeeded / finished.length) * 100) : null;
     return {
-      workflows: workflows.length,
+      workflows: wfList.length,
       executions: runs.length,
       successRate,
       tools: toolStats,
     };
-  }, [workflows, runs, toolStats]);
+  }, [wfList, runs, toolStats]);
 
-  const recentWorkflows = useMemo(() => workflows.slice(0, 6), [workflows]);
+  const recentWorkflows = useMemo(() => wfList.slice(0, 6), [wfList]);
   const recentRuns = useMemo(() => {
     const sorted = [...runs].sort((a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -93,10 +116,38 @@ export default function DashboardView({
             </span>
           </p>
         </div>
-        <button className="btn btn-primary" onClick={onNewWorkflow}>
-          <PlusIcon size={18} /> New Workflow
-        </button>
+        <div className="page-head-actions">
+          <span className="live-pill" title="Auto-refreshing">
+            <span className="live-dot" /> Live
+          </span>
+          <button className="btn btn-primary" onClick={onNewWorkflow}>
+            <PlusIcon size={18} /> New Workflow
+          </button>
+        </div>
       </div>
+
+      {/* In-flight runs */}
+      {inFlight.length > 0 && (
+        <div className="inflight-band">
+          <div className="inflight-head">
+            <span className="rp-spinner" /> {inFlight.length} run{inFlight.length > 1 ? 's' : ''} in progress
+          </div>
+          <div className="inflight-list">
+            {inFlight.map((run) => {
+              const { done, total } = nodeProgress(run);
+              const pct = total ? Math.round((done / total) * 100) : 0;
+              return (
+                <button key={run.id} className="inflight-item" onClick={onOpenRuns}>
+                  <span className="run-dot run" />
+                  <span className="inflight-name">{run.name || run.id}</span>
+                  <span className="inflight-bar"><span className="inflight-fill" style={{ width: `${pct}%` }} /></span>
+                  <span className="inflight-count">{done}/{total}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="stat-grid">
