@@ -7,7 +7,7 @@ import DashboardView from './components/dashboard/DashboardView';
 import LibraryView from './components/library/LibraryView';
 import BuilderView from './components/builder/BuilderView';
 import TemplatesView from './components/templates/TemplatesView';
-import RunsView from './components/runs/RunsView';
+import RunsView, { type PendingRun } from './components/runs/RunsView';
 import SettingsView from './components/settings/SettingsView';
 
 const BLANK_GRAPH = { nodes: [], edges: [] };
@@ -18,6 +18,7 @@ export default function App() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [savedWorkflows, setSavedWorkflows] = useState<WorkflowRecord[]>([]);
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(null);
+  const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -64,12 +65,9 @@ export default function App() {
     setActiveView('builder');
   }, []);
 
-  const handleRunWorkflow = useCallback(async (wf: WorkflowRecord) => {
-    try {
-      await api.createRun({ name: wf.name || 'workflow', workflow: wf.graph, max_parallel: 4 });
-    } catch {
-      // ignore — surfaced by the runs view
-    }
+  const handleRunWorkflow = useCallback((wf: WorkflowRecord) => {
+    // Launch a live-streamed run and monitor it in the Executions view.
+    setPendingRun({ name: wf.name || 'workflow', graph: wf.graph, maxParallel: 4 });
     setActiveView('runs');
   }, []);
 
@@ -89,9 +87,17 @@ export default function App() {
     refreshWorkflows();
   }, []);
 
+  // Navigating away from Executions ends live monitoring so it can't restart.
+  const handleViewChange = useCallback((view: AppView) => {
+    setActiveView((prev) => {
+      if (prev === 'runs' && view !== 'runs') setPendingRun(null);
+      return view;
+    });
+  }, []);
+
   return (
     <div className="app-shell">
-      <Sidebar activeView={activeView} onViewChange={setActiveView} health={health} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} health={health} />
 
       <main className="app-main">
         {activeView === 'dashboard' && (
@@ -140,7 +146,11 @@ export default function App() {
 
         {activeView === 'runs' && (
           <div className="view-scroll">
-            <RunsView onOpenInBuilder={openWorkflowInBuilder} />
+            <RunsView
+              onOpenInBuilder={openWorkflowInBuilder}
+              pendingRun={pendingRun}
+              onRunConsumed={() => setPendingRun(null)}
+            />
           </div>
         )}
 

@@ -1,18 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RunRecord, WorkflowRecord } from '../../types';
 import * as api from '../../api';
 import RunDetail from './RunDetail';
+import RunMonitor from './RunMonitor';
+
+export type PendingRun = { name: string; graph: any; maxParallel: number };
 
 type Props = {
   onOpenInBuilder: (wf: WorkflowRecord) => void;
+  pendingRun?: PendingRun | null;
+  onRunConsumed?: () => void;
 };
 
-export default function RunsView({ onOpenInBuilder }: Props) {
+function statusDot(status: string): string {
+  if (status === 'success' || status === 'completed') return 'ok';
+  if (status === 'failed' || status === 'error' || status === 'blocked') return 'fail';
+  if (status === 'running') return 'run';
+  return 'idle';
+}
+
+export default function RunsView({ onOpenInBuilder, pendingRun, onRunConsumed }: Props) {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const finishedRunRef = useRef<string | null>(null);
 
   function refresh() {
     setLoading(true);
@@ -44,6 +57,30 @@ export default function RunsView({ onOpenInBuilder }: Props) {
     refresh();
   }
 
+  // Live monitor takes over the whole view while a run is streaming.
+  if (pendingRun) {
+    return (
+      <RunMonitor
+        name={pendingRun.name}
+        graph={pendingRun.graph}
+        maxParallel={pendingRun.maxParallel}
+        onFinished={(run) => { finishedRunRef.current = run?.id ?? null; }}
+        onClose={() => {
+          const finishedId = finishedRunRef.current;
+          finishedRunRef.current = null;
+          onRunConsumed?.();
+          // Reload the list and jump straight into the finished run's detail.
+          api.fetchRuns()
+            .then((rs) => {
+              setRuns(rs);
+              if (finishedId) setSelectedRunId(finishedId);
+            })
+            .catch(() => undefined);
+        }}
+      />
+    );
+  }
+
   if (selectedRun) {
     return (
       <RunDetail
@@ -58,7 +95,7 @@ export default function RunsView({ onOpenInBuilder }: Props) {
   return (
     <div className="runs-view">
       <div className="runs-header">
-        <h2>Run History</h2>
+        <h2>Executions</h2>
         <p className="runs-subtitle">View and manage all workflow executions.</p>
       </div>
 
@@ -77,7 +114,7 @@ export default function RunsView({ onOpenInBuilder }: Props) {
       {loading ? (
         <div className="empty-state">Loading runs...</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">No runs found. Execute a workflow from the Builder to see results here.</div>
+        <div className="empty-state">No runs found. Run a workflow from the Builder or the Workflows library to see results here.</div>
       ) : (
         <div className="runs-table">
           <div className="runs-table-header">
@@ -89,7 +126,9 @@ export default function RunsView({ onOpenInBuilder }: Props) {
           </div>
           {filtered.map((r) => (
             <div key={r.id} className="runs-table-row" onClick={() => setSelectedRunId(r.id)}>
-              <span className="run-name">{r.name}</span>
+              <span className="run-name">
+                <span className={`run-dot ${statusDot(r.status)}`} /> {r.name}
+              </span>
               <span>
                 <span className={`status-badge ${r.status}`}>{r.status}</span>
               </span>
