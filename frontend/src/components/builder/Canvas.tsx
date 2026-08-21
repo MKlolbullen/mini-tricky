@@ -84,6 +84,20 @@ function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, on
   return (
     <main className="canvas-wrap" data-testid="canvas">
       {overlay}
+      {nodes.length === 0 && (
+        <div className="canvas-empty">
+          <div className="canvas-empty-art" aria-hidden="true">
+            <span className="ce-node" />
+            <span className="ce-node" />
+            <span className="ce-node" />
+          </div>
+          <div className="canvas-empty-title">Build a workflow</div>
+          <div className="canvas-empty-sub">
+            Drag a tool, variable, or script from the left panel onto the canvas,
+            then wire the sockets together to form a pipeline.
+          </div>
+        </div>
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}

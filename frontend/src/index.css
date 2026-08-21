@@ -3185,3 +3185,109 @@ select.form-input { cursor: pointer; }
 .env-editor { display: flex; flex-direction: column; gap: 8px; }
 .env-row { display: flex; gap: 8px; align-items: center; }
 .env-row .form-input:first-child { flex: 0 0 40%; }
+
+/* ═══════════════════════════════════════════════════════════════
+   NODE & CANVAS REFINEMENTS — icon badge, arg summary, empty state
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Header becomes a row: icon badge + heading column. */
+.flow-node-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.node-icon-badge {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  background: rgba(91, 220, 255, 0.12);
+  color: var(--accent);
+}
+.flow-node-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.flow-node-heading .flow-node-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* Inline argument summary chips. Kept within the socket gutters so they
+   don't collide with socket labels on either edge. */
+.node-args {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 40px 0;
+}
+.node-arg-chip {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(91, 220, 255, 0.08);
+  color: #9fd8ec;
+  border: 1px solid rgba(91, 220, 255, 0.16);
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-arg-chip.more { background: transparent; color: var(--text-lo); border-color: transparent; }
+
+/* ── Canvas Empty State ─────────────────────────────────────── */
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  pointer-events: none;
+  text-align: center;
+  padding: 0 24px;
+}
+.canvas-empty-art {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+.canvas-empty-art .ce-node {
+  width: 46px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(120, 170, 230, 0.4);
+  background: rgba(120, 170, 230, 0.05);
+  position: relative;
+}
+.canvas-empty-art .ce-node::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  width: 14px;
+  height: 1.5px;
+  background: rgba(120, 170, 230, 0.4);
+}
+.canvas-empty-art .ce-node:last-child::after { display: none; }
+.canvas-empty-title { font-size: 18px; font-weight: 700; color: var(--text-mid); }
+.canvas-empty-sub {
+  font-size: 13px;
+  color: var(--text-lo);
+  max-width: 340px;
+  line-height: 1.55;
+}

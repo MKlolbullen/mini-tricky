@@ -18,6 +18,16 @@ function socketColor(name: string): string {
   return SOCKET_COLORS[name] || '#63e6ff';
 }
 
+// Build compact "flag value" chips from a node's configured params. Boolean
+// flags are stored with the '__flag__' sentinel (see Inspector) and render as
+// the bare flag.
+function summarizeParams(params: Record<string, string> | undefined): string[] {
+  if (!params) return [];
+  return Object.entries(params).map(([flag, value]) =>
+    value === '__flag__' || value === '' ? flag : `${flag} ${value}`,
+  );
+}
+
 export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNodePayload>>) {
   const payload = data as WorkflowNodePayload;
   const stateClass = payload.runState ? `state-${payload.runState}` : '';
@@ -44,8 +54,11 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
           ? (payload.scriptLanguage === 'python' ? '\u{1F40D}' : '\u{1F4DC}')
           : payload.category ? CATEGORY_ICONS[payload.category] || '' : '';
 
-  // Count active (toggled-on) params for badge
-  const activeArgs = Object.keys(payload.params || {}).length;
+  const subtitle = isCondition ? 'condition' : isLoop ? 'loop' : isModule ? 'module' : isScript ? payload.scriptLanguage : payload.kind === 'tool' ? payload.toolId : payload.kind;
+
+  // Inline argument summary — the configured params, shown at a glance.
+  const argChips = summarizeParams(payload.params);
+  const MAX_CHIPS = 3;
 
   return (
     <div
@@ -54,13 +67,18 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
     >
       {/* Header */}
       <div className="flow-node-header">
-        <span className="flow-node-title">
-          {catIcon ? <span className="node-cat-icon">{catIcon} </span> : null}
-          {payload.label}
-        </span>
-        <small>
-          {isCondition ? 'condition' : isLoop ? 'loop' : isModule ? 'module' : isScript ? payload.scriptLanguage : payload.kind === 'tool' ? payload.toolId : payload.kind}
-        </small>
+        {catIcon ? (
+          <span
+            className="node-icon-badge"
+            style={catColor ? { background: `${catColor}22`, color: catColor } : undefined}
+          >
+            {catIcon}
+          </span>
+        ) : null}
+        <div className="flow-node-heading">
+          <span className="flow-node-title">{payload.label}</span>
+          <small>{subtitle}</small>
+        </div>
       </div>
 
       {/* Live run-state glyph (top-right) */}
@@ -79,9 +97,16 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
       {/* State pill */}
       {payload.runState && <div className={`node-state-pill ${payload.runState}`}>{payload.runState}</div>}
 
-      {/* Active args badge */}
-      {activeArgs > 0 && payload.kind === 'tool' && (
-        <div className="node-args-badge">{activeArgs} arg{activeArgs > 1 ? 's' : ''}</div>
+      {/* Inline argument summary */}
+      {argChips.length > 0 && (
+        <div className="node-args">
+          {argChips.slice(0, MAX_CHIPS).map((chip, i) => (
+            <span key={i} className="node-arg-chip" title={chip}>{chip}</span>
+          ))}
+          {argChips.length > MAX_CHIPS && (
+            <span className="node-arg-chip more">+{argChips.length - MAX_CHIPS}</span>
+          )}
+        </div>
       )}
 
       {/* Input sockets — Trickest style */}
