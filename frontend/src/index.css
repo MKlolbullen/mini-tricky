@@ -3050,3 +3050,138 @@ button.stat-card:hover { border-color: var(--border-mid); transform: translateY(
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Shared Form Card (schedules / secrets) ─────────────────── */
+
+.form-card {
+  border: 1px solid var(--border-mid);
+  border-radius: 15px;
+  background: var(--surface-1);
+  padding: 20px 22px;
+  margin-bottom: 22px;
+}
+.form-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.form-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+.form-field.narrow { flex: 0 0 110px; min-width: 0; }
+.form-field > span { font-size: 12px; color: var(--text-lo); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.form-input {
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--text-hi);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input.mono { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+select.form-input { cursor: pointer; }
+.form-hint { font-size: 12px; color: var(--text-lo); margin-top: 4px; }
+.form-hint code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.cron-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+
+/* ── Schedules ──────────────────────────────────────────────── */
+
+.sched-list { display: flex; flex-direction: column; gap: 12px; }
+.sched-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(165deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.sched-card.disabled { opacity: 0.58; }
+.sched-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(91, 220, 255, 0.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.sched-main { flex: 1; min-width: 0; }
+.sched-name { font-weight: 650; color: var(--text-hi); font-size: 15px; margin-bottom: 4px; }
+.sched-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-lo); font-size: 12.5px; }
+.sched-cron { display: inline-flex; align-items: center; gap: 5px; color: var(--text-mid); }
+.sched-raw { color: var(--text-lo); font-size: 11px; }
+.sched-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.toggle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-3);
+  color: var(--text-lo);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.toggle-pill .toggle-knob {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text-lo);
+  transition: background 0.15s, transform 0.15s;
+}
+.toggle-pill.on { background: rgba(67, 217, 173, 0.14); border-color: rgba(67, 217, 173, 0.4); color: var(--ok); }
+.toggle-pill.on .toggle-knob { background: var(--ok); box-shadow: 0 0 8px var(--ok); transform: translateX(2px); }
+
+/* ── Secrets (Environment Profiles) ─────────────────────────── */
+
+.secret-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.secret-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-soft);
+  border-radius: 15px;
+  background: linear-gradient(165deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  overflow: hidden;
+}
+.secret-head { display: flex; gap: 12px; padding: 16px 18px 12px; }
+.secret-icon {
+  display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 11px;
+  background: rgba(244, 63, 94, 0.13); color: #f76d84;
+  flex-shrink: 0;
+}
+.secret-title-group { min-width: 0; }
+.secret-name { font-weight: 700; color: var(--text-hi); font-size: 15px; }
+.secret-desc { color: var(--text-lo); font-size: 12.5px; margin-top: 2px; }
+.secret-vars { padding: 4px 18px 14px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.secret-empty { color: var(--text-lo); font-size: 12.5px; font-style: italic; }
+.secret-var { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.secret-key { color: var(--text-mid); flex-shrink: 0; }
+.secret-val { color: var(--text-lo); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.secret-val.is-secret { color: #f76d84; letter-spacing: 1px; }
+.secret-badge {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(244, 63, 94, 0.13); color: #f76d84;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  flex-shrink: 0;
+}
+.secret-actions {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-soft);
+  background: rgba(8, 14, 26, 0.4);
+}
+.secret-actions .icon-btn { margin-left: auto; }
+
+.env-editor { display: flex; flex-direction: column; gap: 8px; }
+.env-row { display: flex; gap: 8px; align-items: center; }
+.env-row .form-input:first-child { flex: 0 0 40%; }

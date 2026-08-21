@@ -154,10 +154,57 @@ export async function saveProfile(payload: { name: string; description: string; 
   return r.json();
 }
 
+export async function updateProfile(profileId: string, payload: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }): Promise<Profile> {
+  const r = await fetch(`${apiBase}/api/profiles/${profileId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
 export async function deleteProfile(profileId: string): Promise<any> {
   const r = await fetch(`${apiBase}/api/profiles/${profileId}`, { method: 'DELETE' });
   return r.json();
 }
+
+// ── Schedules ───────────────────────────────────────────────
+
+export type Schedule = {
+  id: string;
+  workflow_id: string;
+  name: string;
+  cron: string;
+  max_parallel: number;
+  enabled: boolean;
+  created_at: string;
+};
+
+export async function fetchSchedules(): Promise<Schedule[]> {
+  const r = await fetch(`${apiBase}/api/schedules`);
+  return r.json();
+}
+
+export async function createSchedule(payload: { workflow_id: string; name: string; cron: string; max_parallel: number; enabled: boolean }): Promise<Schedule> {
+  const r = await fetch(`${apiBase}/api/schedules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
+export async function deleteSchedule(scheduleId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'DELETE' });
+  return r.json();
+}
+
+export async function toggleSchedule(scheduleId: string): Promise<Schedule> {
+  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'PATCH' });
+  return r.json();
+}
+
+export const SECRET_MASK = '•'.repeat(8);
 
 // ── Normalized Results ──────────────────────────────────────
 

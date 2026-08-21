@@ -8,6 +8,8 @@ import LibraryView from './components/library/LibraryView';
 import BuilderView from './components/builder/BuilderView';
 import TemplatesView from './components/templates/TemplatesView';
 import RunsView, { type PendingRun } from './components/runs/RunsView';
+import SchedulesView from './components/schedules/SchedulesView';
+import SecretsView from './components/secrets/SecretsView';
 import SettingsView from './components/settings/SettingsView';
 
 const BLANK_GRAPH = { nodes: [], edges: [] };
@@ -151,6 +153,18 @@ export default function App() {
               pendingRun={pendingRun}
               onRunConsumed={() => setPendingRun(null)}
             />
+          </div>
+        )}
+
+        {activeView === 'schedules' && (
+          <div className="view-scroll">
+            <SchedulesView workflows={savedWorkflows} />
+          </div>
+        )}
+
+        {activeView === 'secrets' && (
+          <div className="view-scroll">
+            <SecretsView />
           </div>
         )}
 

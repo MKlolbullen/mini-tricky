@@ -5,6 +5,8 @@ import {
   LibraryIcon,
   TemplatesIcon,
   RunsIcon,
+  CalendarIcon,
+  KeyIcon,
   SettingsIcon,
 } from './Icons';
 
@@ -20,6 +22,8 @@ const navItems: { key: AppView; label: string; Icon: (p: { size?: number }) => J
   { key: 'library', label: 'Workflows', Icon: LibraryIcon },
   { key: 'templates', label: 'Templates', Icon: TemplatesIcon },
   { key: 'runs', label: 'Executions', Icon: RunsIcon },
+  { key: 'schedules', label: 'Schedules', Icon: CalendarIcon },
+  { key: 'secrets', label: 'Secrets', Icon: KeyIcon },
   { key: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 

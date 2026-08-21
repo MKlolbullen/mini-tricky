@@ -186,6 +186,26 @@ export const CheckIcon = ({ size, className }: IconProps) =>
 export const StopIcon = ({ size, className }: IconProps) =>
   svg(<rect x="6" y="6" width="12" height="12" rx="2" />, size, className);
 
+export const CalendarIcon = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M3 9h18M8 2v4M16 2v4" />
+    </>,
+    size,
+    className,
+  );
+
+export const KeyIcon = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.7 12.3L21 2M16 7l3 3M13 10l3 3" />
+    </>,
+    size,
+    className,
+  );
+
 export const NodesIcon = ({ size, className }: IconProps) =>
   svg(
     <>
