@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { UndoIcon, RedoIcon, SaveIcon, PlayIcon, StopIcon, SparkleIcon, CheckIcon } from '../Icons';
 
 type Props = {
   workflowName: string;
@@ -34,41 +35,76 @@ export default function Toolbar({
   return (
     <div className="toolbar-wrap">
       <div className="toolbar">
-        <input
-          className="name-input"
-          value={workflowName}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Workflow name"
-        />
-        <label className="parallel-wrap">
-          <span>Workers</span>
+        {/* Identity */}
+        <div className="tb-group tb-identity">
           <input
-            className="parallel-input"
-            type="number"
-            min={1}
-            max={16}
-            value={maxParallel}
-            onChange={(e) => onMaxParallelChange(Math.max(1, Number(e.target.value) || 1))}
+            className="name-input"
+            value={workflowName}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="Workflow name"
           />
-        </label>
-        <button className="action-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</button>
-        <button className="action-btn" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">Redo</button>
-        <button className="action-btn" onClick={onSave} title="Save (Ctrl+S)">Save</button>
-        <button className="action-btn" onClick={onSaveAsTemplate}>Template</button>
-        <button className="action-btn" onClick={onExport}>Export</button>
-        <button className="action-btn" onClick={onImport}>Import</button>
-        <button className="action-btn" onClick={onValidate}>Validate</button>
-        <button className="action-btn generate-btn" onClick={() => setShowGenerator(!showGenerator)} title="AI-assisted workflow generation">
-          Generate
-        </button>
-        {isRunning ? (
-          <button className="action-btn danger" onClick={onCancel}>Cancel Run</button>
-        ) : (
-          <>
-            <button className="action-btn primary" onClick={onRun}>Run (Stream)</button>
-            <button className="action-btn" onClick={onRunFallback} title="Run without WebSocket streaming">Run (Batch)</button>
-          </>
-        )}
+          <label className="parallel-wrap" title="Max parallel workers">
+            <span>Workers</span>
+            <input
+              className="parallel-input"
+              type="number"
+              min={1}
+              max={16}
+              value={maxParallel}
+              onChange={(e) => onMaxParallelChange(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </label>
+        </div>
+
+        <div className="tb-sep" />
+
+        {/* History */}
+        <div className="tb-group">
+          <button className="tb-btn icon-only" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
+            <UndoIcon size={17} />
+          </button>
+          <button className="tb-btn icon-only" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
+            <RedoIcon size={17} />
+          </button>
+        </div>
+
+        <div className="tb-sep" />
+
+        {/* File actions */}
+        <div className="tb-group">
+          <button className="tb-btn" onClick={onSave} title="Save (Ctrl+S)">
+            <SaveIcon size={16} /> Save
+          </button>
+          <button className="tb-btn" onClick={onSaveAsTemplate} title="Save as template">Template</button>
+          <button className="tb-btn" onClick={onExport} title="Export workflow JSON (Ctrl+E)">Export</button>
+          <button className="tb-btn" onClick={onImport} title="Import workflow JSON">Import</button>
+          <button className="tb-btn" onClick={onValidate} title="Validate the graph">
+            <CheckIcon size={16} /> Validate
+          </button>
+        </div>
+
+        {/* Run cluster — right aligned */}
+        <div className="tb-group tb-run">
+          <button
+            className={`tb-btn generate ${showGenerator ? 'active' : ''}`}
+            onClick={() => setShowGenerator(!showGenerator)}
+            title="AI-assisted workflow generation"
+          >
+            <SparkleIcon size={16} /> Generate
+          </button>
+          {isRunning ? (
+            <button className="btn btn-sm tb-stop" onClick={onCancel} title="Cancel the running workflow">
+              <StopIcon size={15} /> Stop
+            </button>
+          ) : (
+            <>
+              <button className="btn btn-sm btn-primary" onClick={onRun} title="Run with live streaming (Ctrl+Enter)">
+                <PlayIcon size={15} /> Run
+              </button>
+              <button className="tb-btn" onClick={onRunFallback} title="Run without WebSocket streaming">Batch</button>
+            </>
+          )}
+        </div>
       </div>
 
       {showGenerator && (
@@ -108,17 +144,17 @@ export default function Toolbar({
               <button className="gen-hint" onClick={() => setGenPrompt('osint gathering')}>OSINT</button>
             </div>
             <button
-              className="action-btn primary"
+              className="btn btn-primary"
               disabled={!genPrompt.trim()}
+              style={{ marginTop: 8, width: '100%', justifyContent: 'center' }}
               onClick={() => {
                 onGenerate(genPrompt, genScope);
                 setShowGenerator(false);
                 setGenPrompt('');
                 setGenScope('');
               }}
-              style={{ marginTop: 8, width: '100%' }}
             >
-              Generate Workflow
+              <SparkleIcon size={16} /> Generate Workflow
             </button>
           </div>
         </div>

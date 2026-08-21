@@ -5,6 +5,7 @@ import * as api from '../../api';
 import Toolbar from './Toolbar';
 import ToolSidebar from './ToolSidebar';
 import Canvas from './Canvas';
+import RunProgress from './RunProgress';
 import Inspector from './Inspector';
 import Console from './Console';
 import Notifications, { type Notification } from './Notifications';
@@ -151,6 +152,9 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [isReplaying, setIsReplaying] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  const [runElapsedMs, setRunElapsedMs] = useState(0);
+  const [runFinishedStatus, setRunFinishedStatus] = useState<'completed' | 'failed' | null>(null);
   const [maxParallel, setMaxParallel] = useState(2);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -196,6 +200,31 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       onTemplateClaimed();
     }
   }, [pendingTemplate, tools, setNodes, setEdges, onTemplateClaimed]);
+
+  // Tick the run timer once per second while a run is in flight.
+  useEffect(() => {
+    if (!isRunning || runStartedAt == null) return;
+    const id = window.setInterval(() => setRunElapsedMs(Date.now() - runStartedAt), 1000);
+    return () => window.clearInterval(id);
+  }, [isRunning, runStartedAt]);
+
+  // Live run progress derived from node run-states — drives the canvas overlay.
+  const runProgress = useMemo(() => {
+    let queued = 0, running = 0, done = 0, failed = 0, total = 0;
+    for (const n of nodes) {
+      const s = n.data.runState;
+      if (!s) continue;
+      total += 1;
+      if (s === 'queued') queued += 1;
+      else if (s === 'running') running += 1;
+      else if (s === 'success' || s === 'completed') done += 1;
+      else if (s === 'failed' || s === 'blocked') failed += 1;
+    }
+    const status: 'running' | 'completed' | 'failed' | null = isRunning
+      ? 'running'
+      : runFinishedStatus;
+    return { status, total, queued, running, done, failed, elapsedMs: runElapsedMs };
+  }, [nodes, isRunning, runFinishedStatus, runElapsedMs]);
 
   useEffect(() => {
     if (!lastRun?.id) {
@@ -457,6 +486,9 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   function handleRun() {
     const graph = formatGraph(nodes, edges);
     setIsRunning(true);
+    setRunStartedAt(Date.now());
+    setRunElapsedMs(0);
+    setRunFinishedStatus(null);
     setConsoleLines(['[+] Starting run...']);
     setConsoleTab('stdout');
 
@@ -485,6 +517,8 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           case 'run_finished':
             setLastRun(event.run);
             setIsRunning(false);
+            setRunFinishedStatus(event.status === 'completed' ? 'completed' : 'failed');
+            if (runStartedAt != null) setRunElapsedMs(Date.now() - runStartedAt);
             cancelRef.current = null;
             setConsoleLines((prev) => [...prev, `[+] Run finished: ${event.status}`]);
             addNotification(
@@ -495,6 +529,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
             break;
           case 'run_error':
             setIsRunning(false);
+            setRunFinishedStatus('failed');
             cancelRef.current = null;
             setConsoleLines((prev) => [...prev, `[-] Run error: ${event.error}`]);
             addNotification('error', 'Run Error', event.error);
@@ -524,6 +559,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       cancelRef.current();
       cancelRef.current = null;
       setIsRunning(false);
+      setRunFinishedStatus('failed');
       setConsoleLines((prev) => [...prev, '[!] Run cancelled by user.']);
     }
   }
@@ -685,6 +721,13 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onConnect={onConnect}
           onNodeClick={setSelectedNodeId}
           onDropNode={handleDropNode}
+          overlay={
+            <RunProgress
+              {...runProgress}
+              onCancel={handleCancel}
+              onDismiss={() => setRunFinishedStatus(null)}
+            />
+          }
         />
         <Inspector
           selectedNode={selectedNode}

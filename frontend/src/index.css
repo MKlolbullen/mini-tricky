@@ -2753,3 +2753,156 @@ button.stat-card:hover { border-color: var(--border-mid); transform: translateY(
   .dash-columns { grid-template-columns: 1fr; }
   .mini-card-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   BUILDER POLISH — grouped toolbar, run overlay, live node states
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Toolbar reworked into logical groups. */
+.toolbar {
+  gap: 8px;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 10px 16px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.tb-group { display: flex; align-items: center; gap: 7px; }
+.tb-identity { gap: 10px; }
+.tb-sep { width: 1px; height: 26px; background: var(--border-soft); flex-shrink: 0; }
+.tb-run { margin-left: auto; gap: 7px; padding-left: 4px; }
+
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  color: var(--text-mid);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.14s, background 0.14s, border-color 0.14s;
+}
+.tb-btn:hover:not(:disabled) { color: var(--text-hi); background: var(--surface-3); border-color: var(--border-mid); }
+.tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tb-btn.icon-only { padding: 8px; }
+.tb-btn.generate { color: var(--violet); border-color: rgba(180, 124, 255, 0.3); }
+.tb-btn.generate:hover:not(:disabled) { background: rgba(180, 124, 255, 0.12); border-color: rgba(180, 124, 255, 0.5); color: #cbb0ff; }
+.tb-btn.generate.active { background: rgba(180, 124, 255, 0.16); border-color: rgba(180, 124, 255, 0.55); color: #d4bcff; }
+.tb-stop { background: rgba(255, 107, 125, 0.14); border-color: rgba(255, 107, 125, 0.5); color: #ff97a4; }
+.tb-stop:hover { background: rgba(255, 107, 125, 0.22); }
+
+/* Canvas must anchor the absolutely-positioned run overlay. */
+.canvas-wrap { position: relative; }
+
+/* ── Run Progress Overlay ───────────────────────────────────── */
+
+.run-progress {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(460px, calc(100% - 40px));
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(10, 17, 30, 0.92);
+  border: 1px solid var(--border-mid);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  animation: rp-drop 0.25s ease;
+}
+@keyframes rp-drop { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.run-progress.running { border-color: var(--accent); }
+.run-progress.completed { border-color: rgba(67, 217, 173, 0.6); }
+.run-progress.failed { border-color: rgba(255, 107, 125, 0.6); }
+
+.rp-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+.rp-heading { display: flex; align-items: center; gap: 9px; }
+.rp-title { font-weight: 650; color: var(--text-hi); font-size: 14px; }
+.rp-actions { display: flex; align-items: center; gap: 10px; }
+.rp-timer { font-variant-numeric: tabular-nums; color: var(--text-lo); font-size: 13px; }
+
+.rp-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rp-badge.ok { background: rgba(67, 217, 173, 0.18); color: var(--ok); }
+.rp-badge.fail { background: rgba(255, 107, 125, 0.18); color: var(--fail); }
+
+.rp-spinner, .node-spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(91, 220, 255, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: rp-spin 0.7s linear infinite;
+}
+@keyframes rp-spin { to { transform: rotate(360deg); } }
+
+.rp-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.rp-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2b8fd0, var(--accent));
+  transition: width 0.4s ease;
+}
+.rp-fill.has-fail { background: linear-gradient(90deg, var(--accent), var(--fail)); }
+
+.rp-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+.rp-stat { color: var(--text-lo); }
+.rp-stat b { color: var(--text-hi); }
+.rp-stat.running { color: var(--accent); }
+.rp-stat.queued { color: var(--text-mid); }
+.rp-stat.ok { color: var(--ok); }
+.rp-stat.fail { color: var(--fail); }
+
+/* ── Live Node Status Glyph ─────────────────────────────────── */
+
+.node-status-glyph {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+.node-status-glyph.running { background: transparent; }
+.node-status-glyph.success,
+.node-status-glyph.completed { background: rgba(67, 217, 173, 0.18); color: var(--ok); }
+.node-status-glyph.failed,
+.node-status-glyph.blocked { background: rgba(255, 107, 125, 0.18); color: var(--fail); }
+
+/* Give running nodes an unmistakable pulsing halo. */
+.flow-node.state-running {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 22px rgba(91, 220, 255, 0.35);
+  animation: node-pulse 1.4s ease-in-out infinite;
+}
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(91, 220, 255, 0.28); }
+  50% { box-shadow: 0 0 0 1px var(--accent-strong), 0 0 28px rgba(91, 220, 255, 0.5); }
+}
+.flow-node.state-success { box-shadow: 0 0 0 1px rgba(67, 217, 173, 0.6), 0 8px 26px rgba(0, 0, 0, 0.28); }
+.flow-node.state-failed,
+.flow-node.state-blocked { box-shadow: 0 0 0 1px rgba(255, 107, 125, 0.6), 0 8px 26px rgba(0, 0, 0, 0.28); }

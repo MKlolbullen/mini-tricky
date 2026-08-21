@@ -52,13 +52,14 @@ type Props = {
   onConnect: (params: Connection) => void;
   onNodeClick: (nodeId: string) => void;
   onDropNode: (type: string, data: any, position: { x: number; y: number }) => void;
+  overlay?: React.ReactNode;
 };
 
 // `useReactFlow()` requires a `<ReactFlowProvider>` ancestor. The `<ReactFlow>`
 // component provides the store to its *children*, not to siblings in the same
 // component, so we split Canvas into an inner component that calls the hook
 // and an outer wrapper that mounts the provider.
-function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onDropNode }: Props) {
+function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onDropNode, overlay }: Props) {
   const { screenToFlowPosition } = useReactFlow();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -82,6 +83,7 @@ function CanvasInner({ nodes, edges, onNodesChange, onEdgesChange, onConnect, on
 
   return (
     <main className="canvas-wrap" data-testid="canvas">
+      {overlay}
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -63,6 +63,19 @@ export default function SocketNode({ data, selected }: NodeProps<Node<WorkflowNo
         </small>
       </div>
 
+      {/* Live run-state glyph (top-right) */}
+      {payload.runState && payload.runState !== 'queued' && (
+        <span className={`node-status-glyph ${payload.runState}`} title={payload.runState}>
+          {payload.runState === 'running' ? (
+            <span className="node-spinner" />
+          ) : payload.runState === 'success' || payload.runState === 'completed' ? (
+            '✓'
+          ) : (
+            '✗'
+          )}
+        </span>
+      )}
+
       {/* State pill */}
       {payload.runState && <div className={`node-state-pill ${payload.runState}`}>{payload.runState}</div>}
 

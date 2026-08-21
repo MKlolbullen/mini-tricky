@@ -150,6 +150,42 @@ export const ClockIcon = ({ size, className }: IconProps) =>
     className,
   );
 
+export const UndoIcon = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-5" />
+    </>,
+    size,
+    className,
+  );
+
+export const RedoIcon = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h5" />
+    </>,
+    size,
+    className,
+  );
+
+export const SaveIcon = ({ size, className }: IconProps) =>
+  svg(
+    <>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <path d="M17 21v-8H7v8M7 3v5h8" />
+    </>,
+    size,
+    className,
+  );
+
+export const CheckIcon = ({ size, className }: IconProps) =>
+  svg(<path d="M20 6L9 17l-5-5" />, size, className);
+
+export const StopIcon = ({ size, className }: IconProps) =>
+  svg(<rect x="6" y="6" width="12" height="12" rx="2" />, size, className);
+
 export const NodesIcon = ({ size, className }: IconProps) =>
   svg(
     <>
