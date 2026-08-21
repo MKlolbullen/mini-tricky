@@ -27,6 +27,11 @@ export async function saveWorkflow(payload: { id?: string; name: string; graph: 
   return r.json();
 }
 
+export async function deleteWorkflow(workflowId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}`, { method: 'DELETE' });
+  return r.json();
+}
+
 export async function validateGraph(graph: any): Promise<any> {
   const r = await fetch(`${apiBase}/api/workflows/validate`, {
     method: 'POST',

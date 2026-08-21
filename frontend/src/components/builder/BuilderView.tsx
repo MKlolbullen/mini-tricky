@@ -187,7 +187,12 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
       setWorkflowName(pendingTemplate.name);
       setSelectedNodeId(null);
       setLastRun(null);
-      setConsoleLines([`[+] Loaded template "${pendingTemplate.name}".`]);
+      // If we were handed a real saved-workflow id (not a template or a blank
+      // scratch graph), bind the canvas to it so Save updates in place instead
+      // of forking a duplicate.
+      const boundId = pendingTemplate.id && pendingTemplate.id.startsWith('wf-') ? pendingTemplate.id : null;
+      setCurrentWorkflowId(boundId);
+      setConsoleLines([`[+] Loaded "${pendingTemplate.name}".`]);
       onTemplateClaimed();
     }
   }, [pendingTemplate, tools, setNodes, setEdges, onTemplateClaimed]);

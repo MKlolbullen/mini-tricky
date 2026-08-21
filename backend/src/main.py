@@ -1150,6 +1150,21 @@ def get_workflow(workflow_id: str) -> dict[str, Any]:
     return {"error": "Workflow not found"}
 
 
+@app.delete("/api/workflows/{workflow_id}")
+def delete_workflow_endpoint(workflow_id: str) -> dict[str, Any]:
+    db.delete_workflow(workflow_id)
+    # Best-effort cleanup of stored version snapshots.
+    ver_dir = VERSIONS_DIR / workflow_id
+    if ver_dir.exists():
+        for vf in ver_dir.glob("v*.json"):
+            vf.unlink(missing_ok=True)
+        try:
+            ver_dir.rmdir()
+        except OSError:
+            pass
+    return {"ok": True, "id": workflow_id}
+
+
 @app.get("/api/workflows/{workflow_id}/versions")
 def list_workflow_versions(workflow_id: str) -> list[dict[str, Any]]:
     return _list_versions(workflow_id)

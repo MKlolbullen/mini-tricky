@@ -44,6 +44,21 @@ def test_create_and_get_workflow(client):
     assert any(w["id"] == wf_id for w in listed), "created workflow missing from list"
 
 
+def test_delete_workflow(client):
+    created = client.post(
+        "/api/workflows",
+        json={"name": _uid("wf-del"), "graph": {"nodes": [], "edges": []}},
+    ).json()
+    wf_id = created["id"]
+
+    resp = client.delete(f"/api/workflows/{wf_id}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["ok"] is True
+
+    listed = client.get("/api/workflows").json()
+    assert not any(w["id"] == wf_id for w in listed), "deleted workflow still listed"
+
+
 def test_profile_secret_routes_through_keychain(client):
     """End-to-end check that profile env_vars never leak secrets over HTTP.
 
