@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion } from '../../types';
+import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion, WorkflowRecord } from '../../types';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
 import type { Edge } from '@xyflow/react';
@@ -39,6 +39,7 @@ type Props = {
   onRestoreVersion?: (wf: any) => void;
   edges: Edge[];
   onDeleteNode?: (nodeId: string) => void;
+  savedWorkflows?: WorkflowRecord[];
 };
 
 type InspectorTab = 'arguments' | 'output' | 'versions';
@@ -70,6 +71,7 @@ export default function Inspector({
   onRestoreVersion,
   edges,
   onDeleteNode,
+  savedWorkflows = [],
 }: Props) {
   const selectedArtifact = selectedArtifactPath ? artifactItems.find((i) => i.path === selectedArtifactPath) || null : null;
   const rawUrl = lastRun?.id && selectedArtifact ? artifactRawUrl(lastRun.id, selectedArtifact.path) : null;
@@ -536,11 +538,31 @@ export default function Inspector({
                   <div className="arg-section-title">Module Configuration</div>
                   <div className="arg-field">
                     <div className="arg-field-header">
-                      <span className="arg-field-name">Workflow Reference</span>
+                      <span className="arg-field-name">Referenced workflow</span>
                       <span className="arg-field-type">module</span>
                     </div>
-                    <div className="arg-field-value mono">{selectedNode.data.moduleWorkflowId || 'none'}</div>
-                    <div className="arg-field-desc">Executes the referenced workflow as a nested sub-graph, piping upstream data into its variable nodes.</div>
+                    <select
+                      className="arg-field-input"
+                      value={selectedNode.data.moduleWorkflowId || ''}
+                      onChange={(e) => {
+                        const wf = savedWorkflows.find((w) => w.id === e.target.value);
+                        onUpdateNodeData(selectedNode.id, {
+                          moduleWorkflowId: e.target.value || undefined,
+                          ...(wf ? { label: wf.name } : {}),
+                        });
+                      }}
+                    >
+                      <option value="">Select a workflow…</option>
+                      {savedWorkflows
+                        .filter((w) => w.id !== currentWorkflowId)
+                        .map((w) => (
+                          <option key={w.id} value={w.id}>{w.name || w.id}</option>
+                        ))}
+                    </select>
+                    <div className="arg-field-desc">
+                      Executes the referenced workflow as a nested sub-graph, piping upstream data into its variable nodes.
+                      {savedWorkflows.length === 0 && ' Save a workflow first to reference it here.'}
+                    </div>
                   </div>
                 </div>
               )}

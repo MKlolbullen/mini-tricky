@@ -3,18 +3,14 @@ import type { Health } from '../../types';
 import {
   fetchToolsHealth,
   fetchInstallScript,
-  fetchProfiles,
-  saveProfile,
-  deleteProfile,
   type ToolHealth,
-  type Profile,
 } from '../../api';
 
 type Props = {
   health: Health | null;
 };
 
-type SettingsTab = 'general' | 'tools' | 'profiles';
+type SettingsTab = 'general' | 'tools';
 
 export default function SettingsView({ health }: Props) {
   const [tab, setTab] = useState<SettingsTab>('general');
@@ -22,8 +18,6 @@ export default function SettingsView({ health }: Props) {
   const [toolsSummary, setToolsSummary] = useState({ total: 0, installed: 0, missing: 0 });
   const [toolsLoading, setToolsLoading] = useState(false);
   const [toolFilter, setToolFilter] = useState<'all' | 'installed' | 'missing'>('all');
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [showNewProfile, setShowNewProfile] = useState(false);
   const [installScriptStatus, setInstallScriptStatus] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
 
   function loadToolsHealth() {
@@ -35,10 +29,6 @@ export default function SettingsView({ health }: Props) {
       })
       .catch(() => setToolsHealth([]))
       .finally(() => setToolsLoading(false));
-  }
-
-  function loadProfiles() {
-    fetchProfiles().then(setProfiles).catch(() => setProfiles([]));
   }
 
   async function copyInstallScript() {
@@ -56,7 +46,6 @@ export default function SettingsView({ health }: Props) {
 
   useEffect(() => {
     if (tab === 'tools') loadToolsHealth();
-    if (tab === 'profiles') loadProfiles();
   }, [tab]);
 
   const filteredTools = toolsHealth.filter((t) => {
@@ -70,7 +59,6 @@ export default function SettingsView({ health }: Props) {
       <div className="settings-tabs">
         <button className={`arg-tab ${tab === 'general' ? 'active' : ''}`} onClick={() => setTab('general')}>General</button>
         <button className={`arg-tab ${tab === 'tools' ? 'active' : ''}`} onClick={() => setTab('tools')}>Tool Manager</button>
-        <button className={`arg-tab ${tab === 'profiles' ? 'active' : ''}`} onClick={() => setTab('profiles')}>Profiles</button>
       </div>
 
       {tab === 'general' && (
@@ -82,6 +70,18 @@ export default function SettingsView({ health }: Props) {
               <span className={`arg-status-badge ${health?.status === 'ok' ? 'success' : 'failed'}`}>{health?.status || 'checking'}</span>
             </div>
             <div className="arg-field-value mono">http://127.0.0.1:5000</div>
+          </div>
+
+          <div className="section-title">Environment &amp; Secrets</div>
+          <div className="arg-field">
+            <div className="arg-field-header">
+              <span className="arg-field-name">Environment profiles</span>
+              <span className="arg-field-type">moved</span>
+            </div>
+            <div className="arg-field-desc">
+              API keys, tokens, and per-scope environment profiles now live on the dedicated
+              <strong> Secrets</strong> page in the sidebar, where secret values are stored in the OS keychain.
+            </div>
           </div>
 
           <div className="section-title">About</div>
@@ -185,117 +185,6 @@ export default function SettingsView({ health }: Props) {
         </div>
       )}
 
-      {tab === 'profiles' && (
-        <div className="settings-section">
-          <div className="tools-health-header">
-            <div className="section-title">Environment Profiles</div>
-            <button className="action-btn small" onClick={() => setShowNewProfile(!showNewProfile)}>
-              {showNewProfile ? 'Cancel' : '+ New Profile'}
-            </button>
-          </div>
-          <div className="arg-field-desc" style={{ marginBottom: 12 }}>
-            Profiles let you define different tool configurations per target scope. Override tool parameters, set environment variables, and switch between configs.
-          </div>
-
-          {showNewProfile && (
-            <NewProfileForm
-              onSave={(p) => {
-                saveProfile(p).then(() => { loadProfiles(); setShowNewProfile(false); });
-              }}
-              onCancel={() => setShowNewProfile(false)}
-            />
-          )}
-
-          {profiles.length === 0 && !showNewProfile && (
-            <div className="empty-state compact">No profiles yet. Create one to manage different tool configurations per target scope.</div>
-          )}
-
-          {profiles.map((p) => (
-            <div key={p.id} className="arg-field" style={{ marginBottom: 8 }}>
-              <div className="arg-field-header">
-                <span className="arg-field-name">{p.name}</span>
-                <button
-                  className="arg-field-remove"
-                  onClick={() => deleteProfile(p.id).then(loadProfiles)}
-                >
-                  &times;
-                </button>
-              </div>
-              {p.description && <div className="arg-field-desc">{p.description}</div>}
-              {Object.keys(p.tool_overrides).length > 0 && (
-                <div className="profile-overrides">
-                  <strong style={{ fontSize: 11, color: '#8eb8d4' }}>TOOL OVERRIDES</strong>
-                  {Object.entries(p.tool_overrides).map(([toolId, params]) => (
-                    <div key={toolId} className="profile-override-item">
-                      <span>{toolId}:</span>
-                      <code>{Object.entries(params).map(([k, v]) => `${k}=${v}`).join(', ')}</code>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {Object.keys(p.env_vars).length > 0 && (
-                <div className="profile-overrides">
-                  <strong style={{ fontSize: 11, color: '#8eb8d4' }}>ENV VARIABLES</strong>
-                  {Object.entries(p.env_vars).map(([k, v]) => (
-                    <div key={k} className="profile-override-item">
-                      <span>{k}:</span>
-                      <code>{v}</code>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewProfileForm({ onSave, onCancel }: {
-  onSave: (p: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [envVarsText, setEnvVarsText] = useState('');
-  const [overridesText, setOverridesText] = useState('');
-
-  function handleSave() {
-    const env_vars: Record<string, string> = {};
-    for (const line of envVarsText.split('\n')) {
-      const [k, ...rest] = line.split('=');
-      if (k?.trim()) env_vars[k.trim()] = rest.join('=').trim();
-    }
-
-    const tool_overrides: Record<string, Record<string, string>> = {};
-    try {
-      if (overridesText.trim()) {
-        const parsed = JSON.parse(overridesText);
-        Object.assign(tool_overrides, parsed);
-      }
-    } catch {
-      // ignore invalid JSON
-    }
-
-    onSave({ name, description, tool_overrides, env_vars });
-  }
-
-  return (
-    <div className="arg-field" style={{ marginBottom: 12 }}>
-      <div className="arg-field-header">
-        <span className="arg-field-name">New Profile</span>
-      </div>
-      <input className="arg-field-input" placeholder="Profile name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="arg-field-input" placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} style={{ marginTop: 4 }} />
-      <div style={{ marginTop: 8, fontSize: 11, color: '#8eb8d4' }}>Environment Variables (KEY=value, one per line)</div>
-      <textarea className="arg-field-input" rows={3} placeholder="API_KEY=xxx&#10;SCOPE=wide" value={envVarsText} onChange={(e) => setEnvVarsText(e.target.value)} />
-      <div style={{ marginTop: 8, fontSize: 11, color: '#8eb8d4' }}>Tool Overrides (JSON)</div>
-      <textarea className="arg-field-input script-editor" rows={3} placeholder='{"nuclei": {"severity": "critical,high"}}' value={overridesText} onChange={(e) => setOverridesText(e.target.value)} />
-      <div className="arg-add-param-actions" style={{ marginTop: 8 }}>
-        <button className="action-btn small" onClick={handleSave} disabled={!name.trim()}>Create</button>
-        <button className="action-btn small" onClick={onCancel}>Cancel</button>
-      </div>
     </div>
   );
 }

@@ -732,6 +732,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         <Inspector
           selectedNode={selectedNode}
           selectedTool={selectedTool}
+          savedWorkflows={savedWorkflows}
           lastRun={lastRun}
           selectedRunNode={selectedRunNode}
           selectedReplay={selectedReplay}
