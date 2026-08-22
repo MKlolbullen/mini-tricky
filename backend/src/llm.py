@@ -101,8 +101,9 @@ def _select_provider(provider: str | None, env_vars: dict[str, str] | None) -> t
         key = _provider_key(name, env_vars)
         if key:
             return name, key
-    all_vars = ", ".join(var for spec in PROVIDERS.values() for var in spec["keys"])
-    raise LLMNotAvailable(f"No LLM provider configured — set one of: {all_vars}")
+    # Scope the hint to the requested provider(s) so the error is actionable.
+    needed = ", ".join(var for name in candidates for var in PROVIDERS[name]["keys"])
+    raise LLMNotAvailable(f"No LLM provider configured — set one of: {needed}")
 
 
 def _model_for(provider: str, model: str | None) -> str:
@@ -122,6 +123,11 @@ def provider_status(env_vars: dict[str, str] | None = None) -> list[dict[str, An
     ]
 
 
+# A per-request timeout keeps a stalled provider from occupying every thread in
+# FastAPI's sync threadpool (the /api/ai endpoints run sync).
+DEFAULT_TIMEOUT = 60.0
+
+
 # ── Completion dispatch (lazy per-provider SDK imports) ───────────────────────
 def _complete(
     system: str,
@@ -131,24 +137,29 @@ def _complete(
     model: str,
     api_key: str,
     max_tokens: int = 4096,
+    timeout: float = DEFAULT_TIMEOUT,
 ) -> str:
+    """Dispatch one completion to the selected provider and return its text."""
     if provider == "anthropic":
-        return _complete_anthropic(system, user, model, api_key, max_tokens)
+        return _complete_anthropic(system, user, model, api_key, max_tokens, timeout)
     if provider == "openai":
-        return _complete_openai(system, user, model, api_key, max_tokens, base_url=None)
+        return _complete_openai(system, user, model, api_key, max_tokens, timeout, base_url=None)
     if provider == "grok":
-        return _complete_openai(system, user, model, api_key, max_tokens, base_url=_GROK_BASE_URL)
+        return _complete_openai(system, user, model, api_key, max_tokens, timeout, base_url=_GROK_BASE_URL)
     if provider == "gemini":
-        return _complete_gemini(system, user, model, api_key, max_tokens)
+        return _complete_gemini(system, user, model, api_key, max_tokens, timeout)
     raise LLMNotAvailable(f"Unknown provider: {provider}")
 
 
-def _complete_anthropic(system: str, user: str, model: str, api_key: str, max_tokens: int) -> str:
+def _complete_anthropic(
+    system: str, user: str, model: str, api_key: str, max_tokens: int, timeout: float = DEFAULT_TIMEOUT
+) -> str:
+    """Complete via the Anthropic (Claude) messages API."""
     try:
         from anthropic import Anthropic  # type: ignore[import-not-found]
     except ImportError as e:
         raise LLMNotAvailable("anthropic SDK not installed (pip install anthropic)") from e
-    client = Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key, timeout=timeout)
     msg = client.messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -158,15 +169,30 @@ def _complete_anthropic(system: str, user: str, model: str, api_key: str, max_to
     return "".join(getattr(block, "text", "") for block in msg.content).strip()
 
 
-def _complete_openai(system: str, user: str, model: str, api_key: str, max_tokens: int, base_url: str | None) -> str:
+def _complete_openai(
+    system: str,
+    user: str,
+    model: str,
+    api_key: str,
+    max_tokens: int,
+    timeout: float = DEFAULT_TIMEOUT,
+    base_url: str | None = None,
+) -> str:
+    """Complete via OpenAI (or an OpenAI-compatible endpoint such as xAI's Grok)."""
     try:
         from openai import OpenAI  # type: ignore[import-not-found]
     except ImportError as e:
         raise LLMNotAvailable("openai SDK not installed (pip install openai)") from e
-    client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
+    client = (
+        OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+        if base_url
+        else OpenAI(api_key=api_key, timeout=timeout)
+    )
     resp = client.chat.completions.create(
         model=model,
-        max_tokens=max_tokens,
+        # `max_completion_tokens` is the current param; `max_tokens` is rejected
+        # by reasoning models and the Grok-compatible endpoint.
+        max_completion_tokens=max_tokens,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -175,14 +201,21 @@ def _complete_openai(system: str, user: str, model: str, api_key: str, max_token
     return (resp.choices[0].message.content or "").strip()
 
 
-def _complete_gemini(system: str, user: str, model: str, api_key: str, max_tokens: int) -> str:
+def _complete_gemini(
+    system: str, user: str, model: str, api_key: str, max_tokens: int, timeout: float = DEFAULT_TIMEOUT
+) -> str:
+    """Complete via Google Gemini using the per-client (thread-safe) google-genai SDK."""
     try:
-        import google.generativeai as genai  # type: ignore[import-not-found]
+        from google import genai  # type: ignore[import-not-found]
     except ImportError as e:
-        raise LLMNotAvailable("google-generativeai SDK not installed (pip install google-generativeai)") from e
-    genai.configure(api_key=api_key)
-    gm = genai.GenerativeModel(model, system_instruction=system)
-    resp = gm.generate_content(user, generation_config={"max_output_tokens": max_tokens})
+        raise LLMNotAvailable("google-genai SDK not installed (pip install google-genai)") from e
+    # Per-client api_key avoids the legacy SDK's global-configure race.
+    client = genai.Client(api_key=api_key, http_options={"timeout": int(timeout * 1000)})
+    resp = client.models.generate_content(
+        model=model,
+        contents=user,
+        config={"system_instruction": system, "max_output_tokens": max_tokens},
+    )
     return (getattr(resp, "text", "") or "").strip()
 
 
@@ -190,12 +223,16 @@ def _complete_gemini(system: str, user: str, model: str, api_key: str, max_token
 def _load_tools_yaml() -> list[dict[str, Any]]:
     try:
         data = yaml.safe_load(TOOLS_FILE.read_text()) or {}
-    except OSError:
+    except (OSError, yaml.YAMLError):
         return []
     if isinstance(data, dict):
         tools = data.get("tools", [])
-        return tools if isinstance(tools, list) else []
-    return data if isinstance(data, list) else []
+    elif isinstance(data, list):
+        tools = data
+    else:
+        return []
+    # Only dict entries reach downstream ``.get`` calls.
+    return [t for t in tools if isinstance(t, dict)]
 
 
 def _tool_catalog(tools: list[Any]) -> list[dict[str, Any]]:
@@ -380,48 +417,3 @@ def explain_workflow(
     system = "You are an expert offensive-security engineer. Explain workflows clearly and concisely."
     user = "Explain this security workflow in simple terms:\n" + json.dumps(workflow, indent=2)
     return _complete(system, user, provider=prov, model=mdl, api_key=api_key, max_tokens=1500)
-
-
-def debug_failed_run(
-    workflow: dict[str, Any],
-    logs: str,
-    failed_node_id: str,
-    *,
-    provider: str | None = None,
-    model: str | None = None,
-    env_vars: dict[str, str] | None = None,
-) -> dict[str, Any]:
-    """Analyze a failed run and suggest fixes (returns structured JSON)."""
-    prov, api_key = _select_provider(provider, env_vars)
-    mdl = _model_for(prov, model)
-    system = "You are debugging a failed security workflow. Return ONLY valid JSON."
-    user = (
-        "Workflow:\n" + json.dumps(workflow, indent=2) + "\n\n"
-        f"Failed node id: {failed_node_id}\n\n"
-        "Error logs / output:\n" + logs[:4000] + "\n\n"
-        "Return ONLY JSON: {root_cause, likely_cause, "
-        "suggested_fixes: [{fix, command_change, confidence}], recommended_action}."
-    )
-    return _extract_json(_complete(system, user, provider=prov, model=mdl, api_key=api_key))
-
-
-def suggest_next_nodes(
-    workflow: dict[str, Any],
-    last_node_id: str,
-    *,
-    provider: str | None = None,
-    model: str | None = None,
-    env_vars: dict[str, str] | None = None,
-) -> list[dict[str, Any]]:
-    """Suggest 3–5 logical next tools to add after ``last_node_id``."""
-    prov, api_key = _select_provider(provider, env_vars)
-    mdl = _model_for(prov, model)
-    system = "You help build efficient offensive-security workflows. Return ONLY a JSON array."
-    user = (
-        "Current workflow:\n" + json.dumps(workflow, indent=2) + "\n\n"
-        f"Last completed node id: {last_node_id}\n\n"
-        "Suggest 3-5 next nodes. Return ONLY a JSON array of "
-        "{tool, label, reason, suggested_args, priority}."
-    )
-    value = _loads_lenient(_complete(system, user, provider=prov, model=mdl, api_key=api_key))
-    return value if isinstance(value, list) else []

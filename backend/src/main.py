@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import logging
 import mimetypes
 import subprocess
 from collections import defaultdict, deque
@@ -19,6 +20,8 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from . import db, llm, mermaid, secrets_store
+
+logger = logging.getLogger("mini_tricky")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / "tools.yaml"
@@ -2093,6 +2096,11 @@ def ai_providers() -> dict[str, Any]:
     return {"providers": llm.provider_status(_collect_env_vars_from_profiles())}
 
 
+# Cap the workflow sent to /api/ai/explain-workflow so one large request can't
+# run up a huge token charge (or DoS the provider) before we even call it.
+_MAX_EXPLAIN_WORKFLOW_BYTES = 200_000
+
+
 @app.post("/api/ai/generate-workflow")
 def ai_generate_workflow(req: AIWorkflowRequest) -> dict[str, Any]:
     """Generate a workflow with any configured provider (defaults to the first available)."""
@@ -2104,21 +2112,27 @@ def ai_generate_workflow(req: AIWorkflowRequest) -> dict[str, Any]:
         return {"success": True, "workflow": workflow}
     except llm.LLMNotAvailable as e:
         return {"success": False, "error": f"no LLM provider available: {e}"}
-    except Exception as e:  # noqa: BLE001 — surface any provider/parse error to the caller
-        return {"success": False, "error": str(e)}
+    except llm.LLMGenerationError as e:
+        return {"success": False, "error": f"could not parse the provider response: {e}"}
+    except Exception:  # noqa: BLE001 — log full detail, return a generic message (may echo secrets)
+        logger.exception("ai_generate_workflow failed")
+        return {"success": False, "error": "the LLM provider request failed; check the server logs"}
 
 
 @app.post("/api/ai/explain-workflow")
 def ai_explain_workflow(req: AIExplainRequest) -> dict[str, Any]:
     """Explain a workflow with any configured provider."""
+    if len(json.dumps(req.workflow)) > _MAX_EXPLAIN_WORKFLOW_BYTES:
+        return {"success": False, "error": "workflow is too large to explain"}
     try:
         env_vars = _collect_env_vars_from_profiles()
         explanation = llm.explain_workflow(req.workflow, provider=req.provider, model=req.model, env_vars=env_vars)
         return {"success": True, "explanation": explanation}
     except llm.LLMNotAvailable as e:
         return {"success": False, "error": f"no LLM provider available: {e}"}
-    except Exception as e:  # noqa: BLE001 — surface any provider/parse error to the caller
-        return {"success": False, "error": str(e)}
+    except Exception:  # noqa: BLE001 — log full detail, return a generic message (may echo secrets)
+        logger.exception("ai_explain_workflow failed")
+        return {"success": False, "error": "the LLM provider request failed; check the server logs"}
 
 
 def _generate_workflow_via_keywords(payload: GeneratePayload, tools: list[Tool]) -> dict[str, Any]:
