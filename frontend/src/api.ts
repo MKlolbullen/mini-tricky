@@ -243,6 +243,35 @@ export async function deletePreset(presetId: string): Promise<any> {
   return r.json();
 }
 
+// ── Mermaid Import ──────────────────────────────────────────
+
+export type MermaidImportResult = {
+  ok: boolean;
+  error?: string;
+  name?: string;
+  graph?: WorkflowRecord['graph'];
+  warnings?: string[];
+  valid?: boolean;
+  validation_error?: string | null;
+  node_count?: number;
+  edge_count?: number;
+  saved_template_id?: string;
+  saved_workflow_id?: string;
+};
+
+export async function importMermaid(
+  mermaid: string,
+  name?: string,
+  save?: 'workflow' | 'template',
+): Promise<MermaidImportResult> {
+  const r = await fetch(`${apiBase}/api/import/mermaid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mermaid, name: name || 'Imported workflow', save }),
+  });
+  return r.json();
+}
+
 // ── AI Workflow Generation ──────────────────────────────────
 
 export async function generateWorkflow(prompt: string, scope: string = ''): Promise<any> {

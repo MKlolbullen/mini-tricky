@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from . import db, llm, secrets_store
+from . import db, llm, mermaid, secrets_store
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / "tools.yaml"
@@ -1502,6 +1502,65 @@ def save_template(payload: TemplatePayload) -> dict[str, Any]:
     templates.insert(0, item)
     db.save_user_templates(templates)
     return item
+
+
+# ── Mermaid flowchart import ─────────────────────────────────────────────────
+
+
+class MermaidPayload(BaseModel):
+    mermaid: str
+    name: str = "Imported workflow"
+    save: str | None = None  # None | "workflow" | "template"
+    category: str = "Recon"
+
+
+@app.post("/api/import/mermaid")
+def import_mermaid(payload: MermaidPayload) -> dict[str, Any]:
+    """Parse a Mermaid flowchart into a workflow graph.
+
+    Always returns the mapped graph (so the UI can load and fix it), plus its
+    validation status and any mapping warnings. Optionally persists it as a
+    workflow or a template.
+    """
+    result = mermaid.mermaid_to_graph(payload.mermaid, load_tools())
+    graph_dict = {"nodes": result["nodes"], "edges": result["edges"]}
+
+    if not result["nodes"]:
+        return {"ok": False, "error": "No nodes parsed — is this a Mermaid flowchart?", "warnings": result["warnings"]}
+
+    try:
+        graph = WorkflowGraph(**graph_dict)
+    except Exception as exc:  # noqa: BLE001 - surface any pydantic error to the UI
+        return {"ok": False, "error": f"Could not build graph: {exc}", "warnings": result["warnings"], "graph": graph_dict}
+
+    validation = validate_graph(graph)
+    response: dict[str, Any] = {
+        "ok": True,
+        "name": payload.name,
+        "graph": graph.model_dump(),
+        "warnings": result["warnings"],
+        "valid": bool(validation.get("ok")),
+        "validation_error": None if validation.get("ok") else validation.get("error"),
+        "node_count": len(result["nodes"]),
+        "edge_count": len(result["edges"]),
+    }
+
+    if payload.save == "workflow":
+        saved = save_workflow(WorkflowPayload(name=payload.name, graph=graph))
+        response["saved_workflow_id"] = saved.get("id")
+    elif payload.save == "template":
+        saved = save_template(
+            TemplatePayload(
+                name=payload.name,
+                description="Imported from a Mermaid flowchart.",
+                category=payload.category,
+                tags=["mermaid", "imported"],
+                graph=graph,
+            )
+        )
+        response["saved_template_id"] = saved.get("id")
+
+    return response
 
 
 # ── Active run tracking (for cancellation) ───────────────────────────────────

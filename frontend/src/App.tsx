@@ -11,6 +11,7 @@ import RunsView, { type PendingRun } from './components/runs/RunsView';
 import SchedulesView from './components/schedules/SchedulesView';
 import SecretsView from './components/secrets/SecretsView';
 import SettingsView from './components/settings/SettingsView';
+import ImportMermaidModal from './components/mermaid/ImportMermaidModal';
 
 const BLANK_GRAPH = { nodes: [], edges: [] };
 
@@ -21,6 +22,7 @@ export default function App() {
   const [savedWorkflows, setSavedWorkflows] = useState<WorkflowRecord[]>([]);
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(null);
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
+  const [showMermaid, setShowMermaid] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -89,6 +91,12 @@ export default function App() {
     refreshWorkflows();
   }, []);
 
+  const handleLoadMermaid = useCallback((name: string, graph: WorkflowRecord['graph']) => {
+    setPendingTemplate({ id: `mermaid-${Date.now()}`, name, description: '', category: '', tags: [], builtin: false, graph });
+    setShowMermaid(false);
+    setActiveView('builder');
+  }, []);
+
   // Navigating away from Executions ends live monitoring so it can't restart.
   const handleViewChange = useCallback((view: AppView) => {
     setActiveView((prev) => {
@@ -136,13 +144,14 @@ export default function App() {
               onDuplicate={handleDuplicateWorkflow}
               onDelete={handleDeleteWorkflow}
               onNew={handleNewWorkflow}
+              onImportMermaid={() => setShowMermaid(true)}
             />
           </div>
         )}
 
         {activeView === 'templates' && (
           <div className="view-scroll">
-            <TemplatesView onUseTemplate={handleUseTemplate} />
+            <TemplatesView onUseTemplate={handleUseTemplate} onImportMermaid={() => setShowMermaid(true)} />
           </div>
         )}
 
@@ -174,6 +183,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {showMermaid && (
+        <ImportMermaidModal
+          onClose={() => setShowMermaid(false)}
+          onLoad={handleLoadMermaid}
+          onSavedTemplate={() => undefined}
+        />
+      )}
     </div>
   );
 }

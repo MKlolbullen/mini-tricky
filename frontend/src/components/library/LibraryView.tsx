@@ -9,11 +9,12 @@ type Props = {
   onDuplicate: (wf: WorkflowRecord) => void;
   onDelete: (wf: WorkflowRecord) => void;
   onNew: () => void;
+  onImportMermaid?: () => void;
 };
 
 type SortKey = 'name' | 'size';
 
-export default function LibraryView({ workflows, onOpen, onRun, onDuplicate, onDelete, onNew }: Props) {
+export default function LibraryView({ workflows, onOpen, onRun, onDuplicate, onDelete, onNew, onImportMermaid }: Props) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('name');
 
@@ -34,9 +35,14 @@ export default function LibraryView({ workflows, onOpen, onRun, onDuplicate, onD
           <h1 className="page-title">Workflows</h1>
           <p className="page-sub">{workflows.length} saved workflow{workflows.length === 1 ? '' : 's'}</p>
         </div>
-        <button className="btn btn-primary" onClick={onNew}>
-          <PlusIcon size={18} /> New Workflow
-        </button>
+        <div className="page-head-actions">
+          {onImportMermaid && (
+            <button className="btn" onClick={onImportMermaid}>Import Mermaid</button>
+          )}
+          <button className="btn btn-primary" onClick={onNew}>
+            <PlusIcon size={18} /> New Workflow
+          </button>
+        </div>
       </div>
 
       <div className="library-controls">

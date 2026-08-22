@@ -5,9 +5,10 @@ import * as api from '../../api';
 
 type Props = {
   onUseTemplate: (template: TemplateRecord) => void;
+  onImportMermaid?: () => void;
 };
 
-export default function TemplatesView({ onUseTemplate }: Props) {
+export default function TemplatesView({ onUseTemplate, onImportMermaid }: Props) {
   const [templates, setTemplates] = useState<TemplateRecord[]>([]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -37,8 +38,13 @@ export default function TemplatesView({ onUseTemplate }: Props) {
   return (
     <div className="templates-view">
       <div className="templates-header">
-        <h2>Workflow Templates</h2>
-        <p className="templates-subtitle">Pre-built security workflows ready to customize and run.</p>
+        <div>
+          <h2>Workflow Templates</h2>
+          <p className="templates-subtitle">Pre-built security workflows ready to customize and run.</p>
+        </div>
+        {onImportMermaid && (
+          <button className="btn" onClick={onImportMermaid} style={{ flexShrink: 0 }}>Import Mermaid</button>
+        )}
       </div>
 
       <div className="templates-controls">

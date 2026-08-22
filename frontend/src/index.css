@@ -3370,3 +3370,73 @@ select.form-input { cursor: pointer; }
 .inflight-bar { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
 .inflight-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #2b8fd0, var(--accent)); transition: width 0.4s ease; }
 .inflight-count { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--text-lo); font-size: 12px; }
+
+/* ── Modal (Mermaid import) ─────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(4, 8, 16, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--border-mid);
+  border-radius: 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.modal-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--text-hi); }
+.modal-body { padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.mermaid-input { resize: vertical; line-height: 1.5; }
+.mermaid-hint { font-size: 12px; color: var(--text-lo); line-height: 1.6; }
+.mermaid-hint code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.mermaid-hint .link-btn { margin-left: 6px; }
+
+.mermaid-result {
+  border-radius: 11px;
+  border: 1px solid var(--border-soft);
+  padding: 12px 14px;
+  background: var(--surface-2);
+  font-size: 12.5px;
+}
+.mermaid-result.ok { border-color: rgba(67, 217, 173, 0.4); }
+.mermaid-result.warn { border-color: rgba(255, 180, 84, 0.45); }
+.mermaid-result.err { border-color: rgba(255, 107, 125, 0.5); }
+.mermaid-result-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 650;
+  color: var(--text-hi);
+  margin-bottom: 6px;
+}
+.mermaid-result-line { color: var(--text-lo); padding: 2px 0; }
+.mermaid-result-line.err { color: var(--fail); }
+
+/* Templates header becomes a row so the Import button sits on the right. */
+.templates-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
