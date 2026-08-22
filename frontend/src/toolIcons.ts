@@ -48,6 +48,11 @@ export const TOOL_GLYPHS: Record<string, string> = {
   s3scanner: '\u{2601}', cloudenum: '\u{26C5}',
   // Secrets
   trufflehog: '\u{1F437}', gitleaks: '\u{1F4A7}',
+  // Web App Testing
+  whatweb: '\u{1F52C}', wafw00f: '\u{1F9F1}', testssl: '\u{1F512}', sslscan: '\u{1F50F}',
+  ghauri: '\u{1FA78}', commix: '\u{2328}', jaeles: '\u{1F3AF}', cmseek: '\u{1F3DB}',
+  joomscan: '\u{1F3D7}', droopescan: '\u{1F4A0}', nomore403: '\u{1F513}', oralyzer: '\u{21AA}',
+  dirb: '\u{1F5C2}',
 };
 
 /** The glyph (emoji) for a tool, falling back to its category icon. */

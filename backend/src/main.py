@@ -2367,6 +2367,18 @@ INSTALL_HINTS: dict[str, str] = {
     "meg": "go install github.com/tomnomnom/meg@latest",
     "chaos": "go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest",
     "findomain": "curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip",
+    # Web App Testing
+    "whatweb": "gem install whatweb  # or apt install whatweb",
+    "wafw00f": "pip install wafw00f",
+    "sslscan": "apt install sslscan  # or brew install sslscan",
+    "ghauri": "pipx install ghauri  # or pipx install git+https://github.com/r0oth3x49/ghauri",
+    "jaeles": "go install github.com/jaeles-project/jaeles@latest",
+    "cmseek": "git clone https://github.com/Tuhinshubhra/CMSeeK && pip install -r CMSeeK/requirements.txt",
+    "joomscan": "apt install joomscan  # or git clone https://github.com/OWASP/joomscan",
+    "droopescan": "pip install droopescan",
+    "nomore403": "go install github.com/devploit/nomore403@latest",
+    "oralyzer": "git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt",
+    "dirb": "apt install dirb  # or brew install dirb",
 }
 
 
