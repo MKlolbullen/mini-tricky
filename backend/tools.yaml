@@ -2848,11 +2848,11 @@ tools:
       - json
     output_mode: stdout
     timeout_seconds: 600
+    # Passive discovery only. Active hunting (--active) can change cluster
+    # state and is intentionally NOT exposed as a toggle here: the platform
+    # has no approval-gate enforcement yet, so a state-changing flag must not
+    # be one click away. Run active hunts manually under an approved change.
     args:
-      - flag: --active
-        label: Active Hunting
-        description: Enable active tests that may change cluster state (requires approval)
-        type: flag
       - flag: --pod
         label: Pod Mode
         description: Run as if inside a cluster pod
@@ -2865,9 +2865,8 @@ tools:
   - id: kube-bench
     name: kube-bench
     category: Kubernetes
-    description: Check whether Kubernetes is deployed per the CIS Kubernetes Benchmark
-    inputs:
-      - targets
+    description: Check whether Kubernetes is deployed per the CIS Kubernetes Benchmark. Runs against the active kubeconfig context.
+    inputs: []
     outputs:
       - findings
     command:
@@ -2888,9 +2887,8 @@ tools:
   - id: kubeaudit
     name: kubeaudit
     category: Kubernetes
-    description: Audit Kubernetes clusters against common security concerns
-    inputs:
-      - targets
+    description: Audit Kubernetes clusters against common security concerns. Runs against the active kubeconfig context (override with --kubeconfig).
+    inputs: []
     outputs:
       - findings
     command:
@@ -2970,9 +2968,8 @@ tools:
   - id: popeye
     name: Popeye
     category: Kubernetes
-    description: Scan live Kubernetes clusters for misconfigurations and resource hygiene issues
-    inputs:
-      - targets
+    description: Scan live Kubernetes clusters for misconfigurations and resource hygiene issues. Runs against the active kubeconfig context (override with --kubeconfig).
+    inputs: []
     outputs:
       - findings
     command:
@@ -2995,9 +2992,8 @@ tools:
   - id: prowler
     name: Prowler
     category: Cloud
-    description: Multi-cloud security assessment against CIS and other compliance frameworks
-    inputs:
-      - targets
+    description: Assess an AWS account against CIS and other compliance frameworks. Uses the ambient AWS credentials/profile.
+    inputs: []
     outputs:
       - findings
     command:
@@ -3008,11 +3004,6 @@ tools:
     output_mode: stdout
     timeout_seconds: 600
     args:
-      - flag: --provider
-        label: Provider
-        description: Cloud provider to assess (aws, azure, gcp, kubernetes)
-        type: string
-        default: aws
       - flag: --services
         label: Services
         description: Comma-separated services to scope the assessment to
@@ -3025,9 +3016,8 @@ tools:
   - id: scoutsuite
     name: ScoutSuite
     category: Cloud
-    description: Multi-cloud security auditing that surfaces risky configuration across accounts
-    inputs:
-      - targets
+    description: Audit an AWS account and surface risky configuration. Uses the ambient AWS credentials/profile.
+    inputs: []
     outputs:
       - findings
     command:
@@ -3037,11 +3027,6 @@ tools:
     output_mode: stdout
     timeout_seconds: 600
     args:
-      - flag: --provider
-        label: Provider
-        description: Cloud provider to audit (aws, azure, gcp, aliyun, oci)
-        type: string
-        default: aws
       - flag: --report-dir
         label: Report Directory
         description: Directory to write the ScoutSuite report into
@@ -3050,9 +3035,8 @@ tools:
   - id: cloudsploit
     name: CloudSploit
     category: Cloud
-    description: Detect security risks in cloud accounts across common misconfiguration checks
-    inputs:
-      - targets
+    description: Detect security risks in a cloud account across common misconfiguration checks. Uses the ambient cloud credentials.
+    inputs: []
     outputs:
       - findings
     command:
@@ -3081,6 +3065,9 @@ tools:
       - targets
     outputs:
       - findings
+    # Keyword comes from the workflow target ({targets}); -u keeps the probe to
+    # unauthenticated (public-exposure) checks by default. Neither is re-exposed
+    # as an arg to avoid passing a duplicate -k/-u to the CLI.
     command:
       - gcpbucketbrute
       - -k
@@ -3089,11 +3076,7 @@ tools:
     output_mode: stdout
     timeout_seconds: 300
     args:
-      - flag: -k
-        label: Keyword
-        description: Base keyword to permute into candidate bucket names
-        type: string
-      - flag: -u
-        label: Unauthenticated
-        description: Test access without authenticating (public exposure only)
+      - flag: --check-endpoints
+        label: Check Endpoints
+        description: Also probe for accessible service endpoints on discovered buckets
         type: flag

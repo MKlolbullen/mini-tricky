@@ -1916,68 +1916,46 @@ templates:
 
   - id: tpl-cloud-security-audit
     name: Cloud Security Audit
-    description: Assess a cloud account against CIS and compliance baselines with Prowler, ScoutSuite, and CloudSploit in parallel.
+    description: Assess the configured cloud account against CIS and compliance baselines with Prowler, ScoutSuite, and CloudSploit in parallel. Runs against the ambient cloud credentials — no target input required.
     category: Cloud
     tags: [cloud, audit, prowler, scoutsuite, cis]
     graph:
       nodes:
-        - id: variable-1
-          kind: variable
-          label: Account / Scope
-          variable_type: targets
-          value: ""
-          params: {}
-          position: { x: 80, y: 200 }
         - id: tool-1
           kind: tool
           label: Prowler
           tool_id: prowler
           params: {}
-          position: { x: 400, y: 80 }
+          position: { x: 160, y: 80 }
         - id: tool-2
           kind: tool
           label: ScoutSuite
           tool_id: scoutsuite
           params: {}
-          position: { x: 400, y: 200 }
+          position: { x: 160, y: 200 }
         - id: tool-3
           kind: tool
           label: CloudSploit
           tool_id: cloudsploit
           params: {}
-          position: { x: 400, y: 320 }
+          position: { x: 160, y: 320 }
         - id: output-1
           kind: output
           label: Artifacts
           params: {}
-          position: { x: 720, y: 200 }
+          position: { x: 480, y: 200 }
       edges:
         - id: e1
-          source: variable-1
-          target: tool-1
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e2
-          source: variable-1
-          target: tool-2
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e3
-          source: variable-1
-          target: tool-3
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e4
           source: tool-1
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
-        - id: e5
+        - id: e2
           source: tool-2
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
-        - id: e6
+        - id: e3
           source: tool-3
           target: output-1
           source_handle: "out:findings"
@@ -2075,68 +2053,46 @@ templates:
 
   - id: tpl-k8s-cis-audit
     name: Kubernetes CIS Audit
-    description: Benchmark a cluster against CIS and surface misconfigurations with kube-bench, kubeaudit, and Popeye.
+    description: Benchmark the active cluster against CIS and surface misconfigurations with kube-bench, kubeaudit, and Popeye. Runs against the current kubeconfig context — no target input required.
     category: Kubernetes
     tags: [kubernetes, cis, kube-bench, kubeaudit, popeye]
     graph:
       nodes:
-        - id: variable-1
-          kind: variable
-          label: Cluster / Kubeconfig
-          variable_type: targets
-          value: ""
-          params: {}
-          position: { x: 80, y: 200 }
         - id: tool-1
           kind: tool
           label: kube-bench
           tool_id: kube-bench
           params: {}
-          position: { x: 400, y: 80 }
+          position: { x: 160, y: 80 }
         - id: tool-2
           kind: tool
           label: kubeaudit
           tool_id: kubeaudit
           params: {}
-          position: { x: 400, y: 200 }
+          position: { x: 160, y: 200 }
         - id: tool-3
           kind: tool
           label: Popeye
           tool_id: popeye
           params: {}
-          position: { x: 400, y: 320 }
+          position: { x: 160, y: 320 }
         - id: output-1
           kind: output
           label: Artifacts
           params: {}
-          position: { x: 720, y: 200 }
+          position: { x: 480, y: 200 }
       edges:
         - id: e1
-          source: variable-1
-          target: tool-1
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e2
-          source: variable-1
-          target: tool-2
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e3
-          source: variable-1
-          target: tool-3
-          source_handle: "out:targets"
-          target_handle: "in:targets"
-        - id: e4
           source: tool-1
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
-        - id: e5
+        - id: e2
           source: tool-2
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
-        - id: e6
+        - id: e3
           source: tool-3
           target: output-1
           source_handle: "out:findings"
@@ -2144,9 +2100,9 @@ templates:
 
   - id: tpl-k8s-cluster-pentest
     name: Kubernetes Cluster Pentest
-    description: Probe a cluster for exploitable weaknesses with kube-hunter. Active hunting is gated behind approval — passive discovery by default.
+    description: Probe a cluster for exploitable weaknesses with kube-hunter (passive discovery only — state-changing active hunts are run manually under approval).
     category: Kubernetes
-    tags: [kubernetes, pentest, kube-hunter, active]
+    tags: [kubernetes, pentest, kube-hunter, passive]
     graph:
       nodes:
         - id: variable-1
