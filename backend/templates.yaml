@@ -1290,9 +1290,9 @@ templates:
           target_handle: "in:targets"
         - id: e5
           source: tool-2
-          target: tool-4
+          target: output-1
           source_handle: "out:targets"
-          target_handle: "in:targets"
+          target_handle: "in:any"
         - id: e6
           source: tool-4
           target: output-1

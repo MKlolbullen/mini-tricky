@@ -108,3 +108,54 @@ def test_template_edge_socket_types_are_compatible():
 def test_template_ids_are_unique():
     ids = [t["id"] for t in _load_templates()]
     assert len(ids) == len(set(ids)), "duplicate template ids"
+
+
+def test_every_template_passes_runtime_graph_validation():
+    """Every built-in template must be runnable, not just type-compatible.
+
+    ``validate_graph`` is the gate a workflow passes before execution. A
+    template can satisfy the socket-type checks above yet still be rejected at
+    run time — most subtly by fanning several branches into one node. This
+    locks in that the whole library actually validates, and in particular that
+    the ``in:any`` aggregation socket on output nodes accepts multiple incoming
+    edges (typed sockets remain single-occupancy).
+    """
+    from src.main import WorkflowGraph, validate_graph
+
+    for tpl in _load_templates():
+        graph = WorkflowGraph(**tpl["graph"])
+        result = validate_graph(graph)
+        assert result.get("ok"), f"{tpl['id']}: {result.get('error')}"
+
+
+def test_in_any_socket_allows_fan_in_but_typed_socket_does_not():
+    """Guard the exact rule the fan-in fix depends on."""
+    from src.main import WorkflowGraph, validate_graph
+
+    sources = [
+        {"id": "v1", "kind": "variable", "label": "A", "variable_type": "targets", "value": "", "params": {}},
+        {"id": "v2", "kind": "variable", "label": "B", "variable_type": "targets", "value": "", "params": {}},
+    ]
+
+    def _edges(target: str, handle: str) -> list[dict]:
+        return [
+            {"id": "e1", "source": "v1", "target": target, "source_handle": "out:targets", "target_handle": handle},
+            {"id": "e2", "source": "v2", "target": target, "source_handle": "out:targets", "target_handle": handle},
+        ]
+
+    # Two edges into an output node's aggregation socket are allowed.
+    aggregate = WorkflowGraph(
+        nodes=[*sources, {"id": "out", "kind": "output", "label": "Out", "params": {}}],
+        edges=_edges("out", "in:any"),
+    )
+    assert validate_graph(aggregate).get("ok")
+
+    # Two edges into a tool's typed socket are rejected as already-occupied
+    # (httpx exposes a single ``in:targets`` input, and the bind is last-write-wins).
+    typed = WorkflowGraph(
+        nodes=[*sources, {"id": "t", "kind": "tool", "label": "HTTPX", "tool_id": "httpx", "params": {}}],
+        edges=_edges("t", "in:targets"),
+    )
+    result = validate_graph(typed)
+    assert not result.get("ok")
+    assert "occupied" in result.get("error", "")
