@@ -97,10 +97,10 @@ def _split_edges(line: str) -> list[tuple[str, str]] | None:
     return [(parts[i], parts[i + 1]) for i in range(len(parts) - 1)]
 
 
-def parse_flowchart(text: str) -> tuple[dict[str, dict[str, str]], list[tuple[str, str]], list[str]]:
+def parse_flowchart(text: str) -> tuple[dict[str, Any], list[tuple[str, str]], list[str]]:
     """Parse Mermaid text into (nodes-by-id, edges, warnings)."""
     warnings: list[str] = []
-    nodes: dict[str, dict[str, str]] = {}
+    nodes: dict[str, Any] = {}
     edges: list[tuple[str, str]] = []
     order: list[str] = []
 

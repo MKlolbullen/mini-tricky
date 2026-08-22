@@ -45,29 +45,6 @@ _legacy_profiles = db.list_profiles()
 _migrated_count = secrets_store.migrate_legacy_plaintext(_legacy_profiles)
 if _migrated_count:
     db.save_profiles(_legacy_profiles)
-from fastapi import APIRouter
-from .llm import generate_workflow, explain_workflow
-
-router = APIRouter(prefix="/api/ai", tags=["AI"])
-
-@router.post("/generate-workflow")
-async def api_generate_workflow(request: dict):
-    """Generate workflow from natural language"""
-    prompt = request.get("prompt")
-    if not prompt:
-        return {"error": "prompt is required"}
-    
-    try:
-        workflow = generate_workflow(prompt)
-        return {"success": True, "workflow": workflow}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-@router.post("/explain-workflow")
-async def api_explain_workflow(request: dict):
-    workflow = request.get("workflow")
-    explanation = explain_workflow(workflow)
-    return {"explanation": explanation}
 TEXT_SUFFIXES = {
     ".txt",
     ".log",
@@ -310,6 +287,15 @@ def write_text(path: Path, value: str) -> None:
     path.write_text(value, encoding="utf-8", errors="ignore")
 
 
+def _as_text(value: bytes | str | None) -> str:
+    """Coerce subprocess output (str under ``text=True``, or bytes) to text."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")
+    return value
+
+
 def prepare_bound_value(input_name: str, value: Any, node_dir: Path, context: dict[str, str]) -> None:
     inputs_dir = node_dir / "inputs"
     inputs_dir.mkdir(parents=True, exist_ok=True)
@@ -481,8 +467,8 @@ def execute_tool_node(
     except FileNotFoundError:
         return failed_node_result(node, node_dir, f"Binary not found for tool {tool.id}: {command[0]}", command=command)
     except subprocess.TimeoutExpired as exc:
-        stdout_text = exc.stdout or ""
-        stderr_text = exc.stderr or ""
+        stdout_text = _as_text(exc.stdout)
+        stderr_text = _as_text(exc.stderr)
         write_text(stdout_path, stdout_text)
         write_text(stderr_path, stderr_text or f"Timeout after {tool.timeout_seconds}s")
         return {
@@ -585,8 +571,8 @@ def execute_script_node(
     except FileNotFoundError:
         return failed_node_result(node, node_dir, f"{language} interpreter not found.", command=cmd)
     except subprocess.TimeoutExpired as exc:
-        write_text(stdout_path, exc.stdout or "")
-        write_text(stderr_path, exc.stderr or "Timeout after 300s")
+        write_text(stdout_path, _as_text(exc.stdout))
+        write_text(stderr_path, _as_text(exc.stderr) or "Timeout after 300s")
         return failed_node_result(node, node_dir, "Script timed out.", command=cmd)
 
     stdout_text = completed.stdout or ""
@@ -1553,7 +1539,12 @@ def import_mermaid(payload: MermaidPayload) -> dict[str, Any]:
     try:
         graph = WorkflowGraph(**graph_dict)
     except Exception as exc:  # noqa: BLE001 - surface any pydantic error to the UI
-        return {"ok": False, "error": f"Could not build graph: {exc}", "warnings": result["warnings"], "graph": graph_dict}
+        return {
+            "ok": False,
+            "error": f"Could not build graph: {exc}",
+            "warnings": result["warnings"],
+            "graph": graph_dict,
+        }
 
     validation = validate_graph(graph)
     response: dict[str, Any] = {
@@ -2080,6 +2071,56 @@ def generate_workflow(payload: GeneratePayload) -> dict[str, Any]:
     return result
 
 
+# ── Multi-provider AI endpoints (Claude / OpenAI / Gemini / Grok) ─────────────
+
+
+class AIWorkflowRequest(BaseModel):
+    prompt: str
+    provider: str | None = None
+    model: str | None = None
+    scope: str = ""
+
+
+class AIExplainRequest(BaseModel):
+    workflow: dict[str, Any]
+    provider: str | None = None
+    model: str | None = None
+
+
+@app.get("/api/ai/providers")
+def ai_providers() -> dict[str, Any]:
+    """Report which LLM providers have an API key configured."""
+    return {"providers": llm.provider_status(_collect_env_vars_from_profiles())}
+
+
+@app.post("/api/ai/generate-workflow")
+def ai_generate_workflow(req: AIWorkflowRequest) -> dict[str, Any]:
+    """Generate a workflow with any configured provider (defaults to the first available)."""
+    try:
+        env_vars = _collect_env_vars_from_profiles()
+        workflow = llm.generate_workflow(
+            req.prompt, provider=req.provider, model=req.model, scope=req.scope, env_vars=env_vars
+        )
+        return {"success": True, "workflow": workflow}
+    except llm.LLMNotAvailable as e:
+        return {"success": False, "error": f"no LLM provider available: {e}"}
+    except Exception as e:  # noqa: BLE001 — surface any provider/parse error to the caller
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/ai/explain-workflow")
+def ai_explain_workflow(req: AIExplainRequest) -> dict[str, Any]:
+    """Explain a workflow with any configured provider."""
+    try:
+        env_vars = _collect_env_vars_from_profiles()
+        explanation = llm.explain_workflow(req.workflow, provider=req.provider, model=req.model, env_vars=env_vars)
+        return {"success": True, "explanation": explanation}
+    except llm.LLMNotAvailable as e:
+        return {"success": False, "error": f"no LLM provider available: {e}"}
+    except Exception as e:  # noqa: BLE001 — surface any provider/parse error to the caller
+        return {"success": False, "error": str(e)}
+
+
 def _generate_workflow_via_keywords(payload: GeneratePayload, tools: list[Tool]) -> dict[str, Any]:
     """Legacy keyword-based workflow generator (fallback path).
 
@@ -2585,7 +2626,7 @@ def get_normalized_results(run_id: str) -> dict[str, Any]:
         return {"ok": False, "error": f"Run {run_id} not found"}
 
     normalized: list[dict[str, Any]] = []
-    summary = {"total_items": 0, "by_type": {}, "by_node": {}, "by_severity": {}}
+    summary: dict[str, Any] = {"total_items": 0, "by_type": {}, "by_node": {}, "by_severity": {}}
 
     for node_id, result in (run.get("node_results") or {}).items():
         if result.get("status") != "success":
