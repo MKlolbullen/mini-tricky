@@ -38,6 +38,9 @@ warn_unused_configs = true
 check_untyped_defs = false
 disallow_untyped_defs = false
 no_implicit_optional = true
+# Some deps (PyYAML, the optional LLM SDKs) ship without type stubs; don't fail
+# on "library stubs not installed" — this complements ignore_missing_imports.
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -9,10 +9,7 @@ def _graph(text):
 
 
 def test_clean_chain_maps_and_validates():
-    g = _graph(
-        "flowchart LR\n"
-        "  A[domain: example.com] --> B[subfinder] --> C[httpx] --> D[nuclei] --> E[Artifacts]"
-    )
+    g = _graph("flowchart LR\n  A[domain: example.com] --> B[subfinder] --> C[httpx] --> D[nuclei] --> E[Artifacts]")
     kinds = {n["id"]: n["kind"] for n in g["nodes"]}
     assert kinds["A"] == "variable"
     assert kinds["B"] == "tool" and kinds["D"] == "tool"
@@ -72,7 +69,9 @@ def test_export_endpoint(client):
             {"id": "v", "kind": "variable", "label": "Domain", "variable_type": "domain", "value": "t.com"},
             {"id": "t", "kind": "tool", "label": "Subfinder", "tool_id": "subfinder"},
         ],
-        "edges": [{"id": "e", "source": "v", "target": "t", "source_handle": "out:domain", "target_handle": "in:domain"}],
+        "edges": [
+            {"id": "e", "source": "v", "target": "t", "source_handle": "out:domain", "target_handle": "in:domain"}
+        ],
     }
     resp = client.post("/api/export/mermaid", json={"graph": graph})
     assert resp.status_code == 200, resp.text
