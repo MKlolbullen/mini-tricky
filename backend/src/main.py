@@ -1143,7 +1143,7 @@ def _list_versions(workflow_id: str) -> list[dict[str, Any]]:
 @app.post("/api/workflows")
 def save_workflow(payload: WorkflowPayload) -> dict[str, Any]:
     workflow_id = payload.id or f"wf-{uuid4().hex[:10]}"
-    item = {
+    item: dict[str, Any] = {
         "id": workflow_id,
         "name": payload.name,
         "graph": payload.graph.model_dump(),
