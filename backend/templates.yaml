@@ -1258,7 +1258,13 @@ templates:
           position: { x: 360, y: 320 }
         - id: tool-4
           kind: tool
-          label: anew (dedupe)
+          label: anew (dedupe chaos)
+          tool_id: anew
+          params: {}
+          position: { x: 660, y: 80 }
+        - id: tool-5
+          kind: tool
+          label: anew (dedupe wayback)
           tool_id: anew
           params: {}
           position: { x: 660, y: 200 }
@@ -1290,7 +1296,7 @@ templates:
           target_handle: "in:targets"
         - id: e5
           source: tool-2
-          target: tool-4
+          target: tool-5
           source_handle: "out:targets"
           target_handle: "in:targets"
         - id: e6
@@ -1300,6 +1306,11 @@ templates:
           target_handle: "in:any"
         - id: e7
           source: tool-3
+          target: output-1
+          source_handle: "out:targets"
+          target_handle: "in:any"
+        - id: e8
+          source: tool-5
           target: output-1
           source_handle: "out:targets"
           target_handle: "in:any"

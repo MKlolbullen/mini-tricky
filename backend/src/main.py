@@ -230,13 +230,19 @@ def validate_graph(graph: WorkflowGraph) -> dict[str, Any]:
         if target_type != "any" and source_type != target_type:
             return {"ok": False, "error": f"Socket type mismatch: {source_type} -> {target_type}"}
 
-        occupied_key = (edge.target, edge.target_handle)
-        if occupied_key in target_handle_use:
-            return {
-                "ok": False,
-                "error": f"Target socket {edge.target_handle} on node {edge.target} is already occupied",
-            }
-        target_handle_use.add(occupied_key)
+        # ``in:any`` is the aggregation socket on output/sink nodes — it is meant
+        # to collect several upstream branches, and the executor no-ops its bind
+        # (see the ``input_name != "any"`` guard in the node runner). Only typed
+        # sockets are single-occupancy, because their bind is last-write-wins and
+        # a second edge would silently clobber the first.
+        if target_type != "any":
+            occupied_key = (edge.target, edge.target_handle)
+            if occupied_key in target_handle_use:
+                return {
+                    "ok": False,
+                    "error": f"Target socket {edge.target_handle} on node {edge.target} is already occupied",
+                }
+            target_handle_use.add(occupied_key)
 
         adjacency[edge.source].append(edge.target)
         indegree[edge.target] += 1
