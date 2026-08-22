@@ -1303,3 +1303,602 @@ templates:
           target: output-1
           source_handle: "out:targets"
           target_handle: "in:any"
+
+  - id: tpl-port-service-scan
+    name: Port & Service Scan
+    description: Enumerate subdomains, sweep for open ports with Naabu, probe live services with HTTPX, then run Nuclei against what answers.
+    category: Network
+    tags: [ports, naabu, services, nuclei, pipeline]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: Naabu
+          tool_id: naabu
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 920, y: 200 }
+        - id: tool-4
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 1200, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1480, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-tech-fingerprint
+    name: Technology Fingerprint
+    description: Resolve live hosts, then fingerprint the web stack with WhatWeb and detect WAFs with wafw00f.
+    category: Recon
+    tags: [fingerprint, whatweb, waf, tech-stack]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Subfinder
+          tool_id: subfinder
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: WhatWeb
+          tool_id: whatweb
+          params: {}
+          position: { x: 920, y: 100 }
+        - id: tool-4
+          kind: tool
+          label: wafw00f
+          tool_id: wafw00f
+          params: {}
+          position: { x: 920, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1200, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-tls-audit
+    name: TLS/SSL Audit
+    description: Assess transport security on target hosts with testssl.sh and SSLScan in parallel.
+    category: Network
+    tags: [tls, ssl, testssl, sslscan, crypto]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target Hosts
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: testssl.sh
+          tool_id: testssl
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: SSLScan
+          tool_id: sslscan
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-cms-audit
+    name: CMS & WordPress Audit
+    description: Detect the CMS with CMSeeK and run a focused WordPress security scan with WPScan.
+    category: Enumeration
+    tags: [cms, wordpress, cmseek, wpscan]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target URLs
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: CMSeeK
+          tool_id: cmseek
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: WPScan
+          tool_id: wpscan
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-sqli-hunt
+    name: SQL Injection Hunt
+    description: Pattern-match SQLi-prone URLs with gf, normalize values with qsreplace, then test with SQLMap and Ghauri.
+    category: Vulnerability
+    tags: [sqli, gf, sqlmap, ghauri, injection]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: URL List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: gf (sqli)
+          tool_id: gf
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: qsreplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: SQLMap
+          tool_id: sqlmap
+          params: {}
+          position: { x: 920, y: 100 }
+        - id: tool-4
+          kind: tool
+          label: Ghauri
+          tool_id: ghauri
+          params: {}
+          position: { x: 920, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1200, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-2
+          target: tool-4
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e5
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e6
+          source: tool-4
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-open-redirect
+    name: Open Redirect Hunt
+    description: Extract redirect-prone parameters with gf, inject a canary with qsreplace, then validate with Oralyzer.
+    category: Vulnerability
+    tags: [open-redirect, gf, oralyzer, injection]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: URL List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: gf (redirect)
+          tool_id: gf
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: qsreplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Oralyzer
+          tool_id: oralyzer
+          params: {}
+          position: { x: 920, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1200, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-command-injection
+    name: Command Injection Probe
+    description: Select injectable parameters with gf, normalize with qsreplace, then probe for OS command injection with Commix.
+    category: Vulnerability
+    tags: [command-injection, gf, commix, rce]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: URL List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: gf (rce)
+          tool_id: gf
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: qsreplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Commix
+          tool_id: commix
+          params: {}
+          position: { x: 920, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1200, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e4
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-git-secrets
+    name: Git & Repo Secret Scan
+    description: Scan source repositories and artifacts for leaked credentials with TruffleHog and Gitleaks.
+    category: Secrets
+    tags: [secrets, trufflehog, gitleaks, credentials]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Repo / Path List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: TruffleHog
+          tool_id: trufflehog
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: Gitleaks
+          tool_id: gitleaks
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-403-bypass
+    name: 403 Forbidden Bypass
+    description: Attempt access-control bypasses on forbidden endpoints with nomore403 and cross-check reachability with hakcheckurl.
+    category: Enumeration
+    tags: [403, bypass, nomore403, access-control]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Forbidden URLs
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: nomore403
+          tool_id: nomore403
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: hakcheckurl
+          tool_id: hakcheckurl
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-content-discovery
+    name: Recursive Content Discovery
+    description: Recursively brute-force directories and files on target URLs with Feroxbuster using a custom wordlist.
+    category: Fuzzing
+    tags: [content-discovery, feroxbuster, recursive, wordlist]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Target URLs
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 120 }
+        - id: variable-2
+          kind: variable
+          label: Wordlist
+          variable_type: wordlist
+          value: ""
+          params: {}
+          position: { x: 80, y: 280 }
+        - id: tool-1
+          kind: tool
+          label: Feroxbuster
+          tool_id: feroxbuster
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-2
+          target: tool-1
+          source_handle: "out:wordlist"
+          target_handle: "in:wordlist"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
