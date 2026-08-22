@@ -16,6 +16,7 @@ type Props = {
   onExport: () => void;
   onImport: () => void;
   onGenerate: (prompt: string, scope: string) => void;
+  onExportMermaid?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
@@ -25,7 +26,7 @@ type Props = {
 export default function Toolbar({
   workflowName, onNameChange, maxParallel, onMaxParallelChange,
   onSave, onValidate, onRun, onRunFallback, onCancel, isRunning,
-  onSaveAsTemplate, onExport, onImport, onGenerate,
+  onSaveAsTemplate, onExport, onImport, onGenerate, onExportMermaid,
   onUndo, onRedo, canUndo, canRedo,
 }: Props) {
   const [showGenerator, setShowGenerator] = useState(false);
@@ -78,6 +79,9 @@ export default function Toolbar({
           <button className="tb-btn" onClick={onSaveAsTemplate} title="Save as template">Template</button>
           <button className="tb-btn" onClick={onExport} title="Export workflow JSON (Ctrl+E)">Export</button>
           <button className="tb-btn" onClick={onImport} title="Import workflow JSON">Import</button>
+          {onExportMermaid && (
+            <button className="tb-btn" onClick={onExportMermaid} title="Export this workflow as a Mermaid flowchart">Mermaid</button>
+          )}
           <button className="tb-btn" onClick={onValidate} title="Validate the graph">
             <CheckIcon size={16} /> Validate
           </button>

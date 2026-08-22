@@ -45,6 +45,43 @@ def test_diamond_becomes_condition():
     assert c["kind"] == "condition"
 
 
+def test_export_round_trips():
+    src = (
+        "flowchart LR\n"
+        "  A[domain: example.com] --> B[subfinder] --> C[httpx] --> D[nuclei] --> E[Artifacts]\n"
+        "  C --> F{has_lines}"
+    )
+    g1 = _graph(src)
+    text = mermaid.graph_to_mermaid({"nodes": g1["nodes"], "edges": g1["edges"]}, load_tools())
+    assert "flowchart LR" in text
+    assert 'B["subfinder"]' in text
+    assert 'E["out: Artifacts"]' in text
+    assert 'F{"has_lines"}' in text  # condition -> diamond
+    g2 = _graph(text)
+    kinds1 = [n["kind"] for n in g1["nodes"]]
+    kinds2 = [n["kind"] for n in g2["nodes"]]
+    assert kinds1 == kinds2
+    assert len(g1["edges"]) == len(g2["edges"])
+    res = validate_graph(WorkflowGraph(nodes=g2["nodes"], edges=g2["edges"]))
+    assert res["ok"], res.get("error")
+
+
+def test_export_endpoint(client):
+    graph = {
+        "nodes": [
+            {"id": "v", "kind": "variable", "label": "Domain", "variable_type": "domain", "value": "t.com"},
+            {"id": "t", "kind": "tool", "label": "Subfinder", "tool_id": "subfinder"},
+        ],
+        "edges": [{"id": "e", "source": "v", "target": "t", "source_handle": "out:domain", "target_handle": "in:domain"}],
+    }
+    resp = client.post("/api/export/mermaid", json={"graph": graph})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"]
+    assert "flowchart LR" in body["mermaid"]
+    assert "subfinder" in body["mermaid"]
+
+
 def test_import_endpoint(client):
     resp = client.post(
         "/api/import/mermaid",

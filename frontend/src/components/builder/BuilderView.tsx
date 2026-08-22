@@ -9,6 +9,7 @@ import RunProgress from './RunProgress';
 import Inspector from './Inspector';
 import Console from './Console';
 import Notifications, { type Notification } from './Notifications';
+import MermaidExportModal from '../mermaid/MermaidExportModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useHistory } from './hooks/useHistory';
 
@@ -158,6 +159,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
   const [maxParallel, setMaxParallel] = useState(2);
   const [currentWorkflowId, setCurrentWorkflowId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [mermaidExport, setMermaidExport] = useState<string | null>(null);
 
   const addNotification = useCallback((type: Notification['type'], title: string, message: string) => {
     const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -651,6 +653,16 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     setConsoleLines([`[+] Exported workflow "${workflowName}".`]);
   }
 
+  async function handleExportMermaid() {
+    const r = await api.exportMermaid(formatGraph(nodes, edges));
+    if (r.ok && r.mermaid) {
+      setMermaidExport(r.mermaid);
+      setConsoleLines([`[+] Rendered "${workflowName}" as Mermaid.`]);
+    } else {
+      addNotification('error', 'Export failed', r.error || 'Could not render Mermaid.');
+    }
+  }
+
   async function handleImport() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -699,6 +711,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         onExport={handleExport}
         onImport={handleImport}
         onGenerate={handleGenerate}
+        onExportMermaid={handleExportMermaid}
         onUndo={handleUndo}
         onRedo={handleRedo}
         canUndo={history.canUndo}
@@ -762,6 +775,9 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         artifactsView={artifactsView}
       />
       <Notifications notifications={notifications} onDismiss={dismissNotification} />
+      {mermaidExport !== null && (
+        <MermaidExportModal mermaid={mermaidExport} title={workflowName} onClose={() => setMermaidExport(null)} />
+      )}
     </>
   );
 }

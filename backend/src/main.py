@@ -1563,6 +1563,25 @@ def import_mermaid(payload: MermaidPayload) -> dict[str, Any]:
     return response
 
 
+class MermaidExportPayload(BaseModel):
+    graph: WorkflowGraph | None = None
+    workflow_id: str | None = None
+
+
+@app.post("/api/export/mermaid")
+def export_mermaid(payload: MermaidExportPayload) -> dict[str, Any]:
+    """Render a workflow graph as Mermaid flowchart text."""
+    graph = payload.graph
+    if graph is None and payload.workflow_id:
+        stored = next((w for w in workflow_records() if w["id"] == payload.workflow_id), None)
+        if stored:
+            graph = WorkflowGraph(**stored["graph"])
+    if graph is None:
+        return {"ok": False, "error": "No workflow graph supplied"}
+    text = mermaid.graph_to_mermaid(graph.model_dump(), load_tools())
+    return {"ok": True, "mermaid": text}
+
+
 # ── Active run tracking (for cancellation) ───────────────────────────────────
 
 _active_runs: dict[str, bool] = {}

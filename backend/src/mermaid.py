@@ -205,7 +205,8 @@ def _classify(
     if low in OUTPUT_WORDS or any(w in low.split() for w in OUTPUT_WORDS):
         return base(kind="output", label=label)
     if shape == "diamond":
-        return base(kind="condition", label=label, condition_expr="has_lines")
+        # The diamond's text is the condition expression (round-trips export).
+        return base(kind="condition", label=label, condition_expr=label or "has_lines")
 
     # --- structural fallback ---------------------------------------------
     if incoming == 0 and outgoing > 0:
@@ -330,3 +331,75 @@ def mermaid_to_graph(text: str, tools: list[Any]) -> dict[str, Any]:
         warnings.append("No labels matched a known tool — nodes were mapped to variables/scripts you can edit.")
 
     return {"nodes": wf_nodes, "edges": wf_edges, "warnings": warnings}
+
+
+# ── Export: workflow graph -> Mermaid flowchart ──────────────────────────────
+
+
+def _safe_mermaid_id(node_id: str, index: int) -> str:
+    """A Mermaid-safe node id (alphanumeric/underscore, starts with a letter)."""
+    s = re.sub(r"[^A-Za-z0-9_]", "_", node_id) or f"n{index}"
+    if not s[0].isalpha():
+        s = f"n_{s}"
+    return s
+
+
+def _escape_label(text: str) -> str:
+    """Escape a label for a quoted Mermaid node — drop the quote/bracket chars
+    that would break parsing."""
+    return re.sub(r'["\[\]{}|]', "", text or "").strip()
+
+
+def graph_to_mermaid(graph: dict[str, Any], tools: list[Any]) -> str:
+    """Render a workflow graph as a Mermaid ``flowchart`` that re-imports back
+    into an equivalent workflow.
+
+    Node kinds are emitted so :func:`mermaid_to_graph` recovers them: tools as
+    their bare id, variables as ``type: value``, outputs with an ``out:``
+    prefix, conditions as ``{diamond}`` shapes, scripts/loops with their
+    prefixes. Edges carry the source socket type as a (cosmetic) label.
+    """
+    tools_by_id = {t.id: t for t in tools}
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+
+    id_map = {n["id"]: _safe_mermaid_id(n["id"], i) for i, n in enumerate(nodes)}
+    lines = ["flowchart LR"]
+
+    for node in nodes:
+        nid = id_map[node["id"]]
+        kind = node.get("kind", "tool")
+        if kind == "tool":
+            tool = tools_by_id.get(node.get("tool_id") or "")
+            token = node.get("tool_id") or (tool.id if tool else node.get("label") or "tool")
+            lines.append(f'  {nid}["{_escape_label(token)}"]')
+        elif kind == "variable":
+            vtype = node.get("variable_type") or "targets"
+            value = (node.get("value") or "").strip()
+            label = f"{vtype}: {value}" if value else vtype
+            lines.append(f'  {nid}["{_escape_label(label)}"]')
+        elif kind == "output":
+            lines.append(f'  {nid}["out: {_escape_label(node.get("label") or "Artifacts")}"]')
+        elif kind == "script":
+            lang = node.get("script_language") or "bash"
+            lines.append(f'  {nid}["script:{lang}"]')
+        elif kind == "condition":
+            expr = node.get("condition_expr") or "has_lines"
+            lines.append(f'  {nid}{{"{_escape_label(expr)}"}}')
+        elif kind == "loop":
+            lines.append(f'  {nid}["loop:{node.get("loop_mode") or "line"}"]')
+        elif kind == "module":
+            lines.append(f'  {nid}["{_escape_label(node.get("label") or "module")}"]')
+        else:
+            lines.append(f'  {nid}["{_escape_label(node.get("label") or node["id"])}"]')
+
+    for edge in edges:
+        src = id_map.get(edge.get("source"))
+        tgt = id_map.get(edge.get("target"))
+        if not src or not tgt:
+            continue
+        stype = (edge.get("source_handle") or "").removeprefix("out:")
+        label = f"|{stype}| " if stype else ""
+        lines.append(f"  {src} -->{label}{tgt}")
+
+    return "\n".join(lines)

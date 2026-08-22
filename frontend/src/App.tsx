@@ -12,6 +12,7 @@ import SchedulesView from './components/schedules/SchedulesView';
 import SecretsView from './components/secrets/SecretsView';
 import SettingsView from './components/settings/SettingsView';
 import ImportMermaidModal from './components/mermaid/ImportMermaidModal';
+import MermaidExportModal from './components/mermaid/MermaidExportModal';
 
 const BLANK_GRAPH = { nodes: [], edges: [] };
 
@@ -23,6 +24,7 @@ export default function App() {
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(null);
   const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
   const [showMermaid, setShowMermaid] = useState(false);
+  const [mermaidExport, setMermaidExport] = useState<{ text: string; name: string } | null>(null);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -91,6 +93,11 @@ export default function App() {
     refreshWorkflows();
   }, []);
 
+  const handleExportMermaid = useCallback(async (wf: WorkflowRecord) => {
+    const r = await api.exportMermaid(wf.graph);
+    if (r.ok && r.mermaid) setMermaidExport({ text: r.mermaid, name: wf.name });
+  }, []);
+
   const handleLoadMermaid = useCallback((name: string, graph: WorkflowRecord['graph']) => {
     setPendingTemplate({ id: `mermaid-${Date.now()}`, name, description: '', category: '', tags: [], builtin: false, graph });
     setShowMermaid(false);
@@ -145,6 +152,7 @@ export default function App() {
               onDelete={handleDeleteWorkflow}
               onNew={handleNewWorkflow}
               onImportMermaid={() => setShowMermaid(true)}
+              onExportMermaid={handleExportMermaid}
             />
           </div>
         )}
@@ -189,6 +197,14 @@ export default function App() {
           onClose={() => setShowMermaid(false)}
           onLoad={handleLoadMermaid}
           onSavedTemplate={() => undefined}
+        />
+      )}
+
+      {mermaidExport && (
+        <MermaidExportModal
+          mermaid={mermaidExport.text}
+          title={mermaidExport.name}
+          onClose={() => setMermaidExport(null)}
         />
       )}
     </div>

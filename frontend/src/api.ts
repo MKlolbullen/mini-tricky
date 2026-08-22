@@ -272,6 +272,15 @@ export async function importMermaid(
   return r.json();
 }
 
+export async function exportMermaid(graph?: WorkflowRecord['graph'], workflowId?: string): Promise<{ ok: boolean; mermaid?: string; error?: string }> {
+  const r = await fetch(`${apiBase}/api/export/mermaid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ graph, workflow_id: workflowId }),
+  });
+  return r.json();
+}
+
 // ── AI Workflow Generation ──────────────────────────────────
 
 export async function generateWorkflow(prompt: string, scope: string = ''): Promise<any> {
