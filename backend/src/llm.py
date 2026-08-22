@@ -66,7 +66,10 @@ DEFAULT_MODEL = PROVIDERS["anthropic"]["model"]
 def _normalize_provider(name: str | None) -> str | None:
     if not name:
         return None
-    return _ALIASES.get(name.strip().lower())
+    normalized = name.strip().lower()
+    if normalized not in _ALIASES:
+        raise LLMNotAvailable(f"Unknown LLM provider: {name}")
+    return _ALIASES[normalized]
 
 
 def _provider_key(provider: str, env_vars: dict[str, str] | None) -> str | None:
@@ -352,10 +355,13 @@ def generate_workflow(
     mdl = _model_for(prov, model)
     system = _workflow_system_prompt(_tool_catalog_from_yaml())
     obj = _extract_json(_complete(system, _user_prompt(prompt, scope), provider=prov, model=mdl, api_key=api_key))
+    graph = _normalize_graph(obj)
+    if not isinstance(graph.get("nodes"), list) or not isinstance(graph.get("edges"), list):
+        raise LLMGenerationError("response missing nodes/edges arrays")
     return {
         "name": obj.get("name") or "Generated Workflow",
         "description": obj.get("description") or "",
-        "graph": _normalize_graph(obj),
+        "graph": graph,
         "provider": prov,
         "model": mdl,
     }

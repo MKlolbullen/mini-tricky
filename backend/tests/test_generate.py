@@ -155,3 +155,31 @@ def test_generate_endpoint_falls_back_on_bad_json(client, monkeypatch):
     body = resp.json()
     assert body["source"] == "fallback"
     assert "fallback_reason" in body
+
+
+def test_normalize_provider_aliases_and_unknown():
+    from src.llm import LLMNotAvailable, _normalize_provider
+
+    assert _normalize_provider("claude") == "anthropic"
+    assert _normalize_provider("GPT") == "openai"
+    assert _normalize_provider("xai") == "grok"
+    assert _normalize_provider(None) is None
+    with pytest.raises(LLMNotAvailable):
+        _normalize_provider("bogus")
+
+
+def test_select_provider_rejects_unknown_even_when_another_is_configured(monkeypatch):
+    from src.llm import LLMNotAvailable, _select_provider
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
+    with pytest.raises(LLMNotAvailable):
+        _select_provider("does-not-exist", None)
+
+
+def test_generate_workflow_rejects_non_list_graph(monkeypatch):
+    import src.llm as llm
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-x")
+    monkeypatch.setattr(llm, "_complete", lambda *a, **k: '{"nodes": "notalist", "edges": []}')
+    with pytest.raises(llm.LLMGenerationError):
+        llm.generate_workflow("recon", provider="claude")
