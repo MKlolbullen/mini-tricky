@@ -2511,3 +2511,322 @@ tools:
         description: Max target megabytes to scan
         type: int
         default: '0'
+
+  # ── Web App Testing ────────────────────────────────────────
+  - id: whatweb
+    name: WhatWeb
+    category: Recon
+    description: Fingerprint web technologies, frameworks, and CMS
+    inputs: [targets]
+    outputs: [findings]
+    command: [whatweb, --no-errors, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -a
+        label: Aggression
+        description: Scan level 1 (stealthy) to 4 (heavy)
+        type: string
+        default: '3'
+      - flag: --max-threads
+        label: Max Threads
+        description: Number of concurrent threads
+        type: int
+        default: '25'
+      - flag: --user-agent
+        label: User Agent
+        description: Identify as a custom User-Agent
+        type: string
+      - flag: -v
+        label: Verbose
+        description: Verbose output including plugin descriptions
+        type: flag
+
+  - id: wafw00f
+    name: WAFW00F
+    category: Recon
+    description: Identify and fingerprint Web Application Firewalls
+    inputs: [targets]
+    outputs: [findings]
+    command: [wafw00f, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 180
+    args:
+      - flag: -a
+        label: Find All
+        description: Find all WAFs that match, do not stop at the first
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Enable verbose logging
+        type: flag
+      - flag: -p
+        label: Proxy
+        description: Route requests through a proxy (http://host:port)
+        type: string
+      - flag: -t
+        label: Test WAF
+        description: Test for a specific WAF by name
+        type: string
+
+  - id: testssl
+    name: testssl.sh
+    category: Network
+    description: Test a server's TLS/SSL ciphers, protocols, and flaws
+    inputs: [targets]
+    outputs: [findings]
+    command: [testssl.sh, --color, '0', '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --fast
+        label: Fast
+        description: Skip some checks for a faster run
+        type: flag
+      - flag: -U
+        label: All Vulns
+        description: Test all known vulnerabilities
+        type: flag
+      - flag: --sneaky
+        label: Sneaky
+        description: Use a less conspicuous User-Agent
+        type: flag
+      - flag: --severity
+        label: Min Severity
+        description: Minimum severity to report (LOW/MEDIUM/HIGH/CRITICAL)
+        type: string
+        default: 'LOW'
+
+  - id: sslscan
+    name: SSLScan
+    category: Network
+    description: Quick query of a server's SSL/TLS configuration
+    inputs: [targets]
+    outputs: [findings]
+    command: [sslscan, --no-colour, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: --show-certificate
+        label: Show Certificate
+        description: Print the full server certificate
+        type: flag
+      - flag: --no-fallback
+        label: No Fallback
+        description: Disable TLS fallback SCSV probing
+        type: flag
+      - flag: --starttls-auto
+        label: STARTTLS Auto
+        description: Auto-detect and use the STARTTLS protocol
+        type: flag
+
+  - id: ghauri
+    name: Ghauri
+    category: Vulnerability
+    description: Advanced SQL injection detection and exploitation
+    inputs: [targets]
+    outputs: [findings]
+    command: [ghauri, -u, '{targets}', --batch]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --level
+        label: Level
+        description: Level of tests to perform (1-3)
+        type: int
+        default: '1'
+      - flag: --dbs
+        label: Enumerate DBs
+        description: Enumerate the available databases
+        type: flag
+      - flag: --tables
+        label: Enumerate Tables
+        description: Enumerate database tables
+        type: flag
+      - flag: --technique
+        label: Technique
+        description: SQLi techniques to use (e.g. BEST, BT, S)
+        type: string
+      - flag: --dbms
+        label: Force DBMS
+        description: Force a back-end DBMS (e.g. MySQL, MSSQL)
+        type: string
+
+  - id: commix
+    name: Commix
+    category: Vulnerability
+    description: Automated command injection detection and exploitation
+    inputs: [targets]
+    outputs: [findings]
+    command: [commix, --url, '{targets}', --batch]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --level
+        label: Level
+        description: Level of tests to perform (1-3)
+        type: int
+        default: '1'
+      - flag: --technique
+        label: Technique
+        description: Injection techniques (e.g. classic, eval-based, time-based)
+        type: string
+      - flag: --os-cmd
+        label: OS Command
+        description: Execute a single operating-system command
+        type: string
+      - flag: --all
+        label: All
+        description: Retrieve everything (host, user, system info)
+        type: flag
+
+  - id: jaeles
+    name: Jaeles
+    category: Vulnerability
+    description: Signature-based web application vulnerability scanner
+    inputs: [targets]
+    outputs: [findings]
+    command: [jaeles, scan, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -s
+        label: Signatures
+        description: Signature selector (e.g. 'cves/', 'common/')
+        type: string
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent threads
+        type: int
+        default: '20'
+      - flag: --proxy
+        label: Proxy
+        description: Send requests through a proxy
+        type: string
+
+  - id: cmseek
+    name: CMSeeK
+    category: Enumeration
+    description: Detect CMS and enumerate versions, plugins, and themes
+    inputs: [targets]
+    outputs: [findings]
+    command: [cmseek, -u, '{targets}', --follow-redirect]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: --random-agent
+        label: Random Agent
+        description: Use a random User-Agent per request
+        type: flag
+      - flag: '--googlebot'
+        label: Googlebot
+        description: Use Googlebot as the User-Agent
+        type: flag
+
+  - id: joomscan
+    name: JoomScan
+    category: Vulnerability
+    description: OWASP Joomla vulnerability and component scanner
+    inputs: [targets]
+    outputs: [findings]
+    command: [joomscan, --url, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -ec
+        label: Enumerate Components
+        description: Enumerate installed components
+        type: flag
+      - flag: --random-agent
+        label: Random Agent
+        description: Use a random User-Agent
+        type: flag
+
+  - id: droopescan
+    name: Droopescan
+    category: Vulnerability
+    description: Plugin-based scanner for Drupal, SilverStripe, and more
+    inputs: [targets]
+    outputs: [findings]
+    command: [droopescan, scan, drupal, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -t
+        label: Threads
+        description: Number of threads to use
+        type: int
+        default: '4'
+      - flag: -e
+        label: Enumerate
+        description: Enumerate 'a'(ll), 'p'(lugins), 't'(hemes), 'v'(ersion)
+        type: string
+        default: 'a'
+
+  - id: nomore403
+    name: nomore403
+    category: Enumeration
+    description: Bypass 40x responses with header, verb, and path tricks
+    inputs: [targets]
+    outputs: [findings]
+    command: [nomore403, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -t
+        label: Max Goroutines
+        description: Maximum number of concurrent requests
+        type: int
+        default: '20'
+      - flag: --random-agent
+        label: Random Agent
+        description: Use a random User-Agent per request
+        type: flag
+      - flag: -x
+        label: Proxy
+        description: Send requests through a proxy (http://host:port)
+        type: string
+
+  - id: oralyzer
+    name: Oralyzer
+    category: Vulnerability
+    description: Detect open redirection and CRLF injection flaws
+    inputs: [targets]
+    outputs: [findings]
+    command: [oralyzer, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -p
+        label: Payloads
+        description: Path to a custom payloads file
+        type: string
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '10'
+
+  - id: dirb
+    name: Dirb
+    category: Enumeration
+    description: Classic recursive web content and directory brute-forcer
+    inputs: [targets, wordlist]
+    outputs: [findings]
+    command: [dirb, '{targets}', '{wordlist_file}', -S]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Non-Recursive
+        description: Do not search recursively
+        type: flag
+      - flag: -X
+        label: Extensions
+        description: Append each word with these extensions (e.g. .php,.bak)
+        type: string
+      - flag: -z
+        label: Delay
+        description: Milliseconds of delay between requests
+        type: int
+        default: '0'

@@ -2,40 +2,42 @@ import { useCallback, useEffect, useState } from 'react';
 import '@xyflow/react/dist/style.css';
 import type { AppView, Health, Tool, WorkflowRecord, TemplateRecord } from './types';
 import * as api from './api';
-import TopBar from './components/TopBar';
+import Sidebar from './components/Sidebar';
+import DashboardView from './components/dashboard/DashboardView';
+import LibraryView from './components/library/LibraryView';
 import BuilderView from './components/builder/BuilderView';
 import TemplatesView from './components/templates/TemplatesView';
-import RunsView from './components/runs/RunsView';
+import RunsView, { type PendingRun } from './components/runs/RunsView';
+import SchedulesView from './components/schedules/SchedulesView';
+import SecretsView from './components/secrets/SecretsView';
 import SettingsView from './components/settings/SettingsView';
+import ImportMermaidModal from './components/mermaid/ImportMermaidModal';
+import MermaidExportModal from './components/mermaid/MermaidExportModal';
+
+const BLANK_GRAPH = { nodes: [], edges: [] };
 
 export default function App() {
-  const [activeView, setActiveView] = useState<AppView>('builder');
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [health, setHealth] = useState<Health | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [savedWorkflows, setSavedWorkflows] = useState<WorkflowRecord[]>([]);
   const [pendingTemplate, setPendingTemplate] = useState<TemplateRecord | null>(null);
+  const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
+  const [showMermaid, setShowMermaid] = useState(false);
+  const [mermaidExport, setMermaidExport] = useState<{ text: string; name: string } | null>(null);
 
   useEffect(() => {
-    // Request notification permission for run alerts
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    api.fetchHealth()
-      .then(setHealth)
-      .catch(() => setHealth({ status: 'offline' }));
-
-    api.fetchTools()
-      .then(setTools)
-      .catch(() => setTools([]));
-
+    api.fetchHealth().then(setHealth).catch(() => setHealth({ status: 'offline' }));
+    api.fetchTools().then(setTools).catch(() => setTools([]));
     refreshWorkflows();
   }, []);
 
   function refreshWorkflows() {
-    api.fetchWorkflows()
-      .then(setSavedWorkflows)
-      .catch(() => setSavedWorkflows([]));
+    api.fetchWorkflows().then(setSavedWorkflows).catch(() => setSavedWorkflows([]));
   }
 
   const handleUseTemplate = useCallback((template: TemplateRecord) => {
@@ -43,8 +45,7 @@ export default function App() {
     setActiveView('builder');
   }, []);
 
-  const handleOpenInBuilder = useCallback((wf: WorkflowRecord) => {
-    // Convert a run's graph into a template-like object to load into builder
+  const openWorkflowInBuilder = useCallback((wf: WorkflowRecord) => {
     setPendingTemplate({
       id: wf.id,
       name: wf.name,
@@ -57,34 +58,154 @@ export default function App() {
     setActiveView('builder');
   }, []);
 
+  const handleNewWorkflow = useCallback(() => {
+    setPendingTemplate({
+      id: `new-${Date.now()}`,
+      name: 'Untitled workflow',
+      description: '',
+      category: '',
+      tags: [],
+      builtin: false,
+      graph: BLANK_GRAPH,
+    });
+    setActiveView('builder');
+  }, []);
+
+  const handleRunWorkflow = useCallback((wf: WorkflowRecord) => {
+    // Launch a live-streamed run and monitor it in the Executions view.
+    setPendingRun({ name: wf.name || 'workflow', graph: wf.graph, maxParallel: 4 });
+    setActiveView('runs');
+  }, []);
+
+  const handleDuplicateWorkflow = useCallback(async (wf: WorkflowRecord) => {
+    await api.saveWorkflow({ name: `${wf.name || 'workflow'} (copy)`, graph: wf.graph });
+    refreshWorkflows();
+  }, []);
+
+  const handleDeleteWorkflow = useCallback(async (wf: WorkflowRecord) => {
+    if (!window.confirm(`Delete workflow "${wf.name || wf.id}"? This cannot be undone.`)) return;
+    await api.deleteWorkflow(wf.id);
+    refreshWorkflows();
+  }, []);
+
   const handleTemplateClaimed = useCallback(() => {
     setPendingTemplate(null);
+    refreshWorkflows();
+  }, []);
+
+  const handleExportMermaid = useCallback(async (wf: WorkflowRecord) => {
+    const r = await api.exportMermaid(wf.graph);
+    if (r.ok && r.mermaid) setMermaidExport({ text: r.mermaid, name: wf.name });
+  }, []);
+
+  const handleLoadMermaid = useCallback((name: string, graph: WorkflowRecord['graph']) => {
+    setPendingTemplate({ id: `mermaid-${Date.now()}`, name, description: '', category: '', tags: [], builtin: false, graph });
+    setShowMermaid(false);
+    setActiveView('builder');
+  }, []);
+
+  // Navigating away from Executions ends live monitoring so it can't restart.
+  const handleViewChange = useCallback((view: AppView) => {
+    setActiveView((prev) => {
+      if (prev === 'runs' && view !== 'runs') setPendingRun(null);
+      return view;
+    });
   }, []);
 
   return (
     <div className="app-shell">
-      <TopBar activeView={activeView} onViewChange={setActiveView} health={health} />
+      <Sidebar activeView={activeView} onViewChange={handleViewChange} health={health} />
 
-      {activeView === 'builder' && (
-        <BuilderView
-          tools={tools}
-          savedWorkflows={savedWorkflows}
-          onRefreshWorkflows={refreshWorkflows}
-          pendingTemplate={pendingTemplate}
-          onTemplateClaimed={handleTemplateClaimed}
+      <main className="app-main">
+        {activeView === 'dashboard' && (
+          <div className="view-scroll">
+            <DashboardView
+              workflows={savedWorkflows}
+              health={health}
+              onNewWorkflow={handleNewWorkflow}
+              onGenerate={() => setActiveView('builder')}
+              onBrowseTemplates={() => setActiveView('templates')}
+              onOpenWorkflow={openWorkflowInBuilder}
+              onOpenRuns={() => setActiveView('runs')}
+              onViewLibrary={() => setActiveView('library')}
+            />
+          </div>
+        )}
+
+        {activeView === 'builder' && (
+          <BuilderView
+            tools={tools}
+            savedWorkflows={savedWorkflows}
+            onRefreshWorkflows={refreshWorkflows}
+            pendingTemplate={pendingTemplate}
+            onTemplateClaimed={handleTemplateClaimed}
+          />
+        )}
+
+        {activeView === 'library' && (
+          <div className="view-scroll">
+            <LibraryView
+              workflows={savedWorkflows}
+              onOpen={openWorkflowInBuilder}
+              onRun={handleRunWorkflow}
+              onDuplicate={handleDuplicateWorkflow}
+              onDelete={handleDeleteWorkflow}
+              onNew={handleNewWorkflow}
+              onImportMermaid={() => setShowMermaid(true)}
+              onExportMermaid={handleExportMermaid}
+            />
+          </div>
+        )}
+
+        {activeView === 'templates' && (
+          <div className="view-scroll">
+            <TemplatesView onUseTemplate={handleUseTemplate} onImportMermaid={() => setShowMermaid(true)} />
+          </div>
+        )}
+
+        {activeView === 'runs' && (
+          <div className="view-scroll">
+            <RunsView
+              onOpenInBuilder={openWorkflowInBuilder}
+              pendingRun={pendingRun}
+              onRunConsumed={() => setPendingRun(null)}
+            />
+          </div>
+        )}
+
+        {activeView === 'schedules' && (
+          <div className="view-scroll">
+            <SchedulesView workflows={savedWorkflows} />
+          </div>
+        )}
+
+        {activeView === 'secrets' && (
+          <div className="view-scroll">
+            <SecretsView />
+          </div>
+        )}
+
+        {activeView === 'settings' && (
+          <div className="view-scroll">
+            <SettingsView health={health} />
+          </div>
+        )}
+      </main>
+
+      {showMermaid && (
+        <ImportMermaidModal
+          onClose={() => setShowMermaid(false)}
+          onLoad={handleLoadMermaid}
+          onSavedTemplate={() => undefined}
         />
       )}
 
-      {activeView === 'templates' && (
-        <TemplatesView onUseTemplate={handleUseTemplate} />
-      )}
-
-      {activeView === 'runs' && (
-        <RunsView onOpenInBuilder={handleOpenInBuilder} />
-      )}
-
-      {activeView === 'settings' && (
-        <SettingsView health={health} />
+      {mermaidExport && (
+        <MermaidExportModal
+          mermaid={mermaidExport.text}
+          title={mermaidExport.name}
+          onClose={() => setMermaidExport(null)}
+        />
       )}
     </div>
   );

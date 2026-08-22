@@ -27,6 +27,11 @@ export async function saveWorkflow(payload: { id?: string; name: string; graph: 
   return r.json();
 }
 
+export async function deleteWorkflow(workflowId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/workflows/${workflowId}`, { method: 'DELETE' });
+  return r.json();
+}
+
 export async function validateGraph(graph: any): Promise<any> {
   const r = await fetch(`${apiBase}/api/workflows/validate`, {
     method: 'POST',
@@ -149,10 +154,57 @@ export async function saveProfile(payload: { name: string; description: string; 
   return r.json();
 }
 
+export async function updateProfile(profileId: string, payload: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }): Promise<Profile> {
+  const r = await fetch(`${apiBase}/api/profiles/${profileId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
 export async function deleteProfile(profileId: string): Promise<any> {
   const r = await fetch(`${apiBase}/api/profiles/${profileId}`, { method: 'DELETE' });
   return r.json();
 }
+
+// ── Schedules ───────────────────────────────────────────────
+
+export type Schedule = {
+  id: string;
+  workflow_id: string;
+  name: string;
+  cron: string;
+  max_parallel: number;
+  enabled: boolean;
+  created_at: string;
+};
+
+export async function fetchSchedules(): Promise<Schedule[]> {
+  const r = await fetch(`${apiBase}/api/schedules`);
+  return r.json();
+}
+
+export async function createSchedule(payload: { workflow_id: string; name: string; cron: string; max_parallel: number; enabled: boolean }): Promise<Schedule> {
+  const r = await fetch(`${apiBase}/api/schedules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return r.json();
+}
+
+export async function deleteSchedule(scheduleId: string): Promise<any> {
+  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'DELETE' });
+  return r.json();
+}
+
+export async function toggleSchedule(scheduleId: string): Promise<Schedule> {
+  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'PATCH' });
+  return r.json();
+}
+
+export const SECRET_MASK = '•'.repeat(8);
 
 // ── Normalized Results ──────────────────────────────────────
 
@@ -188,6 +240,44 @@ export async function savePreset(payload: { tool_id: string; name: string; param
 
 export async function deletePreset(presetId: string): Promise<any> {
   const r = await fetch(`${apiBase}/api/presets/${presetId}`, { method: 'DELETE' });
+  return r.json();
+}
+
+// ── Mermaid Import ──────────────────────────────────────────
+
+export type MermaidImportResult = {
+  ok: boolean;
+  error?: string;
+  name?: string;
+  graph?: WorkflowRecord['graph'];
+  warnings?: string[];
+  valid?: boolean;
+  validation_error?: string | null;
+  node_count?: number;
+  edge_count?: number;
+  saved_template_id?: string;
+  saved_workflow_id?: string;
+};
+
+export async function importMermaid(
+  mermaid: string,
+  name?: string,
+  save?: 'workflow' | 'template',
+): Promise<MermaidImportResult> {
+  const r = await fetch(`${apiBase}/api/import/mermaid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mermaid, name: name || 'Imported workflow', save }),
+  });
+  return r.json();
+}
+
+export async function exportMermaid(graph?: WorkflowRecord['graph'], workflowId?: string): Promise<{ ok: boolean; mermaid?: string; error?: string }> {
+  const r = await fetch(`${apiBase}/api/export/mermaid`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ graph, workflow_id: workflowId }),
+  });
   return r.json();
 }
 

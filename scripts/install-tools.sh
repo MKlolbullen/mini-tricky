@@ -154,6 +154,27 @@ else
   pip install wfuzz
 fi
 
+if command -v cmseek >/dev/null 2>&1; then
+  skip "CMSeeK" "$(command -v cmseek)"
+else
+  log "Installing CMSeeK (cmseek)"
+  git clone https://github.com/Tuhinshubhra/CMSeeK && pip install -r CMSeeK/requirements.txt
+fi
+
+if command -v nomore403 >/dev/null 2>&1; then
+  skip "nomore403" "$(command -v nomore403)"
+else
+  log "Installing nomore403 (nomore403)"
+  go install github.com/devploit/nomore403@latest
+fi
+
+if command -v dirb >/dev/null 2>&1; then
+  skip "Dirb" "$(command -v dirb)"
+else
+  log "Installing Dirb (dirb)"
+  apt install dirb  # or brew install dirb
+fi
+
 # ── Fuzzing ─────────────────────────────────────────────────────
 if command -v ffuf >/dev/null 2>&1; then
   skip "FFUF" "$(command -v ffuf)"
@@ -233,6 +254,20 @@ if command -v rustscan >/dev/null 2>&1; then
 else
   log "Installing RustScan (rustscan)"
   cargo install rustscan
+fi
+
+if command -v testssl.sh >/dev/null 2>&1; then
+  skip "testssl.sh" "$(command -v testssl.sh)"
+else
+  log "Installing testssl.sh (testssl.sh)"
+  git clone https://github.com/drwetter/testssl.sh.git
+fi
+
+if command -v sslscan >/dev/null 2>&1; then
+  skip "SSLScan" "$(command -v sslscan)"
+else
+  log "Installing SSLScan (sslscan)"
+  apt install sslscan  # or brew install sslscan
 fi
 
 # ── OSINT ───────────────────────────────────────────────────────
@@ -348,6 +383,20 @@ if command -v chaos >/dev/null 2>&1; then
 else
   log "Installing Chaos (chaos)"
   go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+fi
+
+if command -v whatweb >/dev/null 2>&1; then
+  skip "WhatWeb" "$(command -v whatweb)"
+else
+  log "Installing WhatWeb (whatweb)"
+  gem install whatweb  # or apt install whatweb
+fi
+
+if command -v wafw00f >/dev/null 2>&1; then
+  skip "WAFW00F" "$(command -v wafw00f)"
+else
+  log "Installing WAFW00F (wafw00f)"
+  pip install wafw00f
 fi
 
 # ── SSRF ────────────────────────────────────────────────────────
@@ -536,6 +585,48 @@ if command -v dalfox >/dev/null 2>&1; then
 else
   log "Installing Dalfox (dalfox)"
   go install -v github.com/hahwul/dalfox/v2@latest
+fi
+
+if command -v ghauri >/dev/null 2>&1; then
+  skip "Ghauri" "$(command -v ghauri)"
+else
+  log "Installing Ghauri (ghauri)"
+  pipx install ghauri  # or pipx install git+https://github.com/r0oth3x49/ghauri
+fi
+
+if command -v commix >/dev/null 2>&1; then
+  skip "Commix" "$(command -v commix)"
+else
+  log "Installing Commix (commix)"
+  pip install commix
+fi
+
+if command -v jaeles >/dev/null 2>&1; then
+  skip "Jaeles" "$(command -v jaeles)"
+else
+  log "Installing Jaeles (jaeles)"
+  go install github.com/jaeles-project/jaeles@latest
+fi
+
+if command -v joomscan >/dev/null 2>&1; then
+  skip "JoomScan" "$(command -v joomscan)"
+else
+  log "Installing JoomScan (joomscan)"
+  apt install joomscan  # or git clone https://github.com/OWASP/joomscan
+fi
+
+if command -v droopescan >/dev/null 2>&1; then
+  skip "Droopescan" "$(command -v droopescan)"
+else
+  log "Installing Droopescan (droopescan)"
+  pip install droopescan
+fi
+
+if command -v oralyzer >/dev/null 2>&1; then
+  skip "Oralyzer" "$(command -v oralyzer)"
+else
+  log "Installing Oralyzer (oralyzer)"
+  git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt
 fi
 
 # ── Wordlist ────────────────────────────────────────────────────

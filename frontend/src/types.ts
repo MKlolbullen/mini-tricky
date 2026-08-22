@@ -165,7 +165,7 @@ export type TemplateRecord = {
   graph: WorkflowRecord['graph'];
 };
 
-export type AppView = 'builder' | 'templates' | 'runs' | 'settings';
+export type AppView = 'dashboard' | 'builder' | 'library' | 'templates' | 'runs' | 'schedules' | 'secrets' | 'settings';
 
 export type FlowNode = Node<WorkflowNodePayload>;
 

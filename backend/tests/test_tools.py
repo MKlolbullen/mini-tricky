@@ -13,7 +13,7 @@ def test_load_tools_returns_nonempty_catalog():
 
     tools = load_tools()
     assert isinstance(tools, list)
-    assert len(tools) >= 70, f'expected >= 70 tools, got {len(tools)}'
+    assert len(tools) >= 70, f"expected >= 70 tools, got {len(tools)}"
 
 
 def test_every_tool_has_required_fields():
@@ -34,4 +34,4 @@ def test_tool_ids_are_unique():
     from src.main import load_tools
 
     ids = [t.id for t in load_tools()]
-    assert len(ids) == len(set(ids)), 'duplicate tool ids in catalog'
+    assert len(ids) == len(set(ids)), "duplicate tool ids in catalog"

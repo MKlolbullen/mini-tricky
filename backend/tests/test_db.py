@@ -37,49 +37,54 @@ def tmp_db(tmp_path: Path):
     # Re-init against the real state dir so any test that imports src.main
     # afterwards still works.
     from src.main import STATE_DIR
+
     importlib.reload(db_mod)
     db_mod.init_db(STATE_DIR)
 
 
 def test_workflow_round_trip(tmp_db):
-    tmp_db.upsert_workflow({'id': 'wf-1', 'name': 'Test', 'graph': {'nodes': [], 'edges': []}})
-    got = tmp_db.get_workflow('wf-1')
+    tmp_db.upsert_workflow({"id": "wf-1", "name": "Test", "graph": {"nodes": [], "edges": []}})
+    got = tmp_db.get_workflow("wf-1")
     assert got is not None
-    assert got['name'] == 'Test'
+    assert got["name"] == "Test"
 
     listed = tmp_db.list_workflows()
-    assert any(w['id'] == 'wf-1' for w in listed)
+    assert any(w["id"] == "wf-1" for w in listed)
 
 
 def test_workflow_delete(tmp_db):
-    tmp_db.upsert_workflow({'id': 'wf-del', 'name': 'ToDelete', 'graph': {'nodes': [], 'edges': []}})
-    assert tmp_db.get_workflow('wf-del') is not None
-    tmp_db.delete_workflow('wf-del')
-    assert tmp_db.get_workflow('wf-del') is None
+    tmp_db.upsert_workflow({"id": "wf-del", "name": "ToDelete", "graph": {"nodes": [], "edges": []}})
+    assert tmp_db.get_workflow("wf-del") is not None
+    tmp_db.delete_workflow("wf-del")
+    assert tmp_db.get_workflow("wf-del") is None
 
 
 def test_run_round_trip(tmp_db):
-    tmp_db.upsert_run({
-        'id': 'run-1',
-        'workflow_id': 'wf-1',
-        'status': 'queued',
-        'name': 'Test Run',
-    })
-    got = tmp_db.get_run('run-1')
+    tmp_db.upsert_run(
+        {
+            "id": "run-1",
+            "workflow_id": "wf-1",
+            "status": "queued",
+            "name": "Test Run",
+        }
+    )
+    got = tmp_db.get_run("run-1")
     assert got is not None
-    assert got['status'] == 'queued'
+    assert got["status"] == "queued"
 
 
 def test_schedules_replace(tmp_db):
-    tmp_db.save_schedules([
-        {'id': 's1', 'workflow_id': 'wf-1', 'enabled': True, 'cron': '0 0 * * *'},
-        {'id': 's2', 'workflow_id': 'wf-2', 'enabled': False, 'cron': '*/5 * * * *'},
-    ])
+    tmp_db.save_schedules(
+        [
+            {"id": "s1", "workflow_id": "wf-1", "enabled": True, "cron": "0 0 * * *"},
+            {"id": "s2", "workflow_id": "wf-2", "enabled": False, "cron": "*/5 * * * *"},
+        ]
+    )
     got = tmp_db.list_schedules()
     assert len(got) == 2
 
     # save_schedules is a full replace, not an upsert
-    tmp_db.save_schedules([{'id': 's3', 'workflow_id': 'wf-3', 'enabled': True, 'cron': '@daily'}])
+    tmp_db.save_schedules([{"id": "s3", "workflow_id": "wf-3", "enabled": True, "cron": "@daily"}])
     got = tmp_db.list_schedules()
     assert len(got) == 1
-    assert got[0]['id'] == 's3'
+    assert got[0]["id"] == "s3"

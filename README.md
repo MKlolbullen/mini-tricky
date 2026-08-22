@@ -1,41 +1,100 @@
 <h1 align="center">
+  <img src="build/icon.png" alt="mini-tricky" width="112" />
   <br />
   mini-tricky
   <br />
 </h1>
 
 <p align="center">
-  <strong>A locally hosted Trickest clone for security workflow automation.</strong>
+  <strong>A local-first, Trickest-style workspace for offensive-security automation.</strong>
   <br />
-  Visual DAG editor &middot; 75 security tools &middot; 21 categories &middot; 20 ready-to-run templates &middot; Real-time execution &middot; Zero cloud dependency
+  Visual DAG editor &middot; <b>88 security tools</b> &middot; 21 categories &middot; 20 ready-to-run templates &middot; live streaming execution &middot; Mermaid ⇄ workflow &middot; zero cloud dependency
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Electron-47848F?logo=electron&logoColor=white" alt="Electron" />
   <img src="https://img.shields.io/badge/frontend-React%20%2B%20React%20Flow-61DAFB?logo=react&logoColor=111827" alt="React" />
   <img src="https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/tools-75%20integrated-blueviolet" alt="75 Tools" />
+  <img src="https://img.shields.io/badge/tools-88%20integrated-blueviolet" alt="88 Tools" />
   <img src="https://img.shields.io/badge/templates-20%20built--in-ff66c4" alt="20 Templates" />
   <img src="https://img.shields.io/badge/secrets-OS%20keychain-0ea5e9" alt="OS keychain secrets" />
-  <img src="https://img.shields.io/badge/version-0.3.0--beta-orange" alt="v0.4.0-beta" />
+  <img src="https://img.shields.io/badge/mermaid-import%20%E2%87%84%20export-FF3670?logo=mermaid&logoColor=white" alt="Mermaid import/export" />
+  <img src="https://img.shields.io/badge/version-0.4.0--beta-orange" alt="v0.4.0-beta" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
 </p>
 
 <p align="center">
   <a href="#download">Download</a> &middot;
+  <a href="#-a-guided-tour">Tour</a> &middot;
   <a href="#features">Features</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="#architecture">Architecture</a> &middot;
   <a href="#api-reference">API</a> &middot;
-  <a href="#project-structure">Project Structure</a> &middot;
   <a href="#roadmap">Roadmap</a>
 </p>
 
 ---
 
 <p align="center">
-  <img src="docs/images/hero-builder.svg" alt="mini-tricky workflow builder" width="100%" />
+  <img src="docs/screenshots/builder.png" alt="mini-tricky workflow builder" width="100%" />
+  <br />
+  <em>Drag 88 security tools onto a typed node-graph canvas, wire them into a pipeline, and run it — all offline.</em>
 </p>
+
+---
+
+## ✨ A guided tour
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">🏠 Dashboard</h3>
+      <img src="docs/screenshots/dashboard.png" alt="Dashboard" />
+      <p align="center"><sub>Live stats, quick actions, and in-flight runs — auto-refreshing every 5s.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">🗂️ Workflows library</h3>
+      <img src="docs/screenshots/library.png" alt="Workflows library" />
+      <p align="center"><sub>Searchable card grid — run, open, duplicate, export, or delete any workflow.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">⚙️ Node arguments</h3>
+      <img src="docs/screenshots/inspector.png" alt="Node arguments inspector" />
+      <p align="center"><sub>Every tool's real CLI flags as typed toggles, with a live command preview.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">📡 Live executions</h3>
+      <img src="docs/screenshots/executions.png" alt="Live execution monitor" />
+      <p align="center"><sub>Watch nodes stream <code>queued → running → ✓/✗</code> with a per-node log tree.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">🧩 Templates</h3>
+      <img src="docs/screenshots/templates.png" alt="Templates gallery" />
+      <p align="center"><sub>20 battle-tested recon &amp; scanning pipelines, ready to customize.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">⏰ Schedules</h3>
+      <img src="docs/screenshots/schedules.png" alt="Schedules" />
+      <p align="center"><sub>Run workflows on a cron cadence with an Active/Paused toggle.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">🔐 Secrets</h3>
+      <img src="docs/screenshots/secrets.png" alt="Secrets" />
+      <p align="center"><sub>API keys &amp; tokens stored in the OS keychain, masked over the wire.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">🔀 Mermaid → workflow</h3>
+      <img src="docs/screenshots/mermaid-import.png" alt="Mermaid import" />
+      <p align="center"><sub>Paste a Mermaid flowchart and get a real, runnable, typed workflow.</sub></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -79,34 +138,33 @@ mini-tricky fixes this by giving you a **visual workflow engine** with typed dat
 ## Features
 
 ### Visual Workflow Builder
-Drag security tools, variables, scripts, and logic nodes onto a React Flow canvas. Connect them with typed input/output sockets. The DAG engine validates connections and prevents invalid graphs (cycles, type mismatches, occupied sockets).
-
-<p align="center">
-  <img src="docs/images/logic-nodes.svg" alt="Logic and special nodes" width="85%" />
-</p>
+Drag security tools, variables, scripts, and logic nodes onto a React Flow canvas. Connect them with typed input/output sockets. The DAG engine validates connections and prevents invalid graphs (cycles, type mismatches, occupied sockets). Each node shows a per-tool icon and an inline summary of its configured arguments.
 
 ### Trickest-Style Arguments Panel
-The right sidebar is a structured node arguments controller — just like Trickest. Select any node to see its typed inputs/outputs with connection status indicators, configure parameters with add/remove fields, toggle script languages, and manage parameter presets.
+The right sidebar is a structured node arguments controller — just like Trickest. Select any node to see its typed inputs/outputs with connection status indicators, its real CLI flags as typed toggle switches, a live command preview, parameter presets, and version history.
 
 <p align="center">
-  <img src="docs/images/node-arguments.svg" alt="Node arguments panel" width="55%" />
+  <img src="docs/screenshots/inspector.png" alt="Node arguments panel" width="80%" />
 </p>
 
 ### Real-Time Execution
-WebSocket streaming sends `node_started`, `node_finished`, and log events as they happen. Watch nodes light up on the canvas with state badges (queued/running/success/failed) and animated pulse borders. Fall back to HTTP batch execution if needed.
+WebSocket streaming sends `node_started`, `node_finished`, and log events as they happen. Watch nodes light up on the canvas with state badges (queued/running/success/failed) and animated pulse borders, or open the dedicated **live execution monitor** with a per-node status tree and streaming log. Fall back to HTTP batch execution if needed.
 
-### 75 Integrated Security Tools
-Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` with command templates, typed I/O sockets, per-argument toggle switches, and timeout settings:
+### Mermaid ⇄ Workflow
+Design a flowchart in [Mermaid](https://mermaid.js.org/) and **import** it as a real, runnable, typed workflow — labels matching a tool become tool nodes, socket types are inferred from the tools they connect, and the layout is generated automatically. **Export** any workflow back to Mermaid to drop into your docs, GitHub, or a README. The two round-trip losslessly.
+
+### 88 Integrated Security Tools
+Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` with command templates, typed I/O sockets, per-argument toggle switches, and timeout settings. **Web-app testing tools** ✨ were added on top of the original catalog:
 
 | Category | Tools |
 |----------|-------|
-| **Recon** | Subfinder, HTTPX, Amass, Assetfinder, Findomain, DNSx, ShuffleDNS, Chaos |
-| **Enumeration** | Gobuster, Dirsearch, Feroxbuster, Wfuzz |
-| **Vulnerability** | Nuclei, Nikto, WPScan, SQLMap, XSStrike, Dalfox |
+| **Recon** | Subfinder, HTTPX, Amass, Assetfinder, Findomain, DNSx, ShuffleDNS, Chaos, ✨ WhatWeb, ✨ WAFW00F |
+| **Enumeration** | Gobuster, Dirsearch, Feroxbuster, Wfuzz, ✨ CMSeeK, ✨ nomore403, ✨ Dirb |
+| **Vulnerability** | Nuclei, Nikto, WPScan, SQLMap, XSStrike, Dalfox, ✨ Ghauri, ✨ Commix, ✨ Jaeles, ✨ JoomScan, ✨ Droopescan, ✨ Oralyzer |
 | **Fuzzing** | FFUF |
 | **Params** | Arjun, ParamSpider, x8, Paraminer |
 | **Crawling** | Katana, GoSpider, Hakrawler, Waybackurls |
-| **Network** | Nmap, Masscan, Naabu, RustScan |
+| **Network** | Nmap, Masscan, Naabu, RustScan, ✨ testssl.sh, ✨ SSLScan |
 | **OSINT** | theHarvester, Shodan CLI, Censys, SpiderFoot |
 | **Archive** | GAU, Waymore |
 | **API** | Kiterunner, APIFuzzer, OpenAPI Diff, RESTler |
@@ -122,15 +180,13 @@ Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` w
 | **Secrets** | TruffleHog, Gitleaks |
 | **Utility** | Anew, QSReplace, URO, Unfurl, JQ Filter, GF Patterns, Interlace, Rush, Notify, Meg |
 
+Each tool gets a distinct icon and, in the inspector, its **real CLI flags as typed toggles** with a live command preview.
+
 ### Trickest-Style Argument Toggle Switches
 Each tool exposes its CLI flags as **typed argument toggles** in the right-hand inspector. Flip a `flag` switch on to include `-recursive`, set a `string` field for `-wordlist`, an `int` for `-threads`, a `float` for rate limits — the engine builds the final command from your toggles. Same UX as Trickest, fully local.
 
 ### 20 Built-In Workflow Templates
 20 ready-to-run Trickest-style templates grouped by attack surface — recon chains, vulnerability scans, fuzzing sweeps, cloud enumeration, secret hunting, takeover checks, API fuzzing, and more. Drag one into the canvas, set the domain variable, and hit **Run**. Save your own workflows as reusable templates with one click.
-
-<p align="center">
-  <img src="docs/images/templates-view.svg" alt="Templates gallery" width="100%" />
-</p>
 
 ### Composable Sub-Workflows (Modules)
 Package any saved workflow as a reusable module node. Drag it from the sidebar into another workflow — the backend expands and executes the sub-graph inline, piping data through automatically.
@@ -179,26 +235,7 @@ Re-run any individual node using cached upstream outputs. No need to re-execute 
 
 ## Screenshots
 
-### Workflow Builder
-The main view: left sidebar with categorized tools, center canvas with connected workflow nodes, right sidebar with the Trickest-style arguments panel, and bottom console with live output.
-
-<p align="center">
-  <img src="docs/images/hero-builder.svg" alt="Workflow builder view" width="100%" />
-</p>
-
-### Node Arguments Controller
-Structured parameter editing with connection status indicators, typed socket fields, command templates, parameter presets, and version history.
-
-<p align="center">
-  <img src="docs/images/node-arguments.svg" alt="Arguments panel close-up" width="55%" />
-</p>
-
-### Logic Nodes
-Conditional branching and loop/iterator nodes enable complex workflow logic beyond simple linear chains.
-
-<p align="center">
-  <img src="docs/images/logic-nodes.svg" alt="Condition, loop, and module nodes" width="85%" />
-</p>
+See the [**guided tour**](#-a-guided-tour) above for the dashboard, library, builder, live executions, templates, schedules, secrets, and Mermaid import. Every screen is a real capture of the running app.
 
 ---
 
@@ -229,7 +266,7 @@ pip install -r requirements.txt
 cd ..
 ```
 
-### 1b. (Optional) Install the 75 security tools
+### 1b. (Optional) Install the 88 security tools
 
 mini-tricky ships the orchestration layer, not the tools. To bootstrap every
 binary referenced in `backend/tools.yaml` in one go, run the generated
@@ -351,7 +388,7 @@ mini-tricky has **two run modes** that share the exact same backend and frontend
                            │ subprocess
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              75 Local Security Tools (system PATH)               │
+│              88 Local Security Tools (system PATH)               │
 │  subfinder  httpx  nuclei  ffuf  katana  nmap  arjun  x8 ...    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -424,7 +461,7 @@ mini-tricky/
 │   │   └── replay_cli.py           # Per-node replay helpers
 │   ├── alembic/versions/           # Schema migrations (001_initial, 002_import_from_json, ...)
 │   ├── tests/                      # pytest suite (test_api, test_secrets_store, test_install_script, ...)
-│   ├── tools.yaml                  # 75 tool definitions across 21 categories
+│   ├── tools.yaml                  # 88 tool definitions across 21 categories
 │   ├── templates.yaml              # 20 built-in workflow templates
 │   ├── requirements.txt            # Runtime Python deps
 │   └── requirements-dev.txt        # pytest + ruff + mypy for CI
@@ -445,7 +482,7 @@ mini-tricky/
 │   └── tsconfig.json
 ├── scripts/
 │   └── install-tools.sh            # Static, committed copy of the tool installer
-├── docs/images/                    # UI mockups and diagrams
+├── docs/screenshots/               # README screenshots of every section
 ├── .github/workflows/              # CI (ci.yml) + Release (release.yml)
 └── package.json                    # Root package (Electron + electron-builder build config)
 ```
@@ -458,7 +495,7 @@ mini-tricky/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/api/health` | Backend health check (used by Electron auto-spawn) |
-| `GET` | `/api/tools` | List all 75 tools with their typed I/O and arg schemas |
+| `GET` | `/api/tools` | List all 88 tools with their typed I/O and arg schemas |
 | `GET` | `/api/tools/install-script` | Generate a `bash` script that installs every tool (`command -v` guarded, idempotent) |
 | `GET/POST` | `/api/profiles` | List / create environment profiles. Sensitive `env_vars` are masked on read and routed to the OS keychain on write |
 | `PUT/DELETE` | `/api/profiles/{id}` | Update / delete a profile (DELETE also purges the profile's keychain entries) |
@@ -552,7 +589,7 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 
 ### Completed
 - [x] Visual DAG workflow editor with drag-and-drop
-- [x] **75 security tools across 21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, etc.)
+- [x] **88 security tools across 21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, etc.)
 - [x] **Trickest-style argument toggle switches** (flag / string / int / float per CLI option) — every tool audited with its real CLI flags
 - [x] **Color-coded typed sockets** (domain, targets, findings, params, urls, ...)
 - [x] **20 built-in workflow templates** across attack-surface categories
@@ -575,6 +612,11 @@ Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifa
 - [x] Toast + browser notifications, animated directional edges, category-colored minimap
 - [x] Artifact explorer with inline preview, node replay with cached upstream
 - [x] Import/export workflows as JSON
+- [x] **Trickest-style app shell** — left icon rail with a Home dashboard (live stats + in-flight runs), Workflows library, Templates, Executions, Schedules, and Secrets as first-class pages
+- [x] **Live execution monitor** — Library-launched runs stream over WebSocket into a per-node status tree with live output; in-flight runs surface on the dashboard and in the executions list
+- [x] **Per-tool icons** and inline node argument summaries; grouped builder toolbar with a live run overlay and animated node states
+- [x] **Mermaid ⇄ workflow** — import a Mermaid flowchart as a runnable typed workflow (socket types inferred from the connected tools) and export any workflow back to Mermaid; the two round-trip losslessly
+- [x] **Web-application testing tools** — WhatWeb, WAFW00F, testssl.sh, SSLScan, Ghauri, Commix, Jaeles, Oralyzer, CMSeeK, JoomScan, Droopescan, nomore403, Dirb
 
 ### Planned
 - [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux (Linux builds already reproducible locally via `npm run desktop:build:linux`; cross-compile for macOS / Windows still requires CI runners)
