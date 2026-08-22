@@ -1913,3 +1913,298 @@ templates:
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
+
+  - id: tpl-cloud-security-audit
+    name: Cloud Security Audit
+    description: Assess the configured cloud account against CIS and compliance baselines with Prowler, ScoutSuite, and CloudSploit in parallel. Runs against the ambient cloud credentials — no target input required.
+    category: Cloud
+    tags: [cloud, audit, prowler, scoutsuite, cis]
+    graph:
+      nodes:
+        - id: tool-1
+          kind: tool
+          label: Prowler
+          tool_id: prowler
+          params: {}
+          position: { x: 160, y: 80 }
+        - id: tool-2
+          kind: tool
+          label: ScoutSuite
+          tool_id: scoutsuite
+          params: {}
+          position: { x: 160, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: CloudSploit
+          tool_id: cloudsploit
+          params: {}
+          position: { x: 160, y: 320 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 480, y: 200 }
+      edges:
+        - id: e1
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e2
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e3
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-cloud-bucket-hunt
+    name: Cloud Bucket Hunt
+    description: Enumerate exposed object storage from a keyword — S3Scanner for AWS buckets and GCPBucketBrute for Google Cloud Storage.
+    category: Cloud
+    tags: [cloud, buckets, s3, gcs, storage]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Keyword / Bucket List
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: S3Scanner
+          tool_id: s3scanner
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: GCPBucketBrute
+          tool_id: gcpbucketbrute
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-cloud-osint
+    name: Cloud Surface OSINT
+    description: Discover public cloud resources tied to a domain across AWS, Azure, and GCP with Cloud Enum.
+    category: Cloud
+    tags: [cloud, osint, multi-cloud, passive]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Domain Input
+          variable_type: domain
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Cloud Enum
+          tool_id: cloudenum
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:domain"
+          target_handle: "in:domain"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-k8s-cis-audit
+    name: Kubernetes CIS Audit
+    description: Benchmark the active cluster against CIS and surface misconfigurations with kube-bench, kubeaudit, and Popeye. Runs against the current kubeconfig context — no target input required.
+    category: Kubernetes
+    tags: [kubernetes, cis, kube-bench, kubeaudit, popeye]
+    graph:
+      nodes:
+        - id: tool-1
+          kind: tool
+          label: kube-bench
+          tool_id: kube-bench
+          params: {}
+          position: { x: 160, y: 80 }
+        - id: tool-2
+          kind: tool
+          label: kubeaudit
+          tool_id: kubeaudit
+          params: {}
+          position: { x: 160, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Popeye
+          tool_id: popeye
+          params: {}
+          position: { x: 160, y: 320 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 480, y: 200 }
+      edges:
+        - id: e1
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e2
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e3
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-k8s-cluster-pentest
+    name: Kubernetes Cluster Pentest
+    description: Probe a cluster for exploitable weaknesses with kube-hunter (passive discovery only — state-changing active hunts are run manually under approval).
+    category: Kubernetes
+    tags: [kubernetes, pentest, kube-hunter, passive]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Cluster Endpoint
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: kube-hunter
+          tool_id: kube-hunter
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-k8s-image-scan
+    name: Container Image Scan
+    description: Scan container images referenced by a cluster or registry for known CVEs and misconfigurations with Trivy.
+    category: Kubernetes
+    tags: [kubernetes, containers, trivy, cve, images]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Image References
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: Trivy
+          tool_id: trivy
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-k8s-exposed-kubelet
+    name: Exposed Kubelet Probe
+    description: Enumerate pods and containers on target hosts exposing an unauthenticated kubelet API with kubeletctl.
+    category: Kubernetes
+    tags: [kubernetes, kubelet, exposure, kubeletctl]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Kubelet Hosts
+          variable_type: targets
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: kubeletctl
+          tool_id: kubeletctl
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:targets"
+          target_handle: "in:targets"
+        - id: e2
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"

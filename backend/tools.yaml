@@ -2830,3 +2830,253 @@ tools:
         description: Milliseconds of delay between requests
         type: int
         default: '0'
+
+  # ── Kubernetes ─────────────────────────────────────────────
+  - id: kube-hunter
+    name: kube-hunter
+    category: Kubernetes
+    description: Hunt for security weaknesses in Kubernetes clusters (remote or in-cluster)
+    inputs:
+      - targets
+    outputs:
+      - findings
+    command:
+      - kube-hunter
+      - --remote
+      - '{targets}'
+      - --report
+      - json
+    output_mode: stdout
+    timeout_seconds: 600
+    # Passive discovery only. Active hunting (--active) can change cluster
+    # state and is intentionally NOT exposed as a toggle here: the platform
+    # has no approval-gate enforcement yet, so a state-changing flag must not
+    # be one click away. Run active hunts manually under an approved change.
+    args:
+      - flag: --pod
+        label: Pod Mode
+        description: Run as if inside a cluster pod
+        type: flag
+      - flag: --cidr
+        label: CIDR
+        description: Scan a network CIDR range for clusters
+        type: string
+
+  - id: kube-bench
+    name: kube-bench
+    category: Kubernetes
+    description: Check whether Kubernetes is deployed per the CIS Kubernetes Benchmark. Runs against the active kubeconfig context.
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - kube-bench
+      - --json
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --targets
+        label: Targets
+        description: Comma-separated components to check (master,node,etcd,policies)
+        type: string
+      - flag: --benchmark
+        label: Benchmark Version
+        description: Explicit CIS benchmark version to run against
+        type: string
+
+  - id: kubeaudit
+    name: kubeaudit
+    category: Kubernetes
+    description: Audit Kubernetes clusters against common security concerns. Runs against the active kubeconfig context (override with --kubeconfig).
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - kubeaudit
+      - all
+      - --format
+      - json
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --kubeconfig
+        label: Kubeconfig
+        description: Path to a kubeconfig file for the target cluster
+        type: string
+      - flag: --namespace
+        label: Namespace
+        description: Restrict the audit to a single namespace
+        type: string
+
+  - id: trivy
+    name: Trivy
+    category: Kubernetes
+    description: Scan container images, filesystems, and IaC for vulnerabilities and misconfigurations
+    inputs:
+      - targets
+    outputs:
+      - findings
+    command:
+      - trivy
+      - image
+      - --format
+      - json
+      - '{targets}'
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --severity
+        label: Severity
+        description: Filter by severity (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)
+        type: string
+        default: HIGH,CRITICAL
+      - flag: --ignore-unfixed
+        label: Ignore Unfixed
+        description: Report only vulnerabilities that have a fix available
+        type: flag
+      - flag: --scanners
+        label: Scanners
+        description: Comma-separated scanners to enable (vuln,misconfig,secret)
+        type: string
+
+  - id: kubeletctl
+    name: kubeletctl
+    category: Kubernetes
+    description: Interact with an exposed kubelet API to enumerate pods and running containers
+    inputs:
+      - targets
+    outputs:
+      - findings
+    command:
+      - kubeletctl
+      - pods
+      - --server
+      - '{targets}'
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: --port
+        label: Port
+        description: Kubelet API port (default 10250)
+        type: int
+        default: '10250'
+      - flag: -i
+        label: Insecure
+        description: Skip TLS verification against the kubelet endpoint
+        type: flag
+
+  - id: popeye
+    name: Popeye
+    category: Kubernetes
+    description: Scan live Kubernetes clusters for misconfigurations and resource hygiene issues. Runs against the active kubeconfig context (override with --kubeconfig).
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - popeye
+      - --out
+      - json
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: --namespace
+        label: Namespace
+        description: Restrict the scan to a single namespace
+        type: string
+      - flag: --kubeconfig
+        label: Kubeconfig
+        description: Path to a kubeconfig file for the target cluster
+        type: string
+
+  # ── Cloud (extended) ───────────────────────────────────────
+  - id: prowler
+    name: Prowler
+    category: Cloud
+    description: Assess an AWS account against CIS and other compliance frameworks. Uses the ambient AWS credentials/profile.
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - prowler
+      - aws
+      - --output-formats
+      - json
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --services
+        label: Services
+        description: Comma-separated services to scope the assessment to
+        type: string
+      - flag: --severity
+        label: Severity
+        description: Filter findings by severity (low, medium, high, critical)
+        type: string
+
+  - id: scoutsuite
+    name: ScoutSuite
+    category: Cloud
+    description: Audit an AWS account and surface risky configuration. Uses the ambient AWS credentials/profile.
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - scout
+      - aws
+      - --no-browser
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --report-dir
+        label: Report Directory
+        description: Directory to write the ScoutSuite report into
+        type: string
+
+  - id: cloudsploit
+    name: CloudSploit
+    category: Cloud
+    description: Detect security risks in a cloud account across common misconfiguration checks. Uses the ambient cloud credentials.
+    inputs: []
+    outputs:
+      - findings
+    command:
+      - cloudsploit
+      - scan
+      - --console
+      - json
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --cloud
+        label: Cloud
+        description: Cloud provider to scan (aws, azure, google, oracle)
+        type: string
+        default: aws
+      - flag: --compliance
+        label: Compliance
+        description: Map findings to a compliance framework (hipaa, pci, cis)
+        type: string
+
+  - id: gcpbucketbrute
+    name: GCPBucketBrute
+    category: Cloud
+    description: Enumerate Google Cloud Storage buckets from a keyword and test their permissions
+    inputs:
+      - targets
+    outputs:
+      - findings
+    # Keyword comes from the workflow target ({targets}); -u keeps the probe to
+    # unauthenticated (public-exposure) checks by default. Neither is re-exposed
+    # as an arg to avoid passing a duplicate -k/-u to the CLI.
+    command:
+      - gcpbucketbrute
+      - -k
+      - '{targets}'
+      - -u
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: --check-endpoints
+        label: Check Endpoints
+        description: Also probe for accessible service endpoints on discovered buckets
+        type: flag

@@ -96,6 +96,34 @@ else
   pip install cloud_enum
 fi
 
+if command -v prowler >/dev/null 2>&1; then
+  skip "Prowler" "$(command -v prowler)"
+else
+  log "Installing Prowler (prowler)"
+  pip install prowler
+fi
+
+if command -v scout >/dev/null 2>&1; then
+  skip "ScoutSuite" "$(command -v scout)"
+else
+  log "Installing ScoutSuite (scout)"
+  pip install scoutsuite
+fi
+
+if command -v cloudsploit >/dev/null 2>&1; then
+  skip "CloudSploit" "$(command -v cloudsploit)"
+else
+  log "Installing CloudSploit (cloudsploit)"
+  npm install -g cloudsploit  # or git clone github.com/aquasecurity/cloudsploit
+fi
+
+if command -v gcpbucketbrute >/dev/null 2>&1; then
+  skip "GCPBucketBrute" "$(command -v gcpbucketbrute)"
+else
+  log "Installing GCPBucketBrute (gcpbucketbrute)"
+  pipx install gcpbucketbrute  # or git clone github.com/RhinoSecurityLabs/GCPBucketBrute
+fi
+
 # ── Crawling ────────────────────────────────────────────────────
 if command -v katana >/dev/null 2>&1; then
   skip "Katana" "$(command -v katana)"
@@ -225,6 +253,49 @@ if command -v subjs >/dev/null 2>&1; then
 else
   log "Installing SubJS (subjs)"
   go install -v github.com/lc/subjs@latest
+fi
+
+# ── Kubernetes ──────────────────────────────────────────────────
+if command -v kube-hunter >/dev/null 2>&1; then
+  skip "kube-hunter" "$(command -v kube-hunter)"
+else
+  log "Installing kube-hunter (kube-hunter)"
+  pip install kube-hunter
+fi
+
+if command -v kube-bench >/dev/null 2>&1; then
+  skip "kube-bench" "$(command -v kube-bench)"
+else
+  log "Installing kube-bench (kube-bench)"
+  go install github.com/aquasecurity/kube-bench@latest  # or docker run aquasec/kube-bench
+fi
+
+if command -v kubeaudit >/dev/null 2>&1; then
+  skip "kubeaudit" "$(command -v kubeaudit)"
+else
+  log "Installing kubeaudit (kubeaudit)"
+  go install github.com/Shopify/kubeaudit@latest
+fi
+
+if command -v trivy >/dev/null 2>&1; then
+  skip "Trivy" "$(command -v trivy)"
+else
+  log "Installing Trivy (trivy)"
+  go install github.com/aquasecurity/trivy/cmd/trivy@latest  # or brew install trivy
+fi
+
+if command -v kubeletctl >/dev/null 2>&1; then
+  skip "kubeletctl" "$(command -v kubeletctl)"
+else
+  log "Installing kubeletctl (kubeletctl)"
+  go install github.com/cyberark/kubeletctl@latest
+fi
+
+if command -v popeye >/dev/null 2>&1; then
+  skip "Popeye" "$(command -v popeye)"
+else
+  log "Installing Popeye (popeye)"
+  go install github.com/derailed/popeye@latest  # or brew install derailed/popeye/popeye
 fi
 
 # ── Network ─────────────────────────────────────────────────────
