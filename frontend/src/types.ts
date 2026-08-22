@@ -190,6 +190,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   JSAnalysis: '#fbbf24',
   Wordlist: '#94a3b8',
   Cloud: '#22d3ee',
+  Kubernetes: '#326ce5',
   Secrets: '#f43f5e',
 };
 
@@ -214,6 +215,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   JSAnalysis: '\u{1F4DC}',
   Wordlist: '\u{1F4D6}',
   Cloud: '\u{2601}',
+  Kubernetes: '\u{2638}',
   Secrets: '\u{1F510}',
 };
 

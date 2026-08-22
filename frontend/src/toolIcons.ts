@@ -45,7 +45,11 @@ export const TOOL_GLYPHS: Record<string, string> = {
   // Wordlist
   cewl: '\u{1F4D6}', wordlister: '\u{1F4DD}',
   // Cloud
-  s3scanner: '\u{2601}', cloudenum: '\u{26C5}',
+  s3scanner: '\u{2601}', cloudenum: '\u{26C5}', prowler: '\u{1F6E1}', scoutsuite: '\u{1F52D}',
+  cloudsploit: '\u{1F329}', gcpbucketbrute: '\u{1FAA3}',
+  // Kubernetes
+  'kube-hunter': '\u{1F3F9}', 'kube-bench': '\u{1FA91}', kubeaudit: '\u{1F9FE}', trivy: '\u{1F433}',
+  kubeletctl: '\u{1F579}', popeye: '\u{1F4AA}',
   // Secrets
   trufflehog: '\u{1F437}', gitleaks: '\u{1F4A7}',
   // Web App Testing

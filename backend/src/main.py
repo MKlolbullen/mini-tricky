@@ -2439,6 +2439,17 @@ INSTALL_HINTS: dict[str, str] = {
     # Cloud / Buckets
     "s3scanner": "pip install s3scanner",
     "cloud_enum": "pip install cloud_enum",
+    "prowler": "pip install prowler",
+    "scout": "pip install scoutsuite",
+    "cloudsploit": "npm install -g cloudsploit  # or git clone github.com/aquasecurity/cloudsploit",
+    "gcpbucketbrute": "pipx install gcpbucketbrute  # or git clone github.com/RhinoSecurityLabs/GCPBucketBrute",
+    # Kubernetes
+    "kube-hunter": "pip install kube-hunter",
+    "kube-bench": "go install github.com/aquasecurity/kube-bench@latest  # or docker run aquasec/kube-bench",
+    "kubeaudit": "go install github.com/Shopify/kubeaudit@latest",
+    "trivy": "go install github.com/aquasecurity/trivy/cmd/trivy@latest  # or brew install trivy",
+    "kubeletctl": "go install github.com/cyberark/kubeletctl@latest",
+    "popeye": "go install github.com/derailed/popeye@latest  # or brew install derailed/popeye/popeye",
     # Secrets
     "trufflehog": "go install github.com/trufflesecurity/trufflehog/v3@latest",
     "gitleaks": "go install github.com/gitleaks/gitleaks/v8@latest",
