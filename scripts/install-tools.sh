@@ -43,6 +43,27 @@ else
   pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer
 fi
 
+if command -v graphw00f >/dev/null 2>&1; then
+  skip "graphw00f" "$(command -v graphw00f)"
+else
+  log "Installing graphw00f (graphw00f)"
+  pip install graphw00f
+fi
+
+if command -v graphql-cop >/dev/null 2>&1; then
+  skip "GraphQL Cop" "$(command -v graphql-cop)"
+else
+  log "Installing GraphQL Cop (graphql-cop)"
+  pip install graphql-cop
+fi
+
+if command -v clairvoyance >/dev/null 2>&1; then
+  skip "Clairvoyance" "$(command -v clairvoyance)"
+else
+  log "Installing Clairvoyance (clairvoyance)"
+  pip install clairvoyance
+fi
+
 # ── Archive ─────────────────────────────────────────────────────
 if command -v gau >/dev/null 2>&1; then
   skip "GAU" "$(command -v gau)"
@@ -255,6 +276,27 @@ else
   go install -v github.com/lc/subjs@latest
 fi
 
+if command -v jsluice >/dev/null 2>&1; then
+  skip "jsluice" "$(command -v jsluice)"
+else
+  log "Installing jsluice (jsluice)"
+  go install github.com/BishopFox/jsluice/cmd/jsluice@latest
+fi
+
+if command -v mantra >/dev/null 2>&1; then
+  skip "Mantra" "$(command -v mantra)"
+else
+  log "Installing Mantra (mantra)"
+  go install github.com/MrEmpy/mantra@latest
+fi
+
+if command -v xnLinkFinder >/dev/null 2>&1; then
+  skip "xnLinkFinder" "$(command -v xnLinkFinder)"
+else
+  log "Installing xnLinkFinder (xnLinkFinder)"
+  pip install xnLinkFinder
+fi
+
 # ── Kubernetes ──────────────────────────────────────────────────
 if command -v kube-hunter >/dev/null 2>&1; then
   skip "kube-hunter" "$(command -v kube-hunter)"
@@ -339,6 +381,27 @@ if command -v sslscan >/dev/null 2>&1; then
 else
   log "Installing SSLScan (sslscan)"
   apt install sslscan  # or brew install sslscan
+fi
+
+if command -v mapcidr >/dev/null 2>&1; then
+  skip "MapCIDR" "$(command -v mapcidr)"
+else
+  log "Installing MapCIDR (mapcidr)"
+  go install github.com/projectdiscovery/mapcidr/cmd/mapcidr@latest
+fi
+
+if command -v cdncheck >/dev/null 2>&1; then
+  skip "CDNCheck" "$(command -v cdncheck)"
+else
+  log "Installing CDNCheck (cdncheck)"
+  go install github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest
+fi
+
+if command -v smap >/dev/null 2>&1; then
+  skip "Smap" "$(command -v smap)"
+else
+  log "Installing Smap (smap)"
+  go install github.com/s0md3v/smap/cmd/smap@latest
 fi
 
 # ── OSINT ───────────────────────────────────────────────────────
@@ -470,6 +533,76 @@ else
   pip install wafw00f
 fi
 
+if command -v puredns >/dev/null 2>&1; then
+  skip "PureDNS" "$(command -v puredns)"
+else
+  log "Installing PureDNS (puredns)"
+  go install github.com/d3mondev/puredns/v2@latest
+fi
+
+if command -v alterx >/dev/null 2>&1; then
+  skip "AlterX" "$(command -v alterx)"
+else
+  log "Installing AlterX (alterx)"
+  go install github.com/projectdiscovery/alterx/cmd/alterx@latest
+fi
+
+if command -v dnsgen >/dev/null 2>&1; then
+  skip "DNSGen" "$(command -v dnsgen)"
+else
+  log "Installing DNSGen (dnsgen)"
+  pip install dnsgen
+fi
+
+if command -v gotator >/dev/null 2>&1; then
+  skip "Gotator" "$(command -v gotator)"
+else
+  log "Installing Gotator (gotator)"
+  go install github.com/Josue87/gotator@latest
+fi
+
+if command -v tlsx >/dev/null 2>&1; then
+  skip "TLSX" "$(command -v tlsx)"
+else
+  log "Installing TLSX (tlsx)"
+  go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest
+fi
+
+if command -v asnmap >/dev/null 2>&1; then
+  skip "ASNMap" "$(command -v asnmap)"
+else
+  log "Installing ASNMap (asnmap)"
+  go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest
+fi
+
+if command -v cero >/dev/null 2>&1; then
+  skip "Cero" "$(command -v cero)"
+else
+  log "Installing Cero (cero)"
+  go install github.com/glebarez/cero@latest
+fi
+
+if command -v gowitness >/dev/null 2>&1; then
+  skip "GoWitness" "$(command -v gowitness)"
+else
+  log "Installing GoWitness (gowitness)"
+  go install github.com/sensepost/gowitness@latest
+fi
+
+if command -v aquatone >/dev/null 2>&1; then
+  skip "Aquatone" "$(command -v aquatone)"
+else
+  log "Installing Aquatone (aquatone)"
+  go install github.com/michenriksen/aquatone@latest
+fi
+
+if command -v wappalyzer >/dev/null 2>&1; then
+  skip "Wappalyzer" "$(command -v wappalyzer)"
+else
+  log "Installing Wappalyzer (wappalyzer)"
+  npm install -g wappalyzer
+fi
+
 # ── SSRF ────────────────────────────────────────────────────────
 if command -v ssrfmap >/dev/null 2>&1; then
   skip "SSRFmap" "$(command -v ssrfmap)"
@@ -527,6 +660,13 @@ if command -v gitleaks >/dev/null 2>&1; then
 else
   log "Installing Gitleaks (gitleaks)"
   go install github.com/gitleaks/gitleaks/v8@latest
+fi
+
+if command -v semgrep >/dev/null 2>&1; then
+  skip "Semgrep" "$(command -v semgrep)"
+else
+  log "Installing Semgrep (semgrep)"
+  pip install semgrep
 fi
 
 # ── Takeover ────────────────────────────────────────────────────
@@ -698,6 +838,34 @@ if command -v oralyzer >/dev/null 2>&1; then
 else
   log "Installing Oralyzer (oralyzer)"
   git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt
+fi
+
+if command -v Gxss >/dev/null 2>&1; then
+  skip "Gxss" "$(command -v Gxss)"
+else
+  log "Installing Gxss (Gxss)"
+  go install github.com/KathanP19/Gxss@latest
+fi
+
+if command -v kxss >/dev/null 2>&1; then
+  skip "kxss" "$(command -v kxss)"
+else
+  log "Installing kxss (kxss)"
+  go install github.com/tomnomnom/hacks/kxss@latest
+fi
+
+if command -v smuggler >/dev/null 2>&1; then
+  skip "Smuggler" "$(command -v smuggler)"
+else
+  log "Installing Smuggler (smuggler)"
+  git clone https://github.com/defparam/smuggler && cd smuggler  # run: python3 smuggler.py
+fi
+
+if command -v retire >/dev/null 2>&1; then
+  skip "Retire.js" "$(command -v retire)"
+else
+  log "Installing Retire.js (retire)"
+  npm install -g retire
 fi
 
 # ── Wordlist ────────────────────────────────────────────────────

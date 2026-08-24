@@ -2473,6 +2473,36 @@ INSTALL_HINTS: dict[str, str] = {
     "nomore403": "go install github.com/devploit/nomore403@latest",
     "oralyzer": "git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt",
     "dirb": "apt install dirb  # or brew install dirb",
+    # DNS expansion / certificates
+    "puredns": "go install github.com/d3mondev/puredns/v2@latest",
+    "alterx": "go install github.com/projectdiscovery/alterx/cmd/alterx@latest",
+    "dnsgen": "pip install dnsgen",
+    "gotator": "go install github.com/Josue87/gotator@latest",
+    "tlsx": "go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest",
+    "asnmap": "go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest",
+    "cero": "go install github.com/glebarez/cero@latest",
+    # Network
+    "mapcidr": "go install github.com/projectdiscovery/mapcidr/cmd/mapcidr@latest",
+    "cdncheck": "go install github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest",
+    "smap": "go install github.com/s0md3v/smap/cmd/smap@latest",
+    # Screenshots
+    "gowitness": "go install github.com/sensepost/gowitness@latest",
+    "aquatone": "go install github.com/michenriksen/aquatone@latest",
+    # JS analysis
+    "jsluice": "go install github.com/BishopFox/jsluice/cmd/jsluice@latest",
+    "mantra": "go install github.com/MrEmpy/mantra@latest",
+    "xnLinkFinder": "pip install xnLinkFinder",
+    # GraphQL
+    "graphw00f": "pip install graphw00f",
+    "graphql-cop": "pip install graphql-cop",
+    "clairvoyance": "pip install clairvoyance",
+    # Reflected params / smuggling / libs
+    "Gxss": "go install github.com/KathanP19/Gxss@latest",
+    "kxss": "go install github.com/tomnomnom/hacks/kxss@latest",
+    "smuggler": "git clone https://github.com/defparam/smuggler && cd smuggler  # run: python3 smuggler.py",
+    "retire": "npm install -g retire",
+    # Static analysis
+    "semgrep": "pip install semgrep",
 }
 
 

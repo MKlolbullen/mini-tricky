@@ -3081,3 +3081,349 @@ tools:
         label: Check Endpoints
         description: Also probe for accessible service endpoints on discovered buckets
         type: flag
+
+  # ── Recon (DNS expansion & certificates) ───────────────────
+  - id: puredns
+    name: PureDNS
+    category: Recon
+    description: Fast subdomain bruteforce and resolver with wildcard filtering
+    inputs: [domain, wordlist]
+    outputs: [targets]
+    command: [puredns, bruteforce, '{wordlist_file}', '{domain}', --quiet]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -r
+        label: Resolvers
+        description: Path to a file of trusted DNS resolvers
+        type: string
+      - flag: --rate-limit
+        label: Rate Limit
+        description: Maximum DNS queries per second
+        type: int
+
+  - id: alterx
+    name: AlterX
+    category: Recon
+    description: Fast and customizable subdomain permutation generator
+    inputs: [targets]
+    outputs: [targets]
+    command: [alterx, -l, '{targets_file}', -silent]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -enrich
+        label: Enrich
+        description: Use known subdomains to enrich the permutation wordlist
+        type: flag
+
+  - id: dnsgen
+    name: DNSGen
+    category: Recon
+    description: Generate domain name permutations from a list of domains
+    inputs: [targets]
+    outputs: [targets]
+    command: [dnsgen, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -w
+        label: Wordlist
+        description: Custom permutation wordlist
+        type: string
+
+  - id: gotator
+    name: Gotator
+    category: Recon
+    description: Generate DNS permutations from subdomains and a wordlist
+    inputs: [targets, wordlist]
+    outputs: [targets]
+    command: [gotator, -sub, '{targets_file}', -perm, '{wordlist_file}', -silent]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -depth
+        label: Depth
+        description: Number of permutation levels to generate
+        type: int
+        default: '1'
+
+  - id: tlsx
+    name: TLSX
+    category: Recon
+    description: Gather TLS/SSL data and extract SAN/CN hostnames from certificates
+    inputs: [targets]
+    outputs: [targets]
+    command: [tlsx, -l, '{targets_file}', -silent, -san, -cn, -resp-only]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent connections
+        type: int
+        default: '50'
+
+  - id: asnmap
+    name: ASNMap
+    category: Recon
+    description: Map an organization or domain to its ASN CIDR ranges
+    inputs: [domain]
+    outputs: [targets]
+    command: [asnmap, -d, '{domain}', -silent]
+    output_mode: stdout
+    timeout_seconds: 120
+    args: []
+
+  - id: cero
+    name: Cero
+    category: Recon
+    description: Scrape domain names from TLS certificates of live hosts
+    inputs: [targets]
+    outputs: [targets]
+    command: [cero, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -p
+        label: Ports
+        description: Comma-separated ports to connect to for certificates
+        type: string
+        default: '443'
+
+  # ── Network (CIDR / CDN / ports) ───────────────────────────
+  - id: mapcidr
+    name: MapCIDR
+    category: Network
+    description: Expand, aggregate, and manipulate CIDR ranges and IP lists
+    inputs: [targets]
+    outputs: [targets]
+    command: [mapcidr, -cl, '{targets_file}', -silent]
+    output_mode: stdout
+    timeout_seconds: 120
+    args:
+      - flag: -aggregate
+        label: Aggregate
+        description: Aggregate IPs into the smallest set of CIDR ranges
+        type: flag
+
+  - id: cdncheck
+    name: CDNCheck
+    category: Network
+    description: Detect whether hosts sit behind a CDN, WAF, or cloud provider
+    inputs: [targets]
+    outputs: [findings]
+    command: [cdncheck, -l, '{targets_file}', -resp]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -cdn
+        label: CDN Only
+        description: Only match against CDN ranges
+        type: flag
+
+  - id: smap
+    name: Smap
+    category: Network
+    description: Passive Nmap-style port scanner powered by Shodan's Internetdb
+    inputs: [targets]
+    outputs: [findings]
+    command: [smap, -iL, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -oJ
+        label: JSON Output
+        description: Emit results as JSON
+        type: flag
+
+  # ── Recon (visual / screenshots) ───────────────────────────
+  - id: gowitness
+    name: GoWitness
+    category: Recon
+    description: Screenshot web servers and record response metadata
+    inputs: [targets, url]
+    outputs: [folder, findings]
+    command: [gowitness, file, -f, '{targets_file}']
+    output_mode: file
+    timeout_seconds: 600
+    args:
+      - flag: --screenshot-fullpage
+        label: Full Page
+        description: Capture the full scrollable page rather than the viewport
+        type: flag
+
+  - id: aquatone
+    name: Aquatone
+    category: Recon
+    description: Visual inspection of websites across a large number of hosts
+    inputs: [targets, url]
+    outputs: [folder]
+    command: [aquatone, -out, '{artifact_dir}']
+    output_mode: file
+    timeout_seconds: 600
+    args:
+      - flag: -ports
+        label: Ports
+        description: Ports to scan (small, medium, large, xlarge, or a list)
+        type: string
+        default: medium
+
+  # ── JS Analysis (secrets / endpoints) ──────────────────────
+  - id: jsluice
+    name: jsluice
+    category: JSAnalysis
+    description: Extract URLs, paths, and secrets from JavaScript with a parser
+    inputs: [targets, url, file]
+    outputs: [findings]
+    command: [jsluice, urls, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -R
+        label: Resolve Paths
+        description: Resolve relative paths against a base URL
+        type: string
+
+  - id: mantra
+    name: Mantra
+    category: JSAnalysis
+    description: Hunt for hardcoded API keys and secrets inside JavaScript files
+    inputs: [targets, url, file]
+    outputs: [findings]
+    command: [mantra, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: xnlinkfinder
+    name: xnLinkFinder
+    category: JSAnalysis
+    description: Discover endpoints and parameters from JS, sitemaps, and archives
+    inputs: [targets, url, file]
+    outputs: [url]
+    command: [xnLinkFinder, -i, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -sf
+        label: Scope Filter
+        description: Restrict results to a scope domain
+        type: string
+
+  # ── API (GraphQL) ──────────────────────────────────────────
+  - id: graphw00f
+    name: graphw00f
+    category: API
+    description: Fingerprint the GraphQL engine behind an endpoint
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [graphw00f, -t, '{targets}', -d]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: graphql-cop
+    name: GraphQL Cop
+    category: API
+    description: Audit a GraphQL endpoint for common security misconfigurations
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [graphql-cop, -t, '{targets}', -o, json]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: clairvoyance
+    name: Clairvoyance
+    category: API
+    description: Recover a GraphQL schema even when introspection is disabled
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [clairvoyance, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -w
+        label: Wordlist
+        description: Field-name wordlist used to probe the schema
+        type: string
+
+  # ── Vulnerability (reflected params / smuggling / libs) ────
+  - id: gxss
+    name: Gxss
+    category: Vulnerability
+    description: Check URL parameters for reflected values (XSS candidates)
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [Gxss, -p, Gxss]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -c
+        label: Concurrency
+        description: Number of concurrent workers
+        type: int
+        default: '20'
+
+  - id: kxss
+    name: kxss
+    category: Vulnerability
+    description: Identify URL parameters that reflect unfiltered special characters
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [kxss]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: smuggler
+    name: Smuggler
+    category: Vulnerability
+    description: Detect HTTP request smuggling desync vulnerabilities
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [smuggler, -u, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: retire
+    name: Retire.js
+    category: Vulnerability
+    description: Scan for JavaScript libraries with known vulnerabilities
+    inputs: [targets, url, file]
+    outputs: [findings]
+    command: [retire, --outputformat, json]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  # ── Secrets (static analysis) ──────────────────────────────
+  - id: semgrep
+    name: Semgrep
+    category: Secrets
+    description: Static analysis for bugs and secrets across a source tree
+    inputs: [folder, file]
+    outputs: [findings]
+    command: [semgrep, --config, auto, --json, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --config
+        label: Ruleset
+        description: Ruleset to run (auto, p/ci, p/secrets, or a path)
+        type: string
+        default: auto
+
+  # ── Recon (technology fingerprint) ─────────────────────────
+  - id: wappalyzer
+    name: Wappalyzer
+    category: Recon
+    description: Identify the technology stack running on target web applications
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [wappalyzer, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
