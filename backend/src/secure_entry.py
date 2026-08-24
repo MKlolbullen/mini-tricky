@@ -18,8 +18,9 @@ from urllib.parse import parse_qs
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from . import main as main_module
 from .capabilities import router as capabilities_router
-from .main import app
+from .catalog_extensions import install_catalog_extensions
 
 TOKEN_ENV = "MINI_TRICKY_SESSION_TOKEN"
 ALLOWED_ORIGINS_ENV = "MINI_TRICKY_ALLOWED_ORIGINS"
@@ -30,6 +31,11 @@ DEFAULT_ALLOWED_ORIGINS = (
     "http://localhost:5173",
     "null",  # packaged Electron file:// renderer
 )
+
+# Compose declarative tools.d/templates.d packs before any request can resolve
+# the catalog. Existing main-module endpoints keep calling the same loader names.
+install_catalog_extensions(main_module)
+app = main_module.app
 
 
 def _configured_origins() -> list[str]:
