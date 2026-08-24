@@ -194,6 +194,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Secrets: '#f43f5e',
   Payload: '#ff6ec7',
   Merge: '#2dd4bf',
+  Scanner: '#f97316',
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -221,6 +222,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Secrets: '\u{1F510}',
   Payload: '\u{1F4A3}',
   Merge: '\u{1F500}',
+  Scanner: '\u{1F6A8}',
 };
 
 // Per-socket-type colors, shared by the canvas nodes (SocketNode) and the

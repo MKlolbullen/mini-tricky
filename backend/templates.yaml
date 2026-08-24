@@ -2687,3 +2687,118 @@ templates:
         - { id: e6, source: tool-3, target: merge-0, source_handle: "out:url", target_handle: "in:any" }
         - { id: e7, source: merge-0, target: tool-4, source_handle: "out:url", target_handle: "in:url" }
         - { id: e8, source: tool-4, target: output-1, source_handle: "out:url", target_handle: "in:any" }
+
+  - id: tpl-full-webapp-pentest
+    name: Full Web App Pentest
+    description: End-to-end web pentest — merge three subdomain sources, resolve and probe, then fan the live hosts into Nuclei, Wapiti, ZAP baseline, webanalyze, nomore403, Dirhunt, Katana, and GoWitness.
+    category: Scanner
+    tags: [webapp, pentest, merge, wapiti, zap, wide, comprehensive]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 40, y: 400 } }
+        - { id: tool-1, kind: tool, label: Subfinder, tool_id: subfinder, params: {}, position: { x: 260, y: 260 } }
+        - { id: tool-2, kind: tool, label: Assetfinder, tool_id: assetfinder, params: {}, position: { x: 260, y: 380 } }
+        - { id: tool-3, kind: tool, label: Chaos, tool_id: chaos, params: {}, position: { x: 260, y: 500 } }
+        - { id: merge-0, kind: merge, label: Merge & Sort, params: { output_type: targets }, position: { x: 500, y: 380 } }
+        - { id: tool-4, kind: tool, label: DNSX, tool_id: dnsx, params: {}, position: { x: 720, y: 380 } }
+        - { id: tool-5, kind: tool, label: HTTPX, tool_id: httpx, params: {}, position: { x: 940, y: 380 } }
+        - { id: tool-6, kind: tool, label: Katana, tool_id: katana, params: {}, position: { x: 1200, y: 40 } }
+        - { id: tool-7, kind: tool, label: Nuclei, tool_id: nuclei, params: {}, position: { x: 1200, y: 140 } }
+        - { id: tool-8, kind: tool, label: Wapiti, tool_id: wapiti, params: {}, position: { x: 1200, y: 240 } }
+        - { id: tool-9, kind: tool, label: OWASP ZAP, tool_id: zaproxy, params: {}, position: { x: 1200, y: 340 } }
+        - { id: tool-10, kind: tool, label: webanalyze, tool_id: webanalyze, params: {}, position: { x: 1200, y: 440 } }
+        - { id: tool-11, kind: tool, label: nomore403, tool_id: nomore403, params: {}, position: { x: 1200, y: 540 } }
+        - { id: tool-12, kind: tool, label: Dirhunt, tool_id: dirhunt, params: {}, position: { x: 1200, y: 640 } }
+        - { id: tool-13, kind: tool, label: GoWitness, tool_id: gowitness, params: {}, position: { x: 1200, y: 740 } }
+        - { id: output-1, kind: output, label: Pentest Artifacts, params: {}, position: { x: 1480, y: 380 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: tool-1, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e5, source: tool-2, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e6, source: tool-3, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e7, source: merge-0, target: tool-4, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e8, source: tool-4, target: tool-5, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e9, source: tool-5, target: tool-6, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e10, source: tool-5, target: tool-7, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e11, source: tool-5, target: tool-8, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e12, source: tool-5, target: tool-9, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e13, source: tool-5, target: tool-10, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e14, source: tool-5, target: tool-11, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e15, source: tool-5, target: tool-12, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e16, source: tool-5, target: tool-13, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e17, source: tool-6, target: output-1, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e18, source: tool-7, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e19, source: tool-8, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e20, source: tool-9, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e21, source: tool-10, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e22, source: tool-11, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e23, source: tool-12, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e24, source: tool-13, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-deep-injection-hunt
+    name: Deep Injection Hunt
+    description: Harvest and merge URLs from three sources, filter parameterized endpoints, then fan into Dalfox, Gxss, kxss, Nuclei, and CRLFuzz for XSS/CRLF/injection testing.
+    category: Vulnerability
+    tags: [xss, injection, dalfox, merge, url, wide]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 40, y: 320 } }
+        - { id: tool-1, kind: tool, label: GAU, tool_id: gau, params: {}, position: { x: 260, y: 180 } }
+        - { id: tool-2, kind: tool, label: Waybackurls, tool_id: waybackurls, params: {}, position: { x: 260, y: 300 } }
+        - { id: tool-3, kind: tool, label: URLFinder, tool_id: urlfinder, params: {}, position: { x: 260, y: 420 } }
+        - { id: merge-0, kind: merge, label: Merge & Sort, params: { output_type: url }, position: { x: 500, y: 300 } }
+        - { id: tool-4, kind: tool, label: gf (patterns), tool_id: gf, params: {}, position: { x: 720, y: 300 } }
+        - { id: tool-5, kind: tool, label: qsreplace, tool_id: qsreplace, params: {}, position: { x: 940, y: 300 } }
+        - { id: tool-6, kind: tool, label: Dalfox, tool_id: dalfox, params: {}, position: { x: 1200, y: 120 } }
+        - { id: tool-7, kind: tool, label: Gxss, tool_id: gxss, params: {}, position: { x: 1200, y: 240 } }
+        - { id: tool-8, kind: tool, label: kxss, tool_id: kxss, params: {}, position: { x: 1200, y: 360 } }
+        - { id: tool-9, kind: tool, label: Nuclei, tool_id: nuclei, params: {}, position: { x: 1200, y: 480 } }
+        - { id: tool-10, kind: tool, label: CRLFuzz, tool_id: crlfuzz, params: {}, position: { x: 1200, y: 600 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 1460, y: 320 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: tool-1, target: merge-0, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e5, source: tool-2, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e6, source: tool-3, target: merge-0, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e7, source: merge-0, target: tool-4, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e8, source: tool-4, target: tool-5, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e9, source: tool-5, target: tool-6, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e10, source: tool-5, target: tool-7, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e11, source: tool-5, target: tool-8, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e12, source: tool-5, target: tool-9, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e13, source: tool-5, target: tool-10, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e14, source: tool-6, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e15, source: tool-7, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e16, source: tool-8, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e17, source: tool-9, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e18, source: tool-10, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-api-jwt-assessment
+    name: API & JWT Assessment
+    description: Point a list of API endpoints at JWT Tool, graphw00f, GraphQL Cop, Kiterunner, and Wapiti in parallel for an authentication and API-surface review.
+    category: API
+    tags: [api, jwt, graphql, kiterunner, wapiti]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: API Endpoints, variable_type: targets, value: "", params: {}, position: { x: 60, y: 300 } }
+        - { id: tool-1, kind: tool, label: JWT Tool, tool_id: jwt_tool, params: {}, position: { x: 400, y: 80 } }
+        - { id: tool-2, kind: tool, label: graphw00f, tool_id: graphw00f, params: {}, position: { x: 400, y: 200 } }
+        - { id: tool-3, kind: tool, label: GraphQL Cop, tool_id: graphql-cop, params: {}, position: { x: 400, y: 320 } }
+        - { id: tool-4, kind: tool, label: Kiterunner, tool_id: kiterunner, params: {}, position: { x: 400, y: 440 } }
+        - { id: tool-5, kind: tool, label: Wapiti, tool_id: wapiti, params: {}, position: { x: 400, y: 560 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 740, y: 300 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e4, source: variable-1, target: tool-4, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e5, source: variable-1, target: tool-5, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e6, source: tool-1, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e7, source: tool-2, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e8, source: tool-3, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e9, source: tool-4, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e10, source: tool-5, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
