@@ -88,13 +88,20 @@ function requireApprovedFilePath(filePath) {
 
 function configureContentSecurityPolicy() {
   if (IS_DEV) return;
+
+  // @monaco-editor/react currently loads Monaco's AMD assets from jsDelivr by
+  // default. Keep that dependency narrowly scoped in CSP until Monaco is
+  // bundled locally; do not widen script/connect policy to arbitrary HTTPS.
+  const monacoCdn = 'https://cdn.jsdelivr.net';
   const policy = [
     "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self' ${monacoCdn}`,
+    `style-src 'self' 'unsafe-inline' ${monacoCdn}`,
     "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    `connect-src ${BACKEND_URL} ws://127.0.0.1:${BACKEND_PORT}`,
+    `font-src 'self' data: ${monacoCdn}`,
+    `connect-src ${BACKEND_URL} ws://127.0.0.1:${BACKEND_PORT} ${monacoCdn}`,
+    "worker-src 'self' blob:",
+    "child-src blob:",
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
