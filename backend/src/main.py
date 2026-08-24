@@ -180,6 +180,12 @@ def node_contract(node: WorkflowNode, tools_by_id: dict[str, Tool]) -> tuple[lis
     if node.kind == "payload":
         # A source node that emits a combined payload list as a wordlist.
         return [], ["wordlist"]
+    if node.kind == "merge":
+        # Fan-in aggregator: accepts many upstream lists on its ``any`` input
+        # (exempt from the single-occupancy rule) and emits one sorted, unique
+        # list. The output socket type is configurable (default ``targets``).
+        out_type = node.params.get("output_type", "targets")
+        return ["any"], [out_type if out_type in ("targets", "url") else "targets"]
     if node.kind == "output":
         return ["any"], []
     if node.kind == "script":
@@ -447,6 +453,62 @@ def execute_payload_node(node: WorkflowNode, node_dir: Path) -> dict[str, Any]:
         "stdout_path": str(stdout_path),
         "stderr_path": str(stderr_path),
         "logs": logs,
+    }
+
+
+def execute_merge_node(
+    node: WorkflowNode, node_dir: Path, incoming_edges: list[WorkflowEdge], output_values: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """Merge, sort, and deduplicate every upstream list into one output file.
+
+    This is the graph equivalent of ``cat A B C | sort -u``: it reads each
+    parent's saved output file (or inline value), unions the lines, and writes
+    a single sorted, unique list to this node's own ``<type>.txt`` — so, like
+    every node, its result is a unique per-node artifact that later nodes
+    reference by node id.
+    """
+    out_type = node.params.get("output_type", "targets")
+    if out_type not in ("targets", "url"):
+        out_type = "targets"
+
+    lines: list[str] = []
+    sources = 0
+    for edge in incoming_edges:
+        source_type = edge.source_handle.removeprefix("out:") if edge.source_handle else "output"
+        source_value = output_values.get(edge.source, {}).get(source_type)
+        if source_value is None:
+            continue
+        sources += 1
+        source_path = Path(str(source_value))
+        if source_path.exists():
+            lines.extend(source_path.read_text(encoding="utf-8", errors="ignore").splitlines())
+        else:
+            lines.append(str(source_value))
+
+    unique = sorted({line.strip() for line in lines if line.strip()})
+    artifact_file = node_dir / f"{out_type}.txt"
+    stdout_path = node_dir / "stdout.log"
+    stderr_path = node_dir / "stderr.log"
+    body = "\n".join(unique) + "\n" if unique else ""
+    write_text(artifact_file, body)
+    write_text(stdout_path, body)
+    write_text(stderr_path, "")
+
+    if not unique:
+        return failed_node_result(node, node_dir, f"Merge node {node.id}: no upstream lines to merge.")
+
+    return {
+        "node_id": node.id,
+        "status": "success",
+        "command": [],
+        "exit_code": 0,
+        "artifact_paths": [str(artifact_file)],
+        "outputs": {out_type: str(artifact_file)},
+        "stdout_preview": truncate_text(body),
+        "stderr_preview": "",
+        "stdout_path": str(stdout_path),
+        "stderr_path": str(stderr_path),
+        "logs": [f"[+] Merge node {node.id}: {len(unique)} unique {out_type} from {sources} source(s)."],
     }
 
 
@@ -1013,6 +1075,8 @@ def execute_node(
         return execute_variable_node(node, node_dir)
     if node.kind == "payload":
         return execute_payload_node(node, node_dir)
+    if node.kind == "merge":
+        return execute_merge_node(node, node_dir, incoming_edges, output_values)
     if node.kind == "output":
         return execute_output_node(node, node_dir, incoming_edges, output_values)
     if node.kind == "tool":
@@ -2623,6 +2687,14 @@ INSTALL_HINTS: dict[str, str] = {
     # Vulnerability / enumeration
     "ppfuzz": "cargo install ppfuzz",
     "shortscan": "go install github.com/bitquark/shortscan/cmd/shortscan@latest",
+    # More recon sources / resolution / enrichment
+    "bbot": "pipx install bbot",
+    "crtsh": "pipx install crtsh  # or query https://crt.sh directly",
+    "csprecon": "go install github.com/edoardottt/csprecon/cmd/csprecon@latest",
+    "github-endpoints": "go install github.com/gwen001/github-endpoints@latest",
+    "gitlab-subdomains": "go install github.com/gwen001/gitlab-subdomains@latest",
+    "nrich": "cargo install nrich",
+    "dnsreaper": "pipx install dnsReaper  # or docker run punksecurity/dnsreaper",
 }
 
 

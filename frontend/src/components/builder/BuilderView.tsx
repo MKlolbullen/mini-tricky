@@ -77,8 +77,8 @@ function graphToNodes(workflow: WorkflowRecord): FlowNode[] {
       kind: n.kind, label: n.label, toolId: n.tool_id || undefined,
       variableType: n.variable_type || undefined, value: n.value || '',
       params: n.params || {},
-      inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'condition' ? ['targets'] : n.kind === 'loop' ? ['targets'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
-      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'payload' ? ['wordlist'] : n.kind === 'condition' ? ['pass', 'fail'] : n.kind === 'loop' ? ['item'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
+      inputs: n.kind === 'tool' ? [] : (n.kind === 'output' || n.kind === 'merge') ? ['any'] : n.kind === 'condition' ? ['targets'] : n.kind === 'loop' ? ['targets'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
+      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'payload' ? ['wordlist'] : n.kind === 'merge' ? [n.params?.output_type || 'targets'] : n.kind === 'condition' ? ['pass', 'fail'] : n.kind === 'loop' ? ['item'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
       runState: undefined,
       scriptLanguage: (n.script_language as 'bash' | 'python') || undefined,
       scriptBody: n.script_body || undefined,
@@ -309,6 +309,16 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           inputs: [], outputs: ['wordlist'], category: 'Payload',
         },
       }]);
+    } else if (type === 'merge') {
+      const id = nextId('merge');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'merge', label: 'Merge & Sort',
+          params: { output_type: 'targets' },
+          inputs: ['any'], outputs: ['targets'], category: 'Merge',
+        },
+      }]);
     } else if (type === 'script') {
       const lang = data.language || 'bash';
       const id = nextId('script');
@@ -399,6 +409,20 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         kind: 'payload', label: 'Payload Set',
         params: { payload_types: 'XSS', encodings: 'raw' },
         inputs: [], outputs: ['wordlist'], category: 'Payload',
+      },
+    }]);
+  }
+
+  function addMergeNode() {
+    counterRef.current += 1;
+    const offset = counterRef.current * 24;
+    const position = { x: 140 + (offset % 420), y: 180 + (offset % 260) };
+    setNodes((cur) => [...cur, {
+      id: `merge-${counterRef.current}`, position, type: 'socketNode',
+      data: {
+        kind: 'merge', label: 'Merge & Sort',
+        params: { output_type: 'targets' },
+        inputs: ['any'], outputs: ['targets'], category: 'Merge',
       },
     }]);
   }
@@ -749,6 +773,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onAddVariable={addVariableNode}
           onAddOutput={addOutputNode}
           onAddPayload={addPayloadNode}
+          onAddMerge={addMergeNode}
           onLoadWorkflow={handleLoadWorkflow}
         />
         <Canvas

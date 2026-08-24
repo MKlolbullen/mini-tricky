@@ -418,6 +418,13 @@ else
   go install github.com/s0md3v/smap/cmd/smap@latest
 fi
 
+if command -v nrich >/dev/null 2>&1; then
+  skip "nrich" "$(command -v nrich)"
+else
+  log "Installing nrich (nrich)"
+  cargo install nrich
+fi
+
 # ── OSINT ───────────────────────────────────────────────────────
 if command -v theHarvester >/dev/null 2>&1; then
   skip "theHarvester" "$(command -v theHarvester)"
@@ -459,6 +466,20 @@ if command -v gitdorker >/dev/null 2>&1; then
 else
   log "Installing GitDorker (gitdorker)"
   git clone https://github.com/obheda12/GitDorker && pip install -r GitDorker/requirements.txt
+fi
+
+if command -v github-endpoints >/dev/null 2>&1; then
+  skip "GitHub Endpoints" "$(command -v github-endpoints)"
+else
+  log "Installing GitHub Endpoints (github-endpoints)"
+  go install github.com/gwen001/github-endpoints@latest
+fi
+
+if command -v gitlab-subdomains >/dev/null 2>&1; then
+  skip "GitLab Subdomains" "$(command -v gitlab-subdomains)"
+else
+  log "Installing GitLab Subdomains (gitlab-subdomains)"
+  go install github.com/gwen001/gitlab-subdomains@latest
 fi
 
 # ── Params ──────────────────────────────────────────────────────
@@ -652,6 +673,34 @@ else
   go install github.com/hakluke/hakip2host@latest
 fi
 
+if command -v bbot >/dev/null 2>&1; then
+  skip "BBOT" "$(command -v bbot)"
+else
+  log "Installing BBOT (bbot)"
+  pipx install bbot
+fi
+
+if command -v crtsh >/dev/null 2>&1; then
+  skip "crt.sh" "$(command -v crtsh)"
+else
+  log "Installing crt.sh (crtsh)"
+  pipx install crtsh  # or query https://crt.sh directly
+fi
+
+if command -v massdns >/dev/null 2>&1; then
+  skip "MassDNS" "$(command -v massdns)"
+else
+  log "Installing MassDNS (massdns)"
+  apt install massdns  # or build from github.com/blechschmidt/massdns
+fi
+
+if command -v csprecon >/dev/null 2>&1; then
+  skip "CSPRecon" "$(command -v csprecon)"
+else
+  log "Installing CSPRecon (csprecon)"
+  go install github.com/edoardottt/csprecon/cmd/csprecon@latest
+fi
+
 # ── SSRF ────────────────────────────────────────────────────────
 if command -v ssrfmap >/dev/null 2>&1; then
   skip "SSRFmap" "$(command -v ssrfmap)"
@@ -738,6 +787,13 @@ if command -v nuclei >/dev/null 2>&1; then
 else
   log "Installing Nuclei Takeover (nuclei)"
   go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+fi
+
+if command -v dnsreaper >/dev/null 2>&1; then
+  skip "DNSReaper" "$(command -v dnsreaper)"
+else
+  log "Installing DNSReaper (dnsreaper)"
+  pipx install dnsReaper  # or docker run punksecurity/dnsreaper
 fi
 
 # ── Utility ─────────────────────────────────────────────────────

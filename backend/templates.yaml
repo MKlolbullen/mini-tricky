@@ -2601,3 +2601,89 @@ templates:
         - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
         - { id: e3, source: tool-1, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
         - { id: e4, source: tool-2, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-subdomain-merge-resolve
+    name: Subdomain Merge & Resolve
+    description: Fan three subdomain sources (Subfinder, Assetfinder, Chaos) into a merge & sort node, probe the deduplicated set with httprobe, and harvest URLs with URLFinder in parallel.
+    category: Recon
+    tags: [subdomains, merge, dedupe, httprobe, wide]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 40, y: 280 } }
+        - { id: tool-1, kind: tool, label: Subfinder, tool_id: subfinder, params: {}, position: { x: 300, y: 120 } }
+        - { id: tool-2, kind: tool, label: Assetfinder, tool_id: assetfinder, params: {}, position: { x: 300, y: 240 } }
+        - { id: tool-3, kind: tool, label: Chaos, tool_id: chaos, params: {}, position: { x: 300, y: 360 } }
+        - { id: merge-0, kind: merge, label: Merge & Sort, params: { output_type: targets }, position: { x: 560, y: 240 } }
+        - { id: tool-4, kind: tool, label: httprobe, tool_id: httprobe, params: {}, position: { x: 820, y: 240 } }
+        - { id: tool-5, kind: tool, label: URLFinder, tool_id: urlfinder, params: {}, position: { x: 300, y: 500 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 1080, y: 320 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: tool-1, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e5, source: tool-2, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e6, source: tool-3, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e7, source: merge-0, target: tool-4, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e8, source: tool-4, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e9, source: variable-1, target: tool-5, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e10, source: tool-5, target: output-1, source_handle: "out:url", target_handle: "in:any" }
+
+  - id: tpl-massive-recon-merge
+    name: Massive Recon Merge
+    description: Fan five passive subdomain sources into one merge & sort node, then resolve with DNSX, probe with HTTPX, and scan the live set with Nuclei.
+    category: Full Pipeline
+    tags: [recon, merge, dedupe, wide, comprehensive]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 40, y: 320 } }
+        - { id: tool-1, kind: tool, label: Subfinder, tool_id: subfinder, params: {}, position: { x: 280, y: 100 } }
+        - { id: tool-2, kind: tool, label: Amass, tool_id: amass, params: {}, position: { x: 280, y: 220 } }
+        - { id: tool-3, kind: tool, label: Assetfinder, tool_id: assetfinder, params: {}, position: { x: 280, y: 340 } }
+        - { id: tool-4, kind: tool, label: Findomain, tool_id: findomain, params: {}, position: { x: 280, y: 460 } }
+        - { id: tool-5, kind: tool, label: Chaos, tool_id: chaos, params: {}, position: { x: 280, y: 580 } }
+        - { id: merge-0, kind: merge, label: Merge & Sort, params: { output_type: targets }, position: { x: 540, y: 320 } }
+        - { id: tool-6, kind: tool, label: DNSX, tool_id: dnsx, params: {}, position: { x: 760, y: 320 } }
+        - { id: tool-7, kind: tool, label: HTTPX, tool_id: httpx, params: {}, position: { x: 980, y: 320 } }
+        - { id: tool-8, kind: tool, label: Nuclei, tool_id: nuclei, params: {}, position: { x: 1200, y: 220 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 1440, y: 320 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: variable-1, target: tool-4, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e5, source: variable-1, target: tool-5, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e6, source: tool-1, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e7, source: tool-2, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e8, source: tool-3, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e9, source: tool-4, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e10, source: tool-5, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e11, source: merge-0, target: tool-6, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e12, source: tool-6, target: tool-7, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e13, source: tool-7, target: tool-8, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e14, source: tool-8, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+        - { id: e15, source: tool-7, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
+
+  - id: tpl-url-merge-fuzz
+    name: URL Merge & Filter
+    description: Collect URLs from GAU, Waybackurls, and URLFinder, merge & deduplicate them (as a url list), then pattern-match interesting endpoints with gf.
+    category: Recon
+    tags: [url, merge, dedupe, gf]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 40, y: 240 } }
+        - { id: tool-1, kind: tool, label: GAU, tool_id: gau, params: {}, position: { x: 300, y: 100 } }
+        - { id: tool-2, kind: tool, label: Waybackurls, tool_id: waybackurls, params: {}, position: { x: 300, y: 220 } }
+        - { id: tool-3, kind: tool, label: URLFinder, tool_id: urlfinder, params: {}, position: { x: 300, y: 340 } }
+        - { id: merge-0, kind: merge, label: Merge & Sort, params: { output_type: url }, position: { x: 560, y: 220 } }
+        - { id: tool-4, kind: tool, label: gf (patterns), tool_id: gf, params: {}, position: { x: 820, y: 220 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 1080, y: 220 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: tool-1, target: merge-0, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e5, source: tool-2, target: merge-0, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e6, source: tool-3, target: merge-0, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e7, source: merge-0, target: tool-4, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e8, source: tool-4, target: output-1, source_handle: "out:url", target_handle: "in:any" }

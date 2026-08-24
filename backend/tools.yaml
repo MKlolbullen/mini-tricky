@@ -3566,3 +3566,105 @@ tools:
         label: Full URLs
         description: Output full candidate URLs for discovered names
         type: flag
+
+  # ── Recon (more subdomain sources & resolution) ────────────
+  - id: bbot
+    name: BBOT
+    category: Recon
+    description: Recursive OSINT engine for subdomains, emails, and web assets
+    inputs: [domain]
+    outputs: [targets, findings]
+    command: [bbot, -t, '{domain}', -f, subdomain-enum, -y, --silent]
+    output_mode: stdout
+    timeout_seconds: 900
+    args:
+      - flag: -f
+        label: Flags
+        description: Module flags to enable (e.g. subdomain-enum,cloud-enum)
+        type: string
+        default: subdomain-enum
+
+  - id: crtsh
+    name: crt.sh
+    category: Recon
+    description: Pull subdomains from certificate transparency logs (crt.sh)
+    inputs: [domain]
+    outputs: [targets]
+    command: [crtsh, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 120
+    args: []
+
+  - id: massdns
+    name: MassDNS
+    category: Recon
+    description: High-performance DNS stub resolver for bulk name resolution
+    inputs: [targets]
+    outputs: [targets]
+    command: [massdns, -r, resolvers.txt, -t, A, -o, S, -q, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -s
+        label: Hashmap Size
+        description: Concurrent lookups (hashmap size)
+        type: int
+        default: '10000'
+
+  - id: csprecon
+    name: CSPRecon
+    category: Recon
+    description: Discover new domains by parsing Content-Security-Policy headers
+    inputs: [targets, url]
+    outputs: [targets]
+    command: [csprecon, -l, '{targets_file}', -s]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  # ── OSINT (code hosting) ───────────────────────────────────
+  - id: github-endpoints
+    name: GitHub Endpoints
+    category: OSINT
+    description: Extract endpoints and URLs referenced across public GitHub code
+    inputs: [domain]
+    outputs: [url]
+    command: [github-endpoints, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: gitlab-subdomains
+    name: GitLab Subdomains
+    category: OSINT
+    description: Discover subdomains referenced across public GitLab projects
+    inputs: [domain]
+    outputs: [targets]
+    command: [gitlab-subdomains, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  # ── Network (IP enrichment) ────────────────────────────────
+  - id: nrich
+    name: nrich
+    category: Network
+    description: Enrich a list of IPs with open ports and CVEs from InternetDB
+    inputs: [targets]
+    outputs: [findings]
+    command: [nrich, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  # ── Takeover ───────────────────────────────────────────────
+  - id: dnsreaper
+    name: DNSReaper
+    category: Takeover
+    description: Scan for subdomain takeover across dozens of signatures
+    inputs: [targets]
+    outputs: [findings]
+    command: [dnsreaper, file, --filename, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args: []
