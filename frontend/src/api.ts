@@ -1,25 +1,40 @@
 import type { Tool, WorkflowRecord, WorkflowVersion, RunRecord, TemplateRecord, ArtifactItem, ArtifactPreview, Health, WsEvent } from './types';
 
-export const apiBase = (window as any).miniTrickyDesktop?.apiBase || 'http://127.0.0.1:5000';
+const desktopBridge = (window as any).miniTricky || (window as any).miniTrickyDesktop;
+export const apiBase = desktopBridge?.apiBase || 'http://127.0.0.1:5000';
+const sessionToken: string = desktopBridge?.sessionToken || '';
 const wsBase = apiBase.replace(/^http/, 'ws');
 
+function authenticatedUrl(rawUrl: string): string {
+  if (!sessionToken) return rawUrl;
+  const url = new URL(rawUrl);
+  url.searchParams.set('mt_token', sessionToken);
+  return url.toString();
+}
+
+async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers || {});
+  if (sessionToken) headers.set('X-Mini-Tricky-Token', sessionToken);
+  return fetch(input.startsWith('http') ? input : `${apiBase}${input}`, { ...init, headers });
+}
+
 export async function fetchHealth(): Promise<Health> {
-  const r = await fetch(`${apiBase}/api/health`);
+  const r = await apiFetch('/api/health');
   return r.json();
 }
 
 export async function fetchTools(): Promise<Tool[]> {
-  const r = await fetch(`${apiBase}/api/tools`);
+  const r = await apiFetch('/api/tools');
   return r.json();
 }
 
 export async function fetchWorkflows(): Promise<WorkflowRecord[]> {
-  const r = await fetch(`${apiBase}/api/workflows`);
+  const r = await apiFetch('/api/workflows');
   return r.json();
 }
 
 export async function saveWorkflow(payload: { id?: string; name: string; graph: any }): Promise<WorkflowRecord> {
-  const r = await fetch(`${apiBase}/api/workflows`, {
+  const r = await apiFetch('/api/workflows', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -28,12 +43,12 @@ export async function saveWorkflow(payload: { id?: string; name: string; graph: 
 }
 
 export async function deleteWorkflow(workflowId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/workflows/${workflowId}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/workflows/${workflowId}`, { method: 'DELETE' });
   return r.json();
 }
 
 export async function validateGraph(graph: any): Promise<any> {
-  const r = await fetch(`${apiBase}/api/workflows/validate`, {
+  const r = await apiFetch('/api/workflows/validate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(graph),
@@ -42,7 +57,7 @@ export async function validateGraph(graph: any): Promise<any> {
 }
 
 export async function createRun(payload: { name: string; workflow: any; max_parallel: number }): Promise<RunRecord> {
-  const r = await fetch(`${apiBase}/api/runs`, {
+  const r = await apiFetch('/api/runs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -51,61 +66,61 @@ export async function createRun(payload: { name: string; workflow: any; max_para
 }
 
 export async function fetchRuns(): Promise<RunRecord[]> {
-  const r = await fetch(`${apiBase}/api/runs`);
+  const r = await apiFetch('/api/runs');
   return r.json();
 }
 
 export async function fetchRun(runId: string): Promise<RunRecord> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}`);
+  const r = await apiFetch(`/api/runs/${runId}`);
   return r.json();
 }
 
 export async function deleteRun(runId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/runs/${runId}`, { method: 'DELETE' });
   return r.json();
 }
 
 export async function cancelRun(runId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}/cancel`, { method: 'POST' });
+  const r = await apiFetch(`/api/runs/${runId}/cancel`, { method: 'POST' });
   return r.json();
 }
 
 export async function fetchRunArtifacts(runId: string): Promise<{ ok: boolean; items: ArtifactItem[] }> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}/artifacts`);
+  const r = await apiFetch(`/api/runs/${runId}/artifacts`);
   return r.json();
 }
 
 export async function fetchArtifactPreview(runId: string, path: string): Promise<ArtifactPreview> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}/artifact-preview?path=${encodeURIComponent(path)}`);
+  const r = await apiFetch(`/api/runs/${runId}/artifact-preview?path=${encodeURIComponent(path)}`);
   return r.json();
 }
 
 export function artifactRawUrl(runId: string, path: string): string {
-  return `${apiBase}/api/runs/${runId}/artifact-raw?path=${encodeURIComponent(path)}`;
+  return authenticatedUrl(`${apiBase}/api/runs/${runId}/artifact-raw?path=${encodeURIComponent(path)}`);
 }
 
 export async function replayNode(runId: string, nodeId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}/replay/${nodeId}`, { method: 'POST' });
+  const r = await apiFetch(`/api/runs/${runId}/replay/${nodeId}`, { method: 'POST' });
   return r.json();
 }
 
 export async function fetchTemplates(): Promise<TemplateRecord[]> {
-  const r = await fetch(`${apiBase}/api/templates`);
+  const r = await apiFetch('/api/templates');
   return r.json();
 }
 
 export async function fetchWorkflowVersions(workflowId: string): Promise<WorkflowVersion[]> {
-  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions`);
+  const r = await apiFetch(`/api/workflows/${workflowId}/versions`);
   return r.json();
 }
 
 export async function restoreWorkflowVersion(workflowId: string, version: number): Promise<WorkflowRecord> {
-  const r = await fetch(`${apiBase}/api/workflows/${workflowId}/versions/${version}/restore`, { method: 'POST' });
+  const r = await apiFetch(`/api/workflows/${workflowId}/versions/${version}/restore`, { method: 'POST' });
   return r.json();
 }
 
 export async function saveAsTemplate(payload: { name: string; description: string; category: string; tags: string[]; graph: any }): Promise<TemplateRecord> {
-  const r = await fetch(`${apiBase}/api/templates`, {
+  const r = await apiFetch('/api/templates', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -121,12 +136,12 @@ export type ToolHealth = {
 };
 
 export async function fetchToolsHealth(): Promise<{ ok: boolean; total: number; installed: number; missing: number; tools: ToolHealth[] }> {
-  const r = await fetch(`${apiBase}/api/tools/health`);
+  const r = await apiFetch('/api/tools/health');
   return r.json();
 }
 
 export async function fetchInstallScript(): Promise<string> {
-  const r = await fetch(`${apiBase}/api/tools/install-script`);
+  const r = await apiFetch('/api/tools/install-script');
   if (!r.ok) throw new Error(`install-script fetch failed: ${r.status}`);
   return r.text();
 }
@@ -141,12 +156,12 @@ export type Profile = {
 };
 
 export async function fetchProfiles(): Promise<Profile[]> {
-  const r = await fetch(`${apiBase}/api/profiles`);
+  const r = await apiFetch('/api/profiles');
   return r.json();
 }
 
 export async function saveProfile(payload: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }): Promise<Profile> {
-  const r = await fetch(`${apiBase}/api/profiles`, {
+  const r = await apiFetch('/api/profiles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -155,7 +170,7 @@ export async function saveProfile(payload: { name: string; description: string; 
 }
 
 export async function updateProfile(profileId: string, payload: { name: string; description: string; tool_overrides: Record<string, Record<string, string>>; env_vars: Record<string, string> }): Promise<Profile> {
-  const r = await fetch(`${apiBase}/api/profiles/${profileId}`, {
+  const r = await apiFetch(`/api/profiles/${profileId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -164,7 +179,7 @@ export async function updateProfile(profileId: string, payload: { name: string; 
 }
 
 export async function deleteProfile(profileId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/profiles/${profileId}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/profiles/${profileId}`, { method: 'DELETE' });
   return r.json();
 }
 
@@ -181,12 +196,12 @@ export type Schedule = {
 };
 
 export async function fetchSchedules(): Promise<Schedule[]> {
-  const r = await fetch(`${apiBase}/api/schedules`);
+  const r = await apiFetch('/api/schedules');
   return r.json();
 }
 
 export async function createSchedule(payload: { workflow_id: string; name: string; cron: string; max_parallel: number; enabled: boolean }): Promise<Schedule> {
-  const r = await fetch(`${apiBase}/api/schedules`, {
+  const r = await apiFetch('/api/schedules', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -195,12 +210,12 @@ export async function createSchedule(payload: { workflow_id: string; name: strin
 }
 
 export async function deleteSchedule(scheduleId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
   return r.json();
 }
 
 export async function toggleSchedule(scheduleId: string): Promise<Schedule> {
-  const r = await fetch(`${apiBase}/api/schedules/${scheduleId}`, { method: 'PATCH' });
+  const r = await apiFetch(`/api/schedules/${scheduleId}`, { method: 'PATCH' });
   return r.json();
 }
 
@@ -209,14 +224,14 @@ export const SECRET_MASK = '•'.repeat(8);
 // ── Normalized Results ──────────────────────────────────────
 
 export async function fetchNormalizedResults(runId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/runs/${runId}/normalized`);
+  const r = await apiFetch(`/api/runs/${runId}/normalized`);
   return r.json();
 }
 
 // ── Report Export ───────────────────────────────────────────
 
 export function reportDownloadUrl(runId: string, format: string = 'markdown'): string {
-  return `${apiBase}/api/runs/${runId}/report?fmt=${format}`;
+  return authenticatedUrl(`${apiBase}/api/runs/${runId}/report?fmt=${encodeURIComponent(format)}`);
 }
 
 // ── Parameter Presets ───────────────────────────────────────
@@ -224,13 +239,13 @@ export function reportDownloadUrl(runId: string, format: string = 'markdown'): s
 export type Preset = { id: string; tool_id: string; name: string; params: Record<string, string>; created_at: string };
 
 export async function fetchPresets(toolId?: string): Promise<Preset[]> {
-  const url = toolId ? `${apiBase}/api/presets?tool_id=${encodeURIComponent(toolId)}` : `${apiBase}/api/presets`;
-  const r = await fetch(url);
+  const url = toolId ? `/api/presets?tool_id=${encodeURIComponent(toolId)}` : '/api/presets';
+  const r = await apiFetch(url);
   return r.json();
 }
 
 export async function savePreset(payload: { tool_id: string; name: string; params: Record<string, string> }): Promise<Preset> {
-  const r = await fetch(`${apiBase}/api/presets`, {
+  const r = await apiFetch('/api/presets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -239,7 +254,7 @@ export async function savePreset(payload: { tool_id: string; name: string; param
 }
 
 export async function deletePreset(presetId: string): Promise<any> {
-  const r = await fetch(`${apiBase}/api/presets/${presetId}`, { method: 'DELETE' });
+  const r = await apiFetch(`/api/presets/${presetId}`, { method: 'DELETE' });
   return r.json();
 }
 
@@ -264,7 +279,7 @@ export async function importMermaid(
   name?: string,
   save?: 'workflow' | 'template',
 ): Promise<MermaidImportResult> {
-  const r = await fetch(`${apiBase}/api/import/mermaid`, {
+  const r = await apiFetch('/api/import/mermaid', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mermaid, name: name || 'Imported workflow', save }),
@@ -273,7 +288,7 @@ export async function importMermaid(
 }
 
 export async function exportMermaid(graph?: WorkflowRecord['graph'], workflowId?: string): Promise<{ ok: boolean; mermaid?: string; error?: string }> {
-  const r = await fetch(`${apiBase}/api/export/mermaid`, {
+  const r = await apiFetch('/api/export/mermaid', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ graph, workflow_id: workflowId }),
@@ -284,7 +299,7 @@ export async function exportMermaid(graph?: WorkflowRecord['graph'], workflowId?
 // ── AI Workflow Generation ──────────────────────────────────
 
 export async function generateWorkflow(prompt: string, scope: string = ''): Promise<any> {
-  const r = await fetch(`${apiBase}/api/generate`, {
+  const r = await apiFetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, scope }),
@@ -299,7 +314,7 @@ export function streamRun(
   onEvent: (event: WsEvent) => void,
   onClose?: () => void,
 ): { cancel: () => void } {
-  const ws = new WebSocket(`${wsBase}/ws/run`);
+  const ws = new WebSocket(authenticatedUrl(`${wsBase}/ws/run`));
   let closed = false;
 
   ws.onopen = () => {
