@@ -2,7 +2,7 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
 PyYAML==6.0.2
-websockets==14.1
+websockets==17.0.1
 apscheduler==3.10.4
 keyring>=24.0.0
 # ── LLM providers (used lazily by src/llm.py; a provider is only required when selected)
