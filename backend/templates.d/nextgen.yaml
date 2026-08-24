@@ -45,7 +45,7 @@ templates:
   - id: tpl-sbom-vulnerability-review
     name: SBOM Vulnerability Review
     description: Generate a CycloneDX SBOM for a local project directory with Syft and scan the saved SBOM with Grype.
-    category: Secrets
+    category: Supply Chain
     tags: [supply-chain, sbom, syft, grype, sca, local]
     graph:
       nodes:
