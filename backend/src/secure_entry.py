@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import os
 import secrets
-from typing import Any
 from urllib.parse import parse_qs
 
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .main import app
 
@@ -38,7 +38,7 @@ def _configured_origins() -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def _query_token(scope: dict[str, Any]) -> str:
+def _query_token(scope: Scope) -> str:
     raw = scope.get("query_string", b"")
     try:
         values = parse_qs(raw.decode("utf-8"), keep_blank_values=False).get(TOKEN_QUERY, [])
@@ -47,7 +47,7 @@ def _query_token(scope: dict[str, Any]) -> str:
     return values[0] if values else ""
 
 
-def _header_token(scope: dict[str, Any]) -> str:
+def _header_token(scope: Scope) -> str:
     for name, value in scope.get("headers", []):
         if name.lower() == TOKEN_HEADER:
             try:
@@ -65,30 +65,30 @@ class SessionAuthMiddleware:
     constructors and direct download links cannot attach arbitrary headers.
     """
 
-    def __init__(self, app: Any, token: str = "") -> None:
+    def __init__(self, app: ASGIApp, token: str = "") -> None:
         self.app = app
         self.token = token
 
-    def _protected(self, scope: dict[str, Any]) -> bool:
+    def _protected(self, scope: Scope) -> bool:
         path = str(scope.get("path", ""))
         return path.startswith("/api") or path.startswith("/ws")
 
-    def _authorized(self, scope: dict[str, Any]) -> bool:
+    def _authorized(self, scope: Scope) -> bool:
         if not self.token or not self._protected(scope):
             return True
         candidate = _header_token(scope) or _query_token(scope)
         return bool(candidate) and secrets.compare_digest(candidate, self.token)
 
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self._authorized(scope):
             await self.app(scope, receive, send)
             return
 
-        if scope.get("type") == "websocket":
+        if scope["type"] == "websocket":
             await send({"type": "websocket.close", "code": 4401, "reason": "Unauthorized"})
             return
 
-        if scope.get("type") == "http":
+        if scope["type"] == "http":
             body = b'{"detail":"Unauthorized local API request"}'
             await send(
                 {
