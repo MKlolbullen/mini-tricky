@@ -19,6 +19,8 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, HTTPException, Query
 
+from .catalog_extensions import extension_capability_policy, merge_capability_policy
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 CAPABILITIES_FILE = BASE_DIR / "capabilities.yaml"
 
@@ -29,12 +31,13 @@ router = APIRouter(prefix="/api/capabilities", tags=["capabilities"])
 
 
 def load_policy() -> dict[str, Any]:
-    if not CAPABILITIES_FILE.exists():
-        return {"version": 1, "category_defaults": {}, "tools": {}}
-    raw = yaml.safe_load(CAPABILITIES_FILE.read_text(encoding="utf-8")) or {}
-    if not isinstance(raw, dict):
-        raise ValueError("capabilities.yaml must contain a mapping")
-    return raw
+    if CAPABILITIES_FILE.exists():
+        raw = yaml.safe_load(CAPABILITIES_FILE.read_text(encoding="utf-8")) or {}
+        if not isinstance(raw, dict):
+            raise ValueError("capabilities.yaml must contain a mapping")
+    else:
+        raw = {"version": 1, "category_defaults": {}, "tools": {}}
+    return merge_capability_policy(raw, extension_capability_policy())
 
 
 def _tool_catalog() -> list[Any]:
