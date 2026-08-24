@@ -1,0 +1,71 @@
+name: New tool integration
+description: Propose a security tool for the typed catalog
+title: "[tool] "
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Tool name
+    validations:
+      required: true
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream repository / project
+      placeholder: https://github.com/owner/project
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License
+      placeholder: MIT, Apache-2.0, GPL-3.0, ...
+    validations:
+      required: true
+  - type: textarea
+    id: capability
+    attributes:
+      label: Capability
+      description: What new operator capability does this add, and why is it not redundant with an existing integration?
+    validations:
+      required: true
+  - type: textarea
+    id: install
+    attributes:
+      label: Installation
+      description: Executable name plus idempotent install approaches for supported platforms.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Typed contract
+      description: Proposed category, input sockets, output sockets, artifact/output mode, and timeout behavior.
+      placeholder: |
+        category: Recon
+        inputs: [domain]
+        outputs: [targets]
+        output_mode: stdout
+    validations:
+      required: true
+  - type: textarea
+    id: args
+    attributes:
+      label: Important CLI arguments
+      description: List the real flags that should become typed inspector controls. Include default/safety-relevant flags.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Secrets, runtimes, and platform limits
+      description: API keys/environment variables, Docker/browser/runtime requirements, supported OSes, architecture limitations, etc.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Minimal validation
+      description: A harmless local/help/version command or test fixture that can verify the integration.
+      render: shell
+    validations:
+      required: true
