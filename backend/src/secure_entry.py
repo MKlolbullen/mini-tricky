@@ -111,6 +111,11 @@ class SessionAuthMiddleware:
 # replace it with the local UI origins accepted by the secure entrypoint.
 app.user_middleware = [item for item in app.user_middleware if item.cls is not CORSMiddleware]
 app.middleware_stack = None
+
+# Authentication is installed first so the CORS layer added below becomes the
+# outer middleware. That lets valid browser preflight OPTIONS requests complete
+# without needing to carry the actual session token.
+app.add_middleware(SessionAuthMiddleware, token=os.environ.get(TOKEN_ENV, ""))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_configured_origins(),
@@ -118,4 +123,3 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-Mini-Tricky-Token"],
 )
-app.add_middleware(SessionAuthMiddleware, token=os.environ.get(TOKEN_ENV, ""))
