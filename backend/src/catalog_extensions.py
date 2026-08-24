@@ -182,6 +182,10 @@ def install_catalog_extensions(main_module: Any) -> None:
         if existing is not None and existing != hint:
             raise ValueError(f"extension install hint collides with core catalog: {binary}")
 
+    # Keep the immutable core loader seams available to validation/generation
+    # code that needs to reason about the legacy catalog separately from packs.
+    main_module._catalog_core_load_tools = base_load_tools
+    main_module._catalog_core_load_templates = base_load_templates
     main_module.load_tools = load_tools
     main_module.load_builtin_templates = load_builtin_templates
     main_module.INSTALL_HINTS.update(install_hints)
