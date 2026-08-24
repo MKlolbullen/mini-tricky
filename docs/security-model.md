@@ -80,7 +80,9 @@ Trusted application-menu actions may still open known local/API documentation an
 
 ## Content Security Policy
 
-Packaged Electron responses receive a restrictive CSP intended to prevent remote script/object execution and constrain network connections to the local backend. Development mode does not inject the production CSP because Vite HMR requires a different policy.
+Packaged Electron responses receive a restrictive CSP intended to prevent arbitrary remote script/object execution and constrain network connections to known destinations. Development mode does not inject the production CSP because Vite HMR requires a different policy.
+
+The current frontend uses `@monaco-editor/react`, whose default loader downloads Monaco's AMD assets from jsDelivr. Until Monaco is bundled into the application, the production CSP contains a **narrow compatibility exception for `https://cdn.jsdelivr.net`** plus `blob:` workers. This is intentionally not a general `https:` allowance. Bundling Monaco locally is the preferred follow-up because it removes this remaining UI-time network dependency and lets the CSP return to `script-src 'self'`.
 
 Any new frontend runtime that requires workers, remote assets, frames, or additional network destinations should update the CSP deliberately and include a regression test where practical.
 
