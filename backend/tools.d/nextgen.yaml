@@ -1,0 +1,105 @@
+tools:
+  - id: uncover
+    name: Uncover
+    category: OSINT
+    description: Query multiple internet-search engines for exposed hosts and feed the results into typed recon pipelines.
+    icon: uncover
+    inputs: [query]
+    outputs: [targets]
+    command: [uncover, -q, "{query}", -silent]
+    output_mode: stdout
+    timeout_seconds: 180
+    args:
+      - flag: -e
+        label: Engines
+        description: Comma-separated search engines (for example shodan,censys,fofa,netlas).
+        type: string
+      - flag: -f
+        label: Output field
+        description: Output field/format such as ip, host, port, or ip:port.
+        type: string
+        default: ip:port
+      - flag: -l
+        label: Result limit
+        description: Maximum results returned by each query.
+        type: int
+        default: "100"
+      - flag: -timeout
+        label: Timeout
+        description: Provider request timeout in seconds.
+        type: int
+        default: "30"
+      - flag: -retry
+        label: Retries
+        description: Number of retries for failed provider requests.
+        type: int
+        default: "2"
+      - flag: -rl
+        label: Rate limit
+        description: Maximum provider HTTP requests per second.
+        type: int
+      - flag: -proxy
+        label: Proxy
+        description: HTTP proxy for provider API requests.
+        type: string
+      - flag: -j
+        label: JSONL output
+        description: Emit JSON Lines instead of the selected text field.
+        type: flag
+
+  - id: syft
+    name: Syft
+    category: Secrets
+    description: Generate a CycloneDX JSON software bill of materials from a local project directory.
+    icon: syft
+    inputs: [folder]
+    outputs: [sbom]
+    command: [syft, "{folder}", -o, cyclonedx-json]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --scope
+        label: Scope
+        description: Package selection scope supported by the installed Syft version.
+        type: string
+      - flag: --exclude
+        label: Exclude
+        description: Exclude paths or patterns from cataloging.
+        type: string
+      - flag: -q
+        label: Quiet
+        description: Suppress non-result logging.
+        type: flag
+
+  - id: grype
+    name: Grype
+    category: Vulnerability
+    description: Scan a Syft/CycloneDX SBOM for known vulnerabilities and emit normalized JSON source data.
+    icon: grype
+    inputs: [sbom]
+    outputs: [findings]
+    command: [grype, "sbom:{sbom_file}", -o, json]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --fail-on
+        label: Fail severity
+        description: Return non-zero when vulnerabilities at or above this severity are present.
+        type: string
+      - flag: --only-fixed
+        label: Only fixed
+        description: Report only vulnerabilities with an available fix.
+        type: flag
+      - flag: --ignore-wont-fix
+        label: Ignore won't-fix
+        description: Ignore vulnerabilities explicitly marked won't-fix where supported.
+        type: flag
+      - flag: -q
+        label: Quiet
+        description: Suppress non-result logging.
+        type: flag
+
+install_hints:
+  uncover: go install -v github.com/projectdiscovery/uncover/cmd/uncover@latest
+  syft: curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
+  grype: curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin
