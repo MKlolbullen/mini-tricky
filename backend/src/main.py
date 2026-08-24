@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import html
 import json
 import logging
 import mimetypes
 import subprocess
+import urllib.parse
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
@@ -26,6 +28,13 @@ logger = logging.getLogger("mini_tricky")
 BASE_DIR = Path(__file__).resolve().parent.parent
 TOOLS_FILE = BASE_DIR / "tools.yaml"
 TEMPLATES_FILE = BASE_DIR / "templates.yaml"
+PAYLOADS_DIR = BASE_DIR.parent / "payloads"
+# Payload categories the payload node can emit. The set doubles as an
+# allowlist: only these exact names are ever turned into a "<NAME>.txt" path,
+# so a crafted params value can never traverse out of PAYLOADS_DIR.
+PAYLOAD_TYPES = ("LFI", "XSS", "SQLI", "RCE", "SSRF", "SSTI")
+# Encodings the payload node can apply to each raw payload line.
+PAYLOAD_ENCODINGS = ("raw", "url", "double_url", "base64", "html")
 STATE_DIR = BASE_DIR / "state"
 VERSIONS_DIR = STATE_DIR / "versions"
 ARTIFACTS_DIR = STATE_DIR / "artifacts"
@@ -168,6 +177,9 @@ def node_contract(node: WorkflowNode, tools_by_id: dict[str, Tool]) -> tuple[lis
         return tool.inputs, tool.outputs
     if node.kind == "variable":
         return [], [node.variable_type or "targets"]
+    if node.kind == "payload":
+        # A source node that emits a combined payload list as a wordlist.
+        return [], ["wordlist"]
     if node.kind == "output":
         return ["any"], []
     if node.kind == "script":
@@ -342,6 +354,99 @@ def failed_node_result(
         "stdout_path": str(stdout_path),
         "stderr_path": str(stderr_path),
         "logs": [f"[-] Node {node.id} failed: {reason}"],
+    }
+
+
+def _encode_payload(payload: str, encoding: str) -> str:
+    """Apply a single named encoding to a raw payload line."""
+    if encoding == "url":
+        return urllib.parse.quote(payload, safe="")
+    if encoding == "double_url":
+        return urllib.parse.quote(urllib.parse.quote(payload, safe=""), safe="")
+    if encoding == "base64":
+        return base64.b64encode(payload.encode("utf-8")).decode("ascii")
+    if encoding == "html":
+        return html.escape(payload, quote=True)
+    return payload  # "raw" or unknown → identity
+
+
+def _selected_from_params(raw: str | None, allowed: tuple[str, ...], *, upper: bool) -> list[str]:
+    """Parse a comma-joined params value into an ordered, validated subset of ``allowed``."""
+    if not raw:
+        return []
+    seen: list[str] = []
+    for token in raw.split(","):
+        name = token.strip()
+        if not name:
+            continue
+        name = name.upper() if upper else name.lower()
+        if name in allowed and name not in seen:
+            seen.append(name)
+    return seen
+
+
+def execute_payload_node(node: WorkflowNode, node_dir: Path) -> dict[str, Any]:
+    """Emit a combined payload wordlist from the selected categories and encodings.
+
+    ``params`` carries two comma-joined strings: ``payload_types`` (a subset of
+    :data:`PAYLOAD_TYPES`) and ``encodings`` (a subset of
+    :data:`PAYLOAD_ENCODINGS`). Only names on those allowlists are honored, so a
+    crafted value cannot read files outside ``PAYLOADS_DIR``.
+    """
+    types = _selected_from_params(node.params.get("payload_types"), PAYLOAD_TYPES, upper=True)
+    encodings = _selected_from_params(node.params.get("encodings"), PAYLOAD_ENCODINGS, upper=False) or ["raw"]
+    if not types:
+        return failed_node_result(node, node_dir, f"Payload node {node.id} has no payload types selected.")
+
+    raw_lines: list[str] = []
+    missing: list[str] = []
+    for ptype in types:
+        payload_file = PAYLOADS_DIR / f"{ptype}.txt"
+        if not payload_file.exists():
+            missing.append(ptype)
+            continue
+        for line in payload_file.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                raw_lines.append(line)
+
+    if not raw_lines:
+        return failed_node_result(
+            node,
+            node_dir,
+            f"Payload node {node.id}: no payloads found (missing files: {', '.join(missing) or 'none'}).",
+        )
+
+    combined: list[str] = []
+    seen: set[str] = set()
+    for payload in raw_lines:
+        for encoding in encodings:
+            encoded = _encode_payload(payload, encoding)
+            if encoded not in seen:
+                seen.add(encoded)
+                combined.append(encoded)
+
+    body = "\n".join(combined) + "\n"
+    artifact_file = node_dir / "wordlist.txt"
+    stdout_path = node_dir / "stdout.log"
+    stderr_path = node_dir / "stderr.log"
+    write_text(artifact_file, body)
+    write_text(stdout_path, body)
+    write_text(stderr_path, "")
+    logs = [f"[+] Payload node {node.id}: {len(combined)} payloads ({'+'.join(types)} x {'+'.join(encodings)})."]
+    if missing:
+        logs.append(f"[!] Skipped payload types with no file: {', '.join(missing)}.")
+    return {
+        "node_id": node.id,
+        "status": "success",
+        "command": [],
+        "exit_code": 0,
+        "artifact_paths": [str(artifact_file)],
+        "outputs": {"wordlist": str(artifact_file)},
+        "stdout_preview": truncate_text(body),
+        "stderr_preview": "",
+        "stdout_path": str(stdout_path),
+        "stderr_path": str(stderr_path),
+        "logs": logs,
     }
 
 
@@ -906,6 +1011,8 @@ def execute_node(
 
     if node.kind == "variable":
         return execute_variable_node(node, node_dir)
+    if node.kind == "payload":
+        return execute_payload_node(node, node_dir)
     if node.kind == "output":
         return execute_output_node(node, node_dir, incoming_edges, output_values)
     if node.kind == "tool":
@@ -2503,6 +2610,19 @@ INSTALL_HINTS: dict[str, str] = {
     "retire": "npm install -g retire",
     # Static analysis
     "semgrep": "pip install semgrep",
+    # Probing / URL discovery / crawling
+    "httprobe": "go install github.com/tomnomnom/httprobe@latest",
+    "urlfinder": "go install github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest",
+    "hakip2host": "go install github.com/hakluke/hakip2host@latest",
+    "cariddi": "go install github.com/edoardottt/cariddi/cmd/cariddi@latest",
+    "dsieve": "go install github.com/trickest/dsieve@latest",
+    "dnsvalidator": "pip install dnsvalidator",
+    # OSINT (GitHub)
+    "github-subdomains": "go install github.com/gwen001/github-subdomains@latest",
+    "gitdorker": "git clone https://github.com/obheda12/GitDorker && pip install -r GitDorker/requirements.txt",
+    # Vulnerability / enumeration
+    "ppfuzz": "cargo install ppfuzz",
+    "shortscan": "go install github.com/bitquark/shortscan/cmd/shortscan@latest",
 }
 
 

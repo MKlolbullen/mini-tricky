@@ -12,6 +12,9 @@ export const TOOL_GLYPHS: Record<string, string> = {
   gowitness: '\u{1F4F8}', aquatone: '\u{1F4A7}',
   // Network (extended)
   mapcidr: '\u{1F5FA}', cdncheck: '\u{1F6E1}', smap: '\u{1F4E1}',
+  httprobe: '\u{1F4E1}', urlfinder: '\u{1F517}', hakip2host: '\u{1F503}', dsieve: '\u{1FA9C}',
+  dnsvalidator: '\u{2705}', 'github-subdomains': '\u{1F419}', gitdorker: '\u{1F50E}', cariddi: '\u{1F30A}',
+  ppfuzz: '\u{1F9EC}', shortscan: '\u{1F4CF}',
   // Enumeration
   gobuster: '\u{1F528}', dirsearch: '\u{1F4C1}', feroxbuster: '\u{1F980}', wfuzz: '\u{1F300}',
   // Vulnerability

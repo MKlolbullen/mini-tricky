@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATEGORY_COLORS, CATEGORY_ICONS, SOCKET_COLORS, socketColor, variableCatalog, outputCatalog } from '../types';
+import { CATEGORY_COLORS, CATEGORY_ICONS, SOCKET_COLORS, socketColor, variableCatalog, outputCatalog, PAYLOAD_TYPES, PAYLOAD_ENCODINGS } from '../types';
 
 describe('CATEGORY_COLORS', () => {
   it('has entries for all advertised categories', () => {
@@ -65,5 +65,26 @@ describe('outputCatalog', () => {
   it('has a single any-typed artifacts entry', () => {
     expect(outputCatalog).toHaveLength(1);
     expect(outputCatalog[0].type).toBe('any');
+  });
+});
+
+describe('payload node config', () => {
+  it('offers the six payload categories', () => {
+    expect([...PAYLOAD_TYPES]).toEqual(['LFI', 'XSS', 'SQLI', 'RCE', 'SSRF', 'SSTI']);
+  });
+
+  it('offers raw plus encoding options with keys and labels', () => {
+    const keys = PAYLOAD_ENCODINGS.map((e) => e.key);
+    expect(keys).toContain('raw');
+    expect(keys).toContain('url');
+    expect(keys).toContain('base64');
+    for (const enc of PAYLOAD_ENCODINGS) {
+      expect(enc.label.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has a Payload category color and icon', () => {
+    expect(CATEGORY_COLORS.Payload).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(CATEGORY_ICONS.Payload.length).toBeGreaterThan(0);
   });
 });

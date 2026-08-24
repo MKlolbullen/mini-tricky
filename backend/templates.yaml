@@ -2546,3 +2546,58 @@ templates:
         - { id: e12, source: tool-3, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
         - { id: e13, source: tool-5, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
         - { id: e14, source: tool-9, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
+
+  - id: tpl-payload-injection-fuzz
+    name: Payload Injection Fuzz
+    description: Fuzz target URLs with a curated payload set — pick LFI/XSS/SQLI/RCE/SSRF/SSTI categories and encodings on the payload node, feeding FFUF as the wordlist.
+    category: Fuzzing
+    tags: [payload, fuzzing, ffuf, injection, lfi, xss, sqli]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Target URLs, variable_type: targets, value: "", params: {}, position: { x: 80, y: 120 } }
+        - { id: payload-1, kind: payload, label: Payload Set, params: { payload_types: "XSS,SQLI,LFI", encodings: "raw,url" }, position: { x: 80, y: 300 } }
+        - { id: tool-1, kind: tool, label: FFUF, tool_id: ffuf, params: {}, position: { x: 440, y: 200 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 760, y: 200 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e2, source: payload-1, target: tool-1, source_handle: "out:wordlist", target_handle: "in:wordlist" }
+        - { id: e3, source: tool-1, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-endpoint-harvest
+    name: Endpoint Harvest
+    description: Wide URL harvesting — pull endpoints from URLFinder, GAU, and Waybackurls in parallel, then crawl the archive URLs with Cariddi to surface secrets.
+    category: Recon
+    tags: [urls, harvest, urlfinder, cariddi, wide]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 60, y: 260 } }
+        - { id: tool-1, kind: tool, label: URLFinder, tool_id: urlfinder, params: {}, position: { x: 340, y: 80 } }
+        - { id: tool-2, kind: tool, label: GAU, tool_id: gau, params: {}, position: { x: 340, y: 220 } }
+        - { id: tool-3, kind: tool, label: Waybackurls, tool_id: waybackurls, params: {}, position: { x: 340, y: 360 } }
+        - { id: tool-4, kind: tool, label: Cariddi, tool_id: cariddi, params: {}, position: { x: 640, y: 220 } }
+        - { id: output-1, kind: output, label: Endpoints, params: {}, position: { x: 940, y: 220 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: variable-1, target: tool-3, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e4, source: tool-2, target: tool-4, source_handle: "out:url", target_handle: "in:url" }
+        - { id: e5, source: tool-1, target: output-1, source_handle: "out:url", target_handle: "in:any" }
+        - { id: e6, source: tool-3, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e7, source: tool-4, target: output-1, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-github-recon
+    name: GitHub Recon
+    description: Mine public GitHub for exposed attack surface — subdomains referenced in code and secrets surfaced by dork searches.
+    category: OSINT
+    tags: [osint, github, subdomains, dorks, secrets]
+    graph:
+      nodes:
+        - { id: variable-1, kind: variable, label: Domain Input, variable_type: domain, value: "", params: {}, position: { x: 80, y: 200 } }
+        - { id: tool-1, kind: tool, label: GitHub Subdomains, tool_id: github-subdomains, params: {}, position: { x: 400, y: 100 } }
+        - { id: tool-2, kind: tool, label: GitDorker, tool_id: gitdorker, params: {}, position: { x: 400, y: 300 } }
+        - { id: output-1, kind: output, label: Artifacts, params: {}, position: { x: 720, y: 200 } }
+      edges:
+        - { id: e1, source: variable-1, target: tool-1, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e2, source: variable-1, target: tool-2, source_handle: "out:domain", target_handle: "in:domain" }
+        - { id: e3, source: tool-1, target: output-1, source_handle: "out:targets", target_handle: "in:any" }
+        - { id: e4, source: tool-2, target: output-1, source_handle: "out:findings", target_handle: "in:any" }

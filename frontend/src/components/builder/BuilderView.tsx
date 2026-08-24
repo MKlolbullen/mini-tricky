@@ -78,7 +78,7 @@ function graphToNodes(workflow: WorkflowRecord): FlowNode[] {
       variableType: n.variable_type || undefined, value: n.value || '',
       params: n.params || {},
       inputs: n.kind === 'tool' ? [] : n.kind === 'output' ? ['any'] : n.kind === 'condition' ? ['targets'] : n.kind === 'loop' ? ['targets'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
-      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'condition' ? ['pass', 'fail'] : n.kind === 'loop' ? ['item'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
+      outputs: n.kind === 'variable' ? [n.variable_type || 'targets'] : n.kind === 'payload' ? ['wordlist'] : n.kind === 'condition' ? ['pass', 'fail'] : n.kind === 'loop' ? ['item'] : (n.kind === 'script' || n.kind === 'module') ? ['targets'] : [],
       runState: undefined,
       scriptLanguage: (n.script_language as 'bash' | 'python') || undefined,
       scriptBody: n.script_body || undefined,
@@ -299,6 +299,16 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
         id, position, type: 'socketNode',
         data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
       }]);
+    } else if (type === 'payload') {
+      const id = nextId('payload');
+      setNodes((cur) => [...cur, {
+        id, position, type: 'socketNode',
+        data: {
+          kind: 'payload', label: 'Payload Set',
+          params: { payload_types: 'XSS', encodings: 'raw' },
+          inputs: [], outputs: ['wordlist'], category: 'Payload',
+        },
+      }]);
     } else if (type === 'script') {
       const lang = data.language || 'bash';
       const id = nextId('script');
@@ -376,6 +386,20 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
     setNodes((cur) => [...cur, {
       id: `output-${counterRef.current}`, position, type: 'socketNode',
       data: { kind: 'output', label: 'Artifacts', params: {}, inputs: ['any'], outputs: [] },
+    }]);
+  }
+
+  function addPayloadNode() {
+    counterRef.current += 1;
+    const offset = counterRef.current * 24;
+    const position = { x: 140 + (offset % 420), y: 180 + (offset % 260) };
+    setNodes((cur) => [...cur, {
+      id: `payload-${counterRef.current}`, position, type: 'socketNode',
+      data: {
+        kind: 'payload', label: 'Payload Set',
+        params: { payload_types: 'XSS', encodings: 'raw' },
+        inputs: [], outputs: ['wordlist'], category: 'Payload',
+      },
     }]);
   }
 
@@ -724,6 +748,7 @@ export default function BuilderView({ tools, savedWorkflows, onRefreshWorkflows,
           onAddTool={addToolNode}
           onAddVariable={addVariableNode}
           onAddOutput={addOutputNode}
+          onAddPayload={addPayloadNode}
           onLoadWorkflow={handleLoadWorkflow}
         />
         <Canvas
