@@ -7,6 +7,11 @@ export const TOOL_GLYPHS: Record<string, string> = {
   // Recon / DNS
   subfinder: '\u{1F50E}', httpx: '\u{1F310}', amass: '\u{1F5FA}', assetfinder: '\u{1F9ED}',
   findomain: '\u{1F30D}', dnsx: '\u{1F9EC}', shuffledns: '\u{1F500}', chaos: '\u{1F32A}',
+  puredns: '\u{1F9F9}', alterx: '\u{1F504}', dnsgen: '\u{1F9EC}', gotator: '\u{1F3B0}',
+  tlsx: '\u{1F4DC}', asnmap: '\u{1F5FA}', cero: '\u{1F4DC}', wappalyzer: '\u{1F9F1}',
+  gowitness: '\u{1F4F8}', aquatone: '\u{1F4A7}',
+  // Network (extended)
+  mapcidr: '\u{1F5FA}', cdncheck: '\u{1F6E1}', smap: '\u{1F4E1}',
   // Enumeration
   gobuster: '\u{1F528}', dirsearch: '\u{1F4C1}', feroxbuster: '\u{1F980}', wfuzz: '\u{1F300}',
   // Vulnerability
@@ -42,6 +47,11 @@ export const TOOL_GLYPHS: Record<string, string> = {
   shcheck: '\u{1F4CB}', hakcheckurl: '\u{2714}',
   // JS Analysis
   linkfinder: '\u{1F517}', secretfinder: '\u{1F510}', getjs: '\u{1F4DC}', subjs: '\u{1F4C3}',
+  jsluice: '\u{1F9C3}', mantra: '\u{1F9FF}', xnlinkfinder: '\u{1F578}',
+  // GraphQL / API (extended)
+  graphw00f: '\u{1F43A}', 'graphql-cop': '\u{1F46E}', clairvoyance: '\u{1F52E}',
+  // Vulnerability (extended)
+  gxss: '\u{1FA9E}', kxss: '\u{26A1}', smuggler: '\u{1F4E6}', retire: '\u{1F4DA}', semgrep: '\u{1F9EA}',
   // Wordlist
   cewl: '\u{1F4D6}', wordlister: '\u{1F4DD}',
   // Cloud

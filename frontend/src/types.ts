@@ -219,10 +219,35 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Secrets: '\u{1F510}',
 };
 
+// Per-socket-type colors, shared by the canvas nodes (SocketNode) and the
+// argument inspector so a given data type reads the same everywhere. Keep this
+// as the single source of truth — importers should not redefine it.
+export const SOCKET_COLORS: Record<string, string> = {
+  domain: '#5b8cff', // blue
+  targets: '#43d9ad', // teal — hosts/IPs/mixed target lists
+  url: '#38bdf8', // sky blue — URL lists
+  wordlist: '#ffcf5b', // gold
+  file: '#ff9f43', // orange — a single file artifact
+  folder: '#ffd43a', // yellow — a directory of artifacts
+  findings: '#ff5b6c', // red
+  any: '#b47cff', // purple — aggregation sink
+  pass: '#43d9ad',
+  fail: '#ff5b6c',
+  item: '#ffcf5b',
+};
+
+/** Color for a socket type, falling back to a neutral cyan for unknown types. */
+export function socketColor(name: string): string {
+  return SOCKET_COLORS[name] || '#63e6ff';
+}
+
 export const variableCatalog = [
   { label: 'Domain Input', type: 'domain' },
   { label: 'Target List', type: 'targets' },
+  { label: 'URL Input', type: 'url' },
   { label: 'Wordlist', type: 'wordlist' },
+  { label: 'File Input', type: 'file' },
+  { label: 'Folder Input', type: 'folder' },
 ];
 
 export const outputCatalog = [{ label: 'Artifacts', type: 'any' }];

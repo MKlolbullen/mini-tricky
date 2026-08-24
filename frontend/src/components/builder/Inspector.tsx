@@ -1,26 +1,10 @@
 import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion, WorkflowRecord } from '../../types';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
+import { CATEGORY_COLORS, CATEGORY_ICONS, socketColor } from '../../types';
 import { toolGlyph } from '../../toolIcons';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
 import type { Edge } from '@xyflow/react';
-
-/** Color map for socket data types (matches SocketNode) */
-const SOCKET_COLORS: Record<string, string> = {
-  domain: '#5b8cff',
-  targets: '#43d9ad',
-  wordlist: '#ffcf5b',
-  findings: '#ff5b6c',
-  any: '#b47cff',
-  pass: '#43d9ad',
-  fail: '#ff5b6c',
-  item: '#ffcf5b',
-};
-
-function socketColor(name: string): string {
-  return SOCKET_COLORS[name] || '#63e6ff';
-}
 
 type Props = {
   selectedNode: FlowNode | null;
