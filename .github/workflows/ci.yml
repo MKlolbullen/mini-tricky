@@ -52,6 +52,23 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+  electron-shell:
+    name: Electron shell syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Parse Electron main/preload
+        run: |
+          node --check electron/main.cjs
+          node --check electron/preload.cjs
+
   backend:
     name: Backend (${{ matrix.step }})
     runs-on: ubuntu-latest
