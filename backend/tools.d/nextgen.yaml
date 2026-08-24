@@ -78,10 +78,6 @@ tools:
     output_mode: stdout
     timeout_seconds: 600
     args:
-      - flag: --fail-on
-        label: Fail severity
-        description: Return non-zero when vulnerabilities at or above this severity are present.
-        type: string
       - flag: --only-fixed
         label: Only fixed
         description: Report only vulnerabilities with an available fix.
