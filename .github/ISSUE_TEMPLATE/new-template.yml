@@ -1,0 +1,50 @@
+name: New workflow template
+description: Propose a reusable typed workflow
+title: "[template] "
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Template name
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What authorized assessment or analysis task should this workflow complete?
+    validations:
+      required: true
+  - type: textarea
+    id: flow
+    attributes:
+      label: Proposed graph
+      description: Mermaid is preferred. Show the major stages and artifact boundaries.
+      render: mermaid
+    validations:
+      required: true
+  - type: textarea
+    id: contracts
+    attributes:
+      label: Inputs / outputs
+      description: Required variables or profiles, important socket types, and final artifacts.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Execution behavior
+      description: Note parallel branches, merge/deduplication, conditions, rate assumptions, and resource-heavy stages.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Template rules
+      options:
+        - label: Targets are provided through variables or profiles rather than hard-coded.
+          required: true
+        - label: Fan-in is modeled explicitly with an appropriate merge node.
+          required: true
+        - label: Default behavior is suitable for an authorized workflow and avoids unexpected side effects.
+          required: true
+        - label: The workflow produces useful artifacts at meaningful stage boundaries.
+          required: true

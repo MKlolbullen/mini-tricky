@@ -2,35 +2,30 @@
   <img src="build/icon.png" alt="mini-tricky" width="112" />
   <br />
   mini-tricky
-  <br />
 </h1>
 
 <p align="center">
-  <strong>A local-first, Trickest-style workspace for offensive-security automation.</strong>
+  <strong>Local-first visual workflow automation for authorized offensive security.</strong>
   <br />
-  Visual DAG editor &middot; <b>88 security tools</b> &middot; 21 categories &middot; 20 ready-to-run templates &middot; live streaming execution &middot; Mermaid ⇄ workflow &middot; zero cloud dependency
+  Build typed recon, web, API, cloud, network, and analysis pipelines as runnable DAGs — without turning your terminal history into an archaeological site.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Electron-47848F?logo=electron&logoColor=white" alt="Electron" />
-  <img src="https://img.shields.io/badge/frontend-React%20%2B%20React%20Flow-61DAFB?logo=react&logoColor=111827" alt="React" />
-  <img src="https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/tools-88%20integrated-blueviolet" alt="88 Tools" />
-  <img src="https://img.shields.io/badge/templates-20%20built--in-ff66c4" alt="20 Templates" />
-  <img src="https://img.shields.io/badge/secrets-OS%20keychain-0ea5e9" alt="OS keychain secrets" />
-  <img src="https://img.shields.io/badge/mermaid-import%20%E2%87%84%20export-FF3670?logo=mermaid&logoColor=white" alt="Mermaid import/export" />
-  <img src="https://img.shields.io/badge/version-0.4.0--beta-orange" alt="v0.4.0-beta" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+  <a href="https://github.com/MKlolbullen/mini-tricky/actions/workflows/ci.yml"><img src="https://github.com/MKlolbullen/mini-tricky/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/MKlolbullen/mini-tricky/releases"><img src="https://img.shields.io/github/v/release/MKlolbullen/mini-tricky?include_prereleases&label=release" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/Electron-desktop-47848F?logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=111827" alt="React" />
+  <img src="https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" /></a>
 </p>
 
 <p align="center">
-  <a href="#download">Download</a> &middot;
-  <a href="#-a-guided-tour">Tour</a> &middot;
-  <a href="#features">Features</a> &middot;
-  <a href="#quick-start">Quick Start</a> &middot;
-  <a href="#architecture">Architecture</a> &middot;
-  <a href="#api-reference">API</a> &middot;
-  <a href="#roadmap">Roadmap</a>
+  <a href="#download">Download</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#what-you-can-build">Workflows</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#security-model">Security</a> ·
+  <a href="#development">Development</a>
 </p>
 
 ---
@@ -38,636 +33,473 @@
 <p align="center">
   <img src="docs/screenshots/builder.png" alt="mini-tricky workflow builder" width="100%" />
   <br />
-  <em>Drag 88 security tools onto a typed node-graph canvas, wire them into a pipeline, and run it — all offline.</em>
+  <em>Drag tools and logic nodes onto the canvas, connect typed sockets, configure real CLI flags, and execute the graph locally.</em>
 </p>
 
----
+## Why mini-tricky?
 
-## ✨ A guided tour
+Bug-bounty and pentest automation usually starts clean and ends as twenty terminal tabs, six half-related Bash scripts, duplicated output files, and one command nobody wants to admit they no longer understand.
+
+mini-tricky gives those pipelines an explicit model:
+
+- **visual DAGs** instead of implicit shell ordering;
+- **typed sockets** instead of hoping one tool's output happens to match another tool's input;
+- **parallel execution** for independent branches;
+- **per-node artifacts and logs** instead of one giant stdout soup;
+- **versioned workflows, templates, scheduling, and replay** instead of copy/paste archaeology;
+- **local execution** with no mini-tricky cloud account or subscription required.
+
+The core application is local-first. Individual security tools, OSINT providers, package managers, LLM integrations, or workflows may of course make network requests when you configure them to do so.
+
+## At a glance
+
+- **<!-- tools-count -->148<!-- /tools-count --> integrated security tools** defined as typed tool specifications.
+- **<!-- templates-count -->55<!-- /templates-count --> built-in workflow templates** spanning recon, web application testing, APIs, cloud, secrets, injection, takeover, source review, and more.
+- **21+ tool categories** plus purpose-built logic/source nodes.
+- **Electron desktop app** for macOS, Windows, and Linux, plus browser-only development/web mode.
+- **FastAPI + WebSocket execution engine** with live node state and logs.
+- **React + React Flow** canvas with typed, color-coded connections.
+- **SQLite + Alembic** persistence for workflows, runs, profiles, presets, and versions.
+- **OS-keychain-backed secrets** through Python `keyring` with a restricted local fallback.
+- **Mermaid ⇄ workflow conversion** for documentation and graph interchange.
+- **Optional AI workflow generation** with a non-AI fallback when no provider key is configured.
+
+Current release metadata: `<!-- release-version -->0.4.0-beta<!-- /release-version -->`.
+
+> Catalog counts and release metadata are synchronized from source files. Run `python scripts/sync_project_metadata.py --write` after changing tools, templates, or release metadata; CI checks for drift.
+
+## Guided tour
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3 align="center">🏠 Dashboard</h3>
-      <img src="docs/screenshots/dashboard.png" alt="Dashboard" />
-      <p align="center"><sub>Live stats, quick actions, and in-flight runs — auto-refreshing every 5s.</sub></p>
+      <h3 align="center">Workflow builder</h3>
+      <img src="docs/screenshots/builder.png" alt="Workflow builder" />
+      <p align="center"><sub>Typed React Flow graph with tools, sources, logic, modules, and outputs.</sub></p>
     </td>
     <td width="50%" valign="top">
-      <h3 align="center">🗂️ Workflows library</h3>
-      <img src="docs/screenshots/library.png" alt="Workflows library" />
-      <p align="center"><sub>Searchable card grid — run, open, duplicate, export, or delete any workflow.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3 align="center">⚙️ Node arguments</h3>
-      <img src="docs/screenshots/inspector.png" alt="Node arguments inspector" />
-      <p align="center"><sub>Every tool's real CLI flags as typed toggles, with a live command preview.</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <h3 align="center">📡 Live executions</h3>
-      <img src="docs/screenshots/executions.png" alt="Live execution monitor" />
-      <p align="center"><sub>Watch nodes stream <code>queued → running → ✓/✗</code> with a per-node log tree.</sub></p>
+      <h3 align="center">Node inspector</h3>
+      <img src="docs/screenshots/inspector.png" alt="Node inspector" />
+      <p align="center"><sub>Real CLI arguments exposed as typed controls with a live command preview.</sub></p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3 align="center">🧩 Templates</h3>
-      <img src="docs/screenshots/templates.png" alt="Templates gallery" />
-      <p align="center"><sub>20 battle-tested recon &amp; scanning pipelines, ready to customize.</sub></p>
+      <h3 align="center">Live execution</h3>
+      <img src="docs/screenshots/executions.png" alt="Execution monitor" />
+      <p align="center"><sub>Queued → running → success/failed state, per-node output, cancellation, and replay.</sub></p>
     </td>
     <td width="50%" valign="top">
-      <h3 align="center">⏰ Schedules</h3>
+      <h3 align="center">Templates</h3>
+      <img src="docs/screenshots/templates.png" alt="Templates" />
+      <p align="center"><sub>Reusable recon and assessment graphs that can be cloned and modified rather than rewritten.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">Schedules</h3>
       <img src="docs/screenshots/schedules.png" alt="Schedules" />
-      <p align="center"><sub>Run workflows on a cron cadence with an Active/Paused toggle.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3 align="center">🔐 Secrets</h3>
-      <img src="docs/screenshots/secrets.png" alt="Secrets" />
-      <p align="center"><sub>API keys &amp; tokens stored in the OS keychain, masked over the wire.</sub></p>
+      <p align="center"><sub>Cron-driven workflows with enable/pause controls.</sub></p>
     </td>
     <td width="50%" valign="top">
-      <h3 align="center">🔀 Mermaid → workflow</h3>
+      <h3 align="center">Mermaid import</h3>
       <img src="docs/screenshots/mermaid-import.png" alt="Mermaid import" />
-      <p align="center"><sub>Paste a Mermaid flowchart and get a real, runnable, typed workflow.</sub></p>
+      <p align="center"><sub>Turn a Mermaid flowchart into a real typed workflow and export workflows back to Mermaid.</sub></p>
     </td>
   </tr>
 </table>
 
----
-
 ## Download
 
-Pre-built beta installers are published on the [**Releases page**](https://github.com/MKlolbullen/mini-tricky/releases):
+Pre-built beta installers are published on the [GitHub Releases](https://github.com/MKlolbullen/mini-tricky/releases) page when a release is cut.
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon / Intel) | `mini-tricky-0.4.0-beta-mac-arm64.dmg` / `-x64.dmg` |
-| Windows (x64) | `mini-tricky-0.4.0-beta-win-x64.exe` (NSIS installer) |
-| Linux (x64) | `mini-tricky-0.4.0-beta.AppImage` / `mini-tricky-0.4.0-beta.deb` |
+| Platform | Build formats |
+| --- | --- |
+| macOS | `.dmg`, `.zip` |
+| Windows x64 | NSIS installer, portable `.exe` |
+| Linux x64 | `.AppImage`, `.deb` |
 
-Installers **bundle a self-contained Python runtime** — no separate Python installation required. You still need the security tools themselves (`subfinder`, `nuclei`, `ffuf`, etc.) on your system `PATH`; mini-tricky ships the orchestration layer, not the tools. Use [`scripts/install-tools.sh`](scripts/install-tools.sh) or the in-app **Settings → Tool Manager → Copy install script** button to bootstrap them in one command.
+Release builds bundle the Python runtime and backend dependencies. The external security tools themselves — for example `subfinder`, `httpx`, `nuclei`, `ffuf`, `katana`, and `nmap` — remain system tools and must be available on `PATH` when a workflow uses them.
 
-> **Beta builds are unsigned.** On macOS right-click the `.app` → **Open** on first launch. On Windows click **More info** → **Run anyway** when SmartScreen warns. On Linux: `chmod +x mini-tricky-*.AppImage && ./mini-tricky-*.AppImage` — or install the `.deb` with `sudo dpkg -i mini-tricky-*.deb && sudo apt -f install`.
-
----
-
-## What is mini-tricky?
-
-**mini-tricky** is a local-first desktop application (with optional web GUI mode) that replicates the Trickest workflow builder experience for offensive security automation. Build visual DAG workflows by dragging tools onto a canvas, connect them with typed sockets, and execute entire recon/scanning pipelines with real-time streaming output.
-
-Ships as a **native Electron desktop app** for macOS / Windows / Linux with menus, tray, keyboard shortcuts, an embedded Python backend, and persisted window state — or run it as a **browser-only web GUI** if you prefer.
-
-No cloud. No accounts. No subscriptions. Just your tools, your machine, your workflows.
-
-### The problem it solves
-
-Most bug bounty setups degrade into:
-- Piles of one-off bash scripts with no reuse
-- Terminal tabs multiplying faster than subdomains
-- No clean way to model dependencies between tools
-- Scattered notes, clipboard history, and half-finished pipelines
-- Re-running entire chains because one tool failed
-
-mini-tricky fixes this by giving you a **visual workflow engine** with typed data flow, parallel execution, per-node artifacts, and the ability to replay individual nodes without re-running the whole pipeline.
-
----
-
-## Features
-
-### Visual Workflow Builder
-Drag security tools, variables, scripts, and logic nodes onto a React Flow canvas. Connect them with typed input/output sockets. The DAG engine validates connections and prevents invalid graphs (cycles, type mismatches, occupied sockets). Each node shows a per-tool icon and an inline summary of its configured arguments.
-
-### Trickest-Style Arguments Panel
-The right sidebar is a structured node arguments controller — just like Trickest. Select any node to see its typed inputs/outputs with connection status indicators, its real CLI flags as typed toggle switches, a live command preview, parameter presets, and version history.
-
-<p align="center">
-  <img src="docs/screenshots/inspector.png" alt="Node arguments panel" width="80%" />
-</p>
-
-### Real-Time Execution
-WebSocket streaming sends `node_started`, `node_finished`, and log events as they happen. Watch nodes light up on the canvas with state badges (queued/running/success/failed) and animated pulse borders, or open the dedicated **live execution monitor** with a per-node status tree and streaming log. Fall back to HTTP batch execution if needed.
-
-### Mermaid ⇄ Workflow
-Design a flowchart in [Mermaid](https://mermaid.js.org/) and **import** it as a real, runnable, typed workflow — labels matching a tool become tool nodes, socket types are inferred from the tools they connect, and the layout is generated automatically. **Export** any workflow back to Mermaid to drop into your docs, GitHub, or a README. The two round-trip losslessly.
-
-### 88 Integrated Security Tools
-Pre-configured tools across **21 categories**, defined in `backend/tools.yaml` with command templates, typed I/O sockets, per-argument toggle switches, and timeout settings. **Web-app testing tools** ✨ were added on top of the original catalog:
-
-| Category | Tools |
-|----------|-------|
-| **Recon** | Subfinder, HTTPX, Amass, Assetfinder, Findomain, DNSx, ShuffleDNS, Chaos, ✨ WhatWeb, ✨ WAFW00F |
-| **Enumeration** | Gobuster, Dirsearch, Feroxbuster, Wfuzz, ✨ CMSeeK, ✨ nomore403, ✨ Dirb |
-| **Vulnerability** | Nuclei, Nikto, WPScan, SQLMap, XSStrike, Dalfox, ✨ Ghauri, ✨ Commix, ✨ Jaeles, ✨ JoomScan, ✨ Droopescan, ✨ Oralyzer |
-| **Fuzzing** | FFUF |
-| **Params** | Arjun, ParamSpider, x8, Paraminer |
-| **Crawling** | Katana, GoSpider, Hakrawler, Waybackurls |
-| **Network** | Nmap, Masscan, Naabu, RustScan, ✨ testssl.sh, ✨ SSLScan |
-| **OSINT** | theHarvester, Shodan CLI, Censys, SpiderFoot |
-| **Archive** | GAU, Waymore |
-| **API** | Kiterunner, APIFuzzer, OpenAPI Diff, RESTler |
-| **SSRF** | SSRFmap, Gopherus, Interactsh, SSRF Sheriff |
-| **SSTI** | SSTImap, Tplmap |
-| **CSRF** | XSRFProbe |
-| **CORS** | CORScanner, CRLFuzz |
-| **Takeover** | Subjack, Subzy, Nuclei Takeover |
-| **Headers** | Shcheck, Hakcheckurl |
-| **JSAnalysis** | LinkFinder, SecretFinder, GetJS, SubJS |
-| **Wordlist** | CeWL, Wordlister |
-| **Cloud** | S3Scanner, Cloud Enum |
-| **Secrets** | TruffleHog, Gitleaks |
-| **Utility** | Anew, QSReplace, URO, Unfurl, JQ Filter, GF Patterns, Interlace, Rush, Notify, Meg |
-
-Each tool gets a distinct icon and, in the inspector, its **real CLI flags as typed toggles** with a live command preview.
-
-### Trickest-Style Argument Toggle Switches
-Each tool exposes its CLI flags as **typed argument toggles** in the right-hand inspector. Flip a `flag` switch on to include `-recursive`, set a `string` field for `-wordlist`, an `int` for `-threads`, a `float` for rate limits — the engine builds the final command from your toggles. Same UX as Trickest, fully local.
-
-### 20 Built-In Workflow Templates
-20 ready-to-run Trickest-style templates grouped by attack surface — recon chains, vulnerability scans, fuzzing sweeps, cloud enumeration, secret hunting, takeover checks, API fuzzing, and more. Drag one into the canvas, set the domain variable, and hit **Run**. Save your own workflows as reusable templates with one click.
-
-### Composable Sub-Workflows (Modules)
-Package any saved workflow as a reusable module node. Drag it from the sidebar into another workflow — the backend expands and executes the sub-graph inline, piping data through automatically.
-
-### Conditional Branching
-Route data based on content with condition nodes. Supported expressions:
-- `has_lines` / `empty` — check if upstream produced data
-- `contains:PATTERN` / `not_contains:PATTERN` — string matching
-- `line_count > N` / `min_lines:N` — threshold checks
-
-Data flows to the **pass** or **fail** output socket based on evaluation.
-
-### Loop/Iterator Nodes
-Split upstream data for downstream processing:
-- **Per Line**: Each line becomes a separate item
-- **Per Chunk**: Split by blank lines (double newline)
-
-### Custom Script Nodes
-Write inline Bash or Python scripts with stdin/stdout piping. Upstream data flows in via stdin, script output flows downstream. Toggle between languages with one click.
-
-### Cron Scheduling
-Schedule workflows to run on cron expressions via APScheduler. Enable/disable schedules without deleting them.
-
-### Workflow Versioning
-Every save creates a numbered version snapshot. Browse version history in the inspector, compare node/edge counts, and restore any previous version with one click.
-
-### Notifications
-Toast notifications slide in on run completion, errors, and saves. Browser Notification API integration for background alerts when you're in another tab.
-
-### Parameter Presets
-Save frequently-used parameter configurations per tool. One-click apply from the arguments panel. Never re-type the same flags again.
-
-### Keychain-Backed Secrets
-API keys, tokens, and passwords in environment profiles are routed to the **OS keychain** — macOS Keychain, Windows Credential Manager, or Linux SecretService — via the Python [`keyring`](https://pypi.org/project/keyring/) library. The SQLite profile blob only stores a sentinel marker, and the `/api/profiles` endpoints mask sensitive fields as `••••••••` before they leave the backend. Headless hosts without a keyring backend transparently fall back to an `0600`-permissioned JSON file. See `backend/src/secrets_store.py` for the split-storage contract.
-
-### Tool Install Script
-Every binary referenced in `backend/tools.yaml` is covered by an idempotent installer script generated on the fly. Fetch it via `GET /api/tools/install-script`, copy it from **Settings → Tool Manager**, or just `bash scripts/install-tools.sh` at the repo root. Each tool is guarded by `command -v` so you can re-run safely to pick up new additions.
-
-### Artifact Explorer
-Per-node artifact browsing with inline preview for text, JSON, HTML, and images. Download individual artifacts or open them in a new tab.
-
-### Node Replay
-Re-run any individual node using cached upstream outputs. No need to re-execute the entire workflow just because one tool needs a retry.
-
----
-
-## Screenshots
-
-See the [**guided tour**](#-a-guided-tour) above for the dashboard, library, builder, live executions, templates, schedules, secrets, and Mermaid import. Every screen is a real capture of the running app.
-
----
-
-## Quick Start
-
-### Prerequisites
-- **Node.js** 18+ and npm
-- **Python** 3.10+
-- Security tools installed on your system `PATH` (subfinder, httpx, nuclei, ffuf, etc.)
-
-### 1. Clone & install dependencies
-
-```bash
-git clone https://github.com/MKlolbullen/mini-tricky.git
-cd mini-tricky
-
-# Root deps (Electron, electron-builder, concurrently)
-npm install
-
-# Frontend deps
-npm run frontend:install
-
-# Backend deps (in a virtualenv)
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-```
-
-### 1b. (Optional) Install the 88 security tools
-
-mini-tricky ships the orchestration layer, not the tools. To bootstrap every
-binary referenced in `backend/tools.yaml` in one go, run the generated
-installer script:
+Bootstrap supported tools with:
 
 ```bash
 bash scripts/install-tools.sh
 ```
 
-The script is idempotent (every tool is guarded by `command -v`, so re-running
-only installs what is still missing) and covers `go install`, `pip install`,
-`cargo install`, `npm install -g`, `apt`, and `brew` flavours. You can also
-fetch it fresh from a running backend — the same content is served by the
-in-app **Tool Manager → Copy install script** button:
+or use **Settings → Tool Manager → Copy install script** in the app.
+
+> Beta installers are currently unsigned. Expect the normal macOS Gatekeeper / Windows SmartScreen warning for an unsigned application. Only install artifacts from this repository's release page and verify release provenance when available.
+
+## Quick start
+
+### Requirements for development
+
+- Node.js 22 recommended (CI uses Node 22)
+- Python 3.12 recommended (CI uses Python 3.12)
+- npm
+- the security binaries needed by the workflows you plan to run
+
+### Clone and install
 
 ```bash
-curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh
+git clone https://github.com/MKlolbullen/mini-tricky.git
+cd mini-tricky
+
+npm ci
+npm run frontend:install
+
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cd ..
 ```
 
-### 2. Run the desktop app (recommended)
+### Start the desktop development environment
 
 ```bash
 npm run dev
 ```
 
-This launches **everything** at once:
-- FastAPI backend on `127.0.0.1:5000`
-- Vite dev server on `127.0.0.1:5173`
-- Electron window once both are healthy
+This starts:
 
-When the Electron window opens you get full native menus (`Cmd/Ctrl+N` new workflow, `Cmd/Ctrl+S` save, `Cmd/Ctrl+R` run, `Cmd/Ctrl+1..4` switch views), system tray, and persisted window state.
+- FastAPI on `127.0.0.1:5000`;
+- Vite on `127.0.0.1:5173`;
+- Electron after the backend/frontend health checks pass.
 
-### 3. Run as web GUI only (no Electron)
-
-If you just want a browser-based experience:
+### Browser-only mode
 
 ```bash
 npm run web
 ```
 
-Then open `http://127.0.0.1:5173` in your browser. The backend at `127.0.0.1:5000` is started for you.
+Then open `http://127.0.0.1:5173`.
 
-### 4. Build a production desktop installer
+### Build installers
 
 ```bash
-# All-in-one (current platform)
 npm run desktop:build
 
 # Platform-specific
-npm run desktop:build:mac     # → dist-electron/*.dmg, *.zip          (macOS host)
-npm run desktop:build:win     # → dist-electron/*.exe, portable.exe   (Windows host or wine CI)
-npm run desktop:build:linux   # → dist-electron/*.AppImage, *.deb     (Linux host)
+npm run desktop:build:mac
+npm run desktop:build:win
+npm run desktop:build:linux
 ```
 
-Cross-compiling `.dmg` / `.exe` from Linux is possible but requires extra toolchains; the `.github/workflows/release.yml` runner handles all three targets on native runners. A fresh Linux build from a clean checkout produces:
+The release workflow builds each target on a native GitHub Actions runner and bundles a standalone Python runtime into the packaged backend.
 
-```
-dist-electron/
-├── mini-tricky-0.2.0-beta.AppImage   (~100 MB, portable)
-├── mini-tricky-0.2.0-beta.deb        (~73 MB, dpkg installable)
-└── linux-unpacked/                   (runnable without install)
-    └── mini-tricky                   (launch directly to smoke-test)
-```
+## What you can build
 
-The installer bundles the frontend `dist/` and the entire `backend/` directory as `extraResources`, so end users only need Python 3.10+ on their system — no manual install of the app's Python deps. The Debian package declares `libgtk-3-0`, `libnss3`, `libsecret-1-0`, and friends as `Depends`, so `apt` will pull them automatically.
+mini-tricky is not just a launcher. The graph has explicit source, transformation, execution, control-flow, and sink semantics.
 
-### 5. Regenerate the app icons (optional)
+### Canonical recon chain
 
-App icons live in `build/`:
-- `icon.svg` — hand-authored 512×512 source of truth
-- `icon.png` — 1024×1024 master electron-builder consumes for macOS/Linux
-- `icon.ico` — Windows multi-resolution icon
-- `icon-{16,32,64,128,256,512}.png` — intermediate sizes
-- `electron/tray-icon.png` — 32×32 tray bitmap
-
-If you tweak the SVG, regenerate every variant with:
-
-```bash
-pip install Pillow
-python3 build/generate_icons.py
+```mermaid
+flowchart LR
+    D[Domain] --> S[Subfinder]
+    D --> A[Assetfinder]
+    D --> C[Chaos]
+    S --> M[Merge & Sort]
+    A --> M
+    C --> M
+    M --> X[DNSx]
+    X --> H[HTTPX]
+    H --> N[Nuclei]
+    H --> K[Katana]
+    H --> W[GoWitness]
+    N --> O[Artifacts]
+    K --> O
+    W --> O
 ```
 
----
+### Deep injection workflow
+
+```mermaid
+flowchart LR
+    D[Domain] --> G[GAU]
+    D --> W[Waybackurls]
+    D --> U[URLFinder]
+    G --> M[Merge & Sort]
+    W --> M
+    U --> M
+    M --> F[GF patterns]
+    F --> Q[QSReplace]
+    Q --> DX[Dalfox]
+    Q --> GX[Gxss / kxss]
+    Q --> CR[CRLFuzz]
+    DX --> O[Artifacts]
+    GX --> O
+    CR --> O
+```
+
+### Payload-driven fuzzing
+
+A **Payload Set** source node can combine LFI, XSS, SQLi, RCE, SSRF, and SSTI payload lists and apply raw, URL, double-URL, Base64, or HTML encoding before feeding a wordlist-consuming tool.
+
+```mermaid
+flowchart LR
+    P[Payload Set] --> F[FFUF / fuzzer]
+    T[Target] --> F
+    F --> O[Artifacts]
+```
+
+Payload category names are allowlisted by the backend before file paths are constructed.
+
+## Node model
+
+| Node | Purpose | Typical inputs | Typical outputs |
+| --- | --- | --- | --- |
+| **Tool** | Execute an integrated CLI tool | tool-defined | tool-defined |
+| **Variable** | Provide a domain, targets, URL, file, folder, or other value | — | typed value |
+| **Payload Set** | Build an encoded payload wordlist | — | `wordlist` |
+| **Merge & Sort** | Fan-in, concatenate, sort, and deduplicate upstream data | `any` | `targets` or `url` |
+| **Script** | Inline Bash/Python transformation | `targets` | `targets` |
+| **Condition** | Route data based on content | `targets` | `pass`, `fail` |
+| **Loop** | Iterate line-by-line or by chunk | `targets` | `item` |
+| **Module** | Embed a saved workflow as a reusable sub-workflow | `targets` | `targets` |
+| **Output** | Collect terminal artifacts | `any` | — |
+
+The validator rejects cycles, unknown tools, invalid socket contracts, and conflicting typed input occupancy. Merge/output fan-in is explicitly modeled instead of being smuggled through accidental shell behavior.
+
+## Tool catalog
+
+Tool definitions live in [`backend/tools.yaml`](backend/tools.yaml). The catalog covers areas including:
+
+- passive and active reconnaissance;
+- DNS and subdomain discovery;
+- HTTP probing and technology fingerprinting;
+- crawling and URL harvesting;
+- parameter discovery;
+- directory/content discovery;
+- vulnerability and injection testing;
+- API and GraphQL assessment;
+- TLS/network scanning;
+- screenshots;
+- cloud and source security;
+- secrets detection;
+- OSINT provider queries;
+- takeover, CORS, CSRF, SSRF, SSTI, JWT, and header checks;
+- workflow utilities and transformations.
+
+Recent expansion includes wide web-app assessment graphs, GraphQL tooling, JS-analysis tooling, source/cloud review, payload nodes, URL/file/folder socket types, and first-class merge/deduplication.
+
+To add a tool, read [`CONTRIBUTING.md`](CONTRIBUTING.md). Tool definitions should expose real capabilities and typed contracts rather than becoming arbitrary shell-command wrappers.
+
+## Execution model
+
+A run is validated as a directed acyclic graph and executed in dependency order.
+
+1. Validate node IDs, edges, socket contracts, and acyclicity.
+2. Build parent/child indexes.
+3. Queue nodes whose dependencies are satisfied.
+4. Execute independent nodes concurrently up to the configured limit.
+5. Stream node/log events over WebSocket.
+6. Persist status and per-node artifacts.
+7. Block dependent nodes when required parents fail.
+8. Allow selected nodes to be replayed from cached upstream results.
+
+This is deliberately closer to a small workflow engine than a shell-script visualizer.
 
 ## Architecture
 
-mini-tricky has **two run modes** that share the exact same backend and frontend code:
+```mermaid
+flowchart TB
+    subgraph UI[Operator surfaces]
+      E[Electron desktop]
+      B[Browser / web mode]
+    end
 
-```
-                ┌──────────────────────┐    ┌──────────────────────┐
-                │  Desktop (Electron)  │    │   Web GUI (browser)  │
-                │  npm run dev         │    │   npm run web        │
-                └──────────┬───────────┘    └──────────┬───────────┘
-                           │                            │
-                           ▼                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                React 18 + @xyflow/react (Vite)                   │
-│  ┌──────────┬──────────────┬──────────────────────────────────┐ │
-│  │  Tool    │   Canvas     │  Inspector / Arg Toggles         │ │
-│  │  Sidebar │   (DAG)      │  (Trickest-style switches)       │ │
-│  └──────────┴──────────────┴──────────────────────────────────┘ │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Console (stdout / stderr / artifacts / live node states) │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                           │  HTTP + WebSocket
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    FastAPI + Uvicorn Backend                     │
-│  ┌────────┐ ┌──────────┐ ┌────────────────┐ ┌────────────────┐  │
-│  │  Graph │ │ DAG Exec │ │ Artifact Mgr   │ │ Result         │  │
-│  │  Valid │ │ Engine   │ │ + Preview      │ │ Normalizer     │  │
-│  └────────┘ └──────────┘ └────────────────┘ └────────────────┘  │
-│  ┌────────┐ ┌──────────┐ ┌────────────────┐ ┌────────────────┐  │
-│  │ Sched. │ │ Version  │ │ Template/Preset│ │ Profile Store  │  │
-│  │ (cron) │ │ Store    │ │ Manager        │ │ + Reports      │  │
-│  └────────┘ └──────────┘ └────────────────┘ └────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                           │ subprocess
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              88 Local Security Tools (system PATH)               │
-│  subfinder  httpx  nuclei  ffuf  katana  nmap  arjun  x8 ...    │
-└─────────────────────────────────────────────────────────────────┘
+    subgraph FE[React + TypeScript + React Flow]
+      C[Typed DAG canvas]
+      I[Inspector / CLI args]
+      R[Runs / artifacts / schedules]
+    end
+
+    subgraph BE[FastAPI backend]
+      V[Graph validation]
+      X[Execution engine]
+      DB[(SQLite + Alembic)]
+      S[Secrets store]
+      M[Mermaid import/export]
+      L[Optional LLM planner]
+    end
+
+    subgraph LOCAL[Local tooling]
+      T[Security binaries on PATH]
+      A[Per-node artifacts]
+      K[OS keychain]
+    end
+
+    E --> FE
+    B --> FE
+    FE <-->|HTTP + WebSocket| BE
+    V --> X
+    X --> T
+    X --> A
+    BE --> DB
+    S --> K
 ```
 
-In **desktop mode**, the Electron main process (`electron/main.cjs`) spawns the Python backend as a child process, polls `/api/health` until it's ready, then loads the Vite dev server (or the built `frontend/dist/index.html` in production). It also wires up native menus, the system tray, IPC handlers (`get-app-info`, `restart-backend`, `show-save-dialog`, `read-file`, `write-file`, ...), and persists window state to `userData/window-state.json`.
+The Electron main process launches the backend, waits for `/api/health`, and then opens the UI. In packaged releases it prefers the bundled Python runtime; development mode uses the system Python interpreter.
 
-In **web mode**, you skip Electron entirely — `concurrently` runs the backend and Vite, and you point a browser at `http://127.0.0.1:5173`.
+## Persistence and artifacts
 
-### Execution Model
-- Workflows are validated as **Directed Acyclic Graphs (DAGs)**
-- Nodes execute in **topological order** with parallel groups
-- Parent nodes must complete before children start
-- Independent nodes run concurrently (configurable worker count)
-- Failed parents block downstream nodes cleanly
-- Output data flows through typed sockets: `domain`, `targets`, `findings`, etc.
+mini-tricky stores workflow state locally using SQLite/SQLModel with Alembic migrations. Runs keep per-node status and artifacts so operators can inspect exactly which stage produced which output.
 
-### Data Flow
+The artifact browser supports common text formats and images. Artifact paths are treated as a trust boundary; path traversal protections belong in backend validation rather than in the UI.
+
+## Secrets
+
+Environment-profile secrets are split from the ordinary SQLite profile blob:
+
+- macOS → Keychain;
+- Windows → Credential Manager;
+- Linux desktop → SecretService-compatible keyring;
+- headless fallback → restricted local file permissions.
+
+API responses mask sensitive values rather than returning plaintext credentials to the frontend.
+
+## Mermaid ⇄ workflow
+
+Mermaid import/export makes architecture documentation executable enough to be useful:
+
+- labels matching known tools can become tool nodes;
+- connections are converted into graph edges;
+- compatible socket types are inferred;
+- imported graphs receive a usable layout;
+- existing workflows can be exported back to Mermaid for documentation or review.
+
+Use this as an interchange/documentation feature, not as a substitute for reviewing what a workflow will actually execute.
+
+## Security model
+
+mini-tricky intentionally executes powerful local binaries, custom scripts, imported workflows, and security tooling. That makes its trust boundaries more important than in a normal dashboard application.
+
+Security-sensitive areas include:
+
+- Electron preload and IPC authorization;
+- arbitrary filesystem access;
+- local FastAPI/WebSocket exposure and origin handling;
+- command/argument construction;
+- imported workflow validation;
+- custom script execution;
+- secret storage and masking;
+- artifact path handling;
+- URLs passed to the operating system;
+- release and dependency integrity.
+
+Read [`SECURITY.md`](SECURITY.md) before reporting a vulnerability. Use mini-tricky only on systems and targets you are authorized to assess.
+
+## API
+
+FastAPI exposes interactive local API documentation while the backend is running:
+
+```text
+http://127.0.0.1:5000/docs
 ```
-Variable Node (domain: "example.com")
-    │
-    ▼ out:domain ──→ in:domain
-Subfinder (produces targets.txt)
-    │
-    ▼ out:targets ──→ in:targets
-HTTPX (filters live hosts)
-    │
-    ▼ out:targets ──→ in:targets
-Nuclei (scans for vulnerabilities)
-    │
-    ▼ out:findings ──→ in:any
-Output Node (collects artifacts)
+
+The API covers system/tool health, workflows and validation, runs and replay, artifacts, profiles/secrets, templates, schedules, presets, normalization, reports, Mermaid conversion, and optional workflow generation.
+
+Keeping the endpoint-by-endpoint reference in generated FastAPI docs prevents the README from becoming a second API schema that quietly rots.
+
+## Development
+
+### Frontend
+
+```bash
+cd frontend
+npm run lint
+npm run test
+npm run build
+
+# UI smoke tests
+npx playwright install chromium
+npm run test:e2e
 ```
 
----
+### Backend
 
-## Node Types
-
-| Node | Icon | Description | Inputs | Outputs |
-|------|------|-------------|--------|---------|
-| **Tool** | Category-specific | Runs a security tool via subprocess | Tool-defined | Tool-defined |
-| **Variable** | 📥 | Provides input data (domain, target list, wordlist) | None | Typed value |
-| **Output** | 📤 | Collects artifacts from upstream nodes | any | None |
-| **Script** | 🐍/📜 | Custom Bash or Python with stdin/stdout piping | targets | targets |
-| **Module** | 🧩 | Embeds a saved workflow as a sub-graph | targets | targets |
-| **Condition** | ⚖️ | If/else branching based on data content | targets | pass, fail |
-| **Loop** | 🔄 | Iterates over input line-by-line or chunk-by-chunk | targets | item |
-
----
-
-## Project Structure
-
+```bash
+cd backend
+ruff check .
+ruff format --check .
+mypy src --ignore-missing-imports
+pytest
 ```
+
+### Metadata consistency
+
+```bash
+python scripts/sync_project_metadata.py --check
+# or update marked metadata
+python scripts/sync_project_metadata.py --write
+```
+
+### Pre-commit
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+CI runs frontend lint/test/build and backend Ruff/mypy/pytest checks. Security-oriented GitHub workflows and browser smoke coverage are being expanded alongside the beta release process.
+
+## Repository map
+
+```text
 mini-tricky/
-├── electron/                       # Electron main process + preload
-│   ├── main.cjs                    # Window/menus/tray/IPC/backend spawn
-│   ├── preload.cjs                 # Secure contextBridge → window.miniTricky
-│   └── tray-icon.png               # 32x32 tray bitmap
-├── build/                          # Icon source + generated rasters (electron-builder resources)
-│   ├── icon.svg                    # Hand-authored 512x512 source of truth
-│   ├── icon.png                    # 1024x1024 master (macOS + Linux)
-│   ├── icon-{16,32,64,128,256,512}.png
-│   ├── icon.ico                    # Windows multi-resolution icon
-│   └── generate_icons.py           # Pillow-based rasterizer (reproducible)
-├── backend/
-│   ├── src/
-│   │   ├── main.py                 # FastAPI app (all endpoints + execution engine)
-│   │   ├── db.py                   # SQLModel tables + repository helpers
-│   │   ├── secrets_store.py        # OS keychain split-storage for profile env_vars
-│   │   ├── llm.py                  # Anthropic-backed `/api/generate` implementation
-│   │   └── replay_cli.py           # Per-node replay helpers
-│   ├── alembic/versions/           # Schema migrations (001_initial, 002_import_from_json, ...)
-│   ├── tests/                      # pytest suite (test_api, test_secrets_store, test_install_script, ...)
-│   ├── tools.yaml                  # 88 tool definitions across 21 categories
-│   ├── templates.yaml              # 20 built-in workflow templates
-│   ├── requirements.txt            # Runtime Python deps
-│   └── requirements-dev.txt        # pytest + ruff + mypy for CI
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx                 # Root app with view routing
-│   │   ├── api.ts                  # All REST + WebSocket client helpers
-│   │   ├── types.ts                # TypeScript type definitions
-│   │   ├── index.css               # Dark-theme stylesheet
-│   │   └── components/
-│   │       ├── TopBar.tsx
-│   │       ├── builder/            # BuilderView, Canvas, Inspector, Console, Notifications, ...
-│   │       ├── templates/TemplatesView.tsx
-│   │       ├── runs/{RunsView,RunDetail}.tsx
-│   │       └── settings/SettingsView.tsx  # Tool Manager, Copy install script, profiles
-│   ├── index.html
-│   ├── vite.config.ts
-│   └── tsconfig.json
-├── scripts/
-│   └── install-tools.sh            # Static, committed copy of the tool installer
-├── docs/screenshots/               # README screenshots of every section
-├── .github/workflows/              # CI (ci.yml) + Release (release.yml)
-└── package.json                    # Root package (Electron + electron-builder build config)
+├── backend/                 FastAPI orchestration engine, schemas, tools, templates, tests
+├── frontend/                React/TypeScript/React Flow UI and Playwright smoke tests
+├── electron/                Desktop process, preload bridge, menus, tray, backend lifecycle
+├── payloads/                Allowlisted payload-set source data
+├── scripts/                 Tool installer and project-maintenance scripts
+├── build/                   Application icons and build resources
+├── docs/                    Screenshots and extended documentation
+├── .github/workflows/       CI and release automation
+├── VERSION                  Canonical release version
+├── SECURITY.md              Vulnerability-reporting policy
+├── CONTRIBUTING.md          Development/tool/template contribution rules
+└── README.md                You are here; congratulations on surviving the tree
 ```
-
----
-
-## API Reference
-
-### System
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Backend health check (used by Electron auto-spawn) |
-| `GET` | `/api/tools` | List all 88 tools with their typed I/O and arg schemas |
-| `GET` | `/api/tools/install-script` | Generate a `bash` script that installs every tool (`command -v` guarded, idempotent) |
-| `GET/POST` | `/api/profiles` | List / create environment profiles. Sensitive `env_vars` are masked on read and routed to the OS keychain on write |
-| `PUT/DELETE` | `/api/profiles/{id}` | Update / delete a profile (DELETE also purges the profile's keychain entries) |
-| `POST` | `/api/generate` | AI-assisted workflow generation from a goal description |
-| `POST` | `/api/normalize` | Normalize raw tool output into a unified findings schema |
-| `GET` | `/api/runs/{id}/report` | Render Markdown / JSON report from a completed run |
-
-### Workflows
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/workflows` | List all saved workflows |
-| `POST` | `/api/workflows` | Save workflow (creates version) |
-| `GET` | `/api/workflows/{id}` | Get workflow by ID |
-| `GET` | `/api/workflows/{id}/versions` | List version history |
-| `POST` | `/api/workflows/{id}/versions/{v}/restore` | Restore a version |
-| `POST` | `/api/workflows/validate` | Validate graph structure |
-
-### Runs
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/runs` | Execute workflow (HTTP batch) |
-| `WS` | `/ws/run` | Execute workflow (WebSocket stream) |
-| `GET` | `/api/runs` | List all runs |
-| `GET` | `/api/runs/{id}` | Get run details |
-| `DELETE` | `/api/runs/{id}` | Delete run + artifacts |
-| `POST` | `/api/runs/{id}/cancel` | Cancel active run |
-| `POST` | `/api/runs/{id}/replay/{node}` | Replay single node |
-
-### Artifacts
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/runs/{id}/artifacts` | List run artifacts |
-| `GET` | `/api/runs/{id}/artifact-preview?path=` | Preview artifact content |
-| `GET` | `/api/runs/{id}/artifact-raw?path=` | Download raw artifact |
-
-### Templates, Schedules, Presets
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET/POST` | `/api/templates` | List / create templates |
-| `GET/POST/DELETE` | `/api/schedules` | Manage cron schedules |
-| `PATCH` | `/api/schedules/{id}` | Toggle schedule enabled |
-| `GET/POST/DELETE` | `/api/presets` | Manage parameter presets |
-
----
-
-## Example Workflows
-
-### Basic Recon Chain
-```
-Domain Input → Subfinder → HTTPX → Nuclei → Artifacts
-```
-
-### Conditional Vulnerability Scan
-```
-Domain Input → Subfinder → Condition (has_lines?)
-    ├── pass → HTTPX → Nuclei → Artifacts
-    └── fail → Output (no subdomains found)
-```
-
-### Parallel Discovery + Fuzzing
-```
-Domain Input ──┬── Gau ────────┬── Deduplicate → FFUF → Artifacts
-               └── Katana ─────┘
-```
-
-### Sub-Workflow Module
-```
-Target List → [Full Recon Module] → Condition → Loop → Nuclei → Artifacts
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Desktop Shell | Electron 33 + electron-builder 25 | Native app experience, file access, packaging |
-| Frontend | React 18 + TypeScript 5 | UI components |
-| Graph Editor | @xyflow/react (React Flow) | Visual DAG canvas |
-| Build Tool | Vite 5 | Fast dev server + production builds |
-| Backend | FastAPI + Uvicorn + Pydantic v2 | REST API + WebSocket server |
-| Execution | Python `subprocess` | Tool invocation + artifact capture |
-| Scheduling | APScheduler | Cron-based workflow automation |
-| Persistence | SQLite (via `sqlmodel`) + Alembic migrations | Workflows, runs, versions, presets, profiles |
-| Secrets | [`keyring`](https://pypi.org/project/keyring/) → OS keychain (file fallback `0600`) | API keys, tokens, passwords |
-| LLM (optional) | Anthropic SDK (`claude-haiku-4-5`) | AI-assisted workflow generation |
-
----
 
 ## Roadmap
 
-### Completed
-- [x] Visual DAG workflow editor with drag-and-drop
-- [x] **88 security tools across 21 categories** (Recon, Vuln, Params, API, SSRF, SSTI, CSRF, CORS, Takeover, Headers, JSAnalysis, Cloud, Secrets, Wordlist, etc.)
-- [x] **Trickest-style argument toggle switches** (flag / string / int / float per CLI option) — every tool audited with its real CLI flags
-- [x] **Color-coded typed sockets** (domain, targets, findings, params, urls, ...)
-- [x] **20 built-in workflow templates** across attack-surface categories
-- [x] **Full Electron desktop app** with native menus, system tray, keyboard shortcuts, persisted window state, and custom app icons (1024x1024 master + Windows multi-res `.ico` + 32x32 tray bitmap)
-- [x] **Embedded backend auto-spawn** in Electron with health-check polling
-- [x] **Web GUI mode** (`npm run web`) as a no-Electron alternative
-- [x] **Cross-platform installers** via electron-builder (`.dmg`, `.zip`, `.exe`, `.nsis`, `.AppImage`, `.deb`) — Linux `.deb` / `.AppImage` fully validated end-to-end
-- [x] **SQLite persistence** with Alembic migrations (`sqlmodel` schema, automatic import from legacy JSON state files)
-- [x] **OS keychain secrets** — API keys / tokens / passwords in profile `env_vars` are persisted via [`keyring`](https://pypi.org/project/keyring/) (macOS Keychain, Windows Credential Manager, Linux SecretService). The SQLite blob keeps a sentinel, and `/api/profiles` masks sensitive values as `••••••••` so the real secret never crosses the wire. Headless hosts fall back to a `state/secrets-fallback.json` file with `0600` perms
-- [x] **Tool install script** — `scripts/install-tools.sh`, `GET /api/tools/install-script`, and **Settings → Tool Manager → Copy install script** bootstrap every binary in `tools.yaml` in one idempotent pass
-- [x] **Real LLM workflow generation** — `/api/generate` delegates to Anthropic (`claude-haiku-4-5` by default) with the full tool catalog as context, with a keyword-matcher fallback when no API key is available
-- [x] **Baseline CI** — pytest + ruff + mypy for backend, vitest + tsc + vite-build for frontend, Playwright smoke for e2e
-- [x] WebSocket streaming execution with live node states
-- [x] Conditional branching (if/else nodes), loop/iterator nodes (per-line, per-chunk)
-- [x] Composable sub-workflow modules
-- [x] Custom script nodes (Bash/Python)
-- [x] Cron scheduling (APScheduler), workflow versioning with restore
-- [x] Parameter presets, environment profiles (per target scope)
-- [x] Result normalization, report export (`/api/runs/{id}/report`)
-- [x] Toast + browser notifications, animated directional edges, category-colored minimap
-- [x] Artifact explorer with inline preview, node replay with cached upstream
-- [x] Import/export workflows as JSON
-- [x] **Trickest-style app shell** — left icon rail with a Home dashboard (live stats + in-flight runs), Workflows library, Templates, Executions, Schedules, and Secrets as first-class pages
-- [x] **Live execution monitor** — Library-launched runs stream over WebSocket into a per-node status tree with live output; in-flight runs surface on the dashboard and in the executions list
-- [x] **Per-tool icons** and inline node argument summaries; grouped builder toolbar with a live run overlay and animated node states
-- [x] **Mermaid ⇄ workflow** — import a Mermaid flowchart as a runnable typed workflow (socket types inferred from the connected tools) and export any workflow back to Mermaid; the two round-trip losslessly
-- [x] **Web-application testing tools** — WhatWeb, WAFW00F, testssl.sh, SSLScan, Ghauri, Commix, Jaeles, Oralyzer, CMSeeK, JoomScan, Droopescan, nomore403, Dirb
+The highest-value next steps are less about blindly increasing the tool counter and more about improving orchestration quality:
 
-### Planned
-- [ ] First **GitHub Releases beta** with one-click downloads for macOS / Windows / Linux (Linux builds already reproducible locally via `npm run desktop:build:linux`; cross-compile for macOS / Windows still requires CI runners)
-- [ ] Auto-update channel via electron-updater
-- [ ] Dark/light theme toggle (currently dark-only)
-- [ ] Distributed worker support for very large scans
-- [ ] Per-run resource limits (CPU/RAM/network rate)
-- [ ] Tool sandboxing (firejail / bwrap / rootless Docker) for untrusted targets
-
----
-
-## Security & Ethics
-
-This project is intended for:
-- **Authorized penetration testing**
-- **Bug bounty programs** where you have permission to test
-- **Lab environments** and CTF challenges
-- **Defensive security research**
-
-Do not use this against targets you do not have explicit authorization to assess.
-
----
+- stronger Electron/local-API trust boundaries;
+- code signing, release provenance, SBOMs, and update integrity;
+- richer typed artifact contracts such as SBOMs;
+- differential runs: scan what is new or changed instead of repeating everything;
+- resource/rate budgets per node and per run;
+- sandboxed execution options for selected tools;
+- capability metadata so workflow generation can plan by **what a tool does**, not merely by its name;
+- distributed workers for genuinely large engagements;
+- additional cloud, exposure-intelligence, and software-supply-chain integrations.
 
 ## Contributing
 
-PRs, issues, and honest feedback welcome.
+PRs and issues are welcome. Good contributions improve capability, safety, composability, observability, or operator ergonomics.
 
-Good areas to contribute:
-- Tool definitions in `tools.yaml` (add new tools)
-- Node execution engine improvements
-- React Flow UX polish
-- Artifact rendering for more file types
-- Electron desktop ergonomics
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development commands and the tool/template contribution contract.
 
----
+## Ethics
+
+mini-tricky is intended for authorized penetration testing, bug bounty programs that permit the activity, lab/CTF environments, and defensive security research.
+
+Do not use it against systems you do not have permission to assess. A visual graph does not magically make `--rate 100000` a governance strategy.
 
 ## License
 
-MIT
-
----
+[MIT](LICENSE)
 
 ## Acknowledgments
 
-- [Trickest](https://trickest.com/) for the workflow builder inspiration
-- [ProjectDiscovery](https://projectdiscovery.io/) and the offensive security tool ecosystem
-- [React Flow / XYFlow](https://reactflow.dev/) for the graph rendering foundation
-- Everyone tired of terminal chaos who wants a better operator surface
-
----
+- [Trickest](https://trickest.com/) for inspiration around visual security workflow orchestration.
+- [React Flow / XYFlow](https://reactflow.dev/) for the graph canvas foundation.
+- [ProjectDiscovery](https://projectdiscovery.io/) and the broader open-source security-tool ecosystem.
 
 <p align="center">
-  <strong>Built for local workflows, real tooling, and less operational mess.</strong>
+  <strong>Make the workflow explicit. Keep the evidence. Re-run only what deserves another packet.</strong>
 </p>

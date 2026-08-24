@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a capability, workflow-engine, UI, or operator improvement
+title: "[feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operator problem
+      description: What real workflow/problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the UX, graph behavior, API behavior, or execution semantics you want.
+    validations:
+      required: true
+  - type: textarea
+    id: graph
+    attributes:
+      label: Example workflow / data flow
+      description: Mermaid or a short typed input → transformation → output example is ideal.
+  - type: textarea
+    id: security
+    attributes:
+      label: Security / compatibility considerations
+      description: Note new permissions, filesystem/network access, secrets, intrusive behavior, platform constraints, or migrations.
+  - type: checkboxes
+    id: value
+    attributes:
+      label: Why this belongs in core
+      options:
+        - label: It adds a reusable capability rather than only wrapping one command.
+        - label: It improves safety, composability, observability, or operator ergonomics.
+        - label: It can be expressed with clear typed inputs/outputs or UI behavior.

@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible mini-tricky defect
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Do not use this form for security vulnerabilities.** Follow `SECURITY.md` for command-execution, secrets, local API, filesystem, Electron IPC, or similar security issues.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: v0.x.y-beta or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Run mode
+      options:
+        - Electron desktop
+        - Web mode
+        - Both
+        - Not applicable
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Kali 2026.x, Ubuntu 24.04, Windows 11, macOS ...
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the smallest useful reproduction and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Remove API keys, tokens, credentials, private targets, and other sensitive data.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reproduced this on the current main branch or latest beta.
+        - label: I removed secrets and third-party/private target data.
+          required: true
+        - label: This is not a security vulnerability covered by SECURITY.md.
+          required: true

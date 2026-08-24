@@ -27,3 +27,17 @@ repos:
       - id: check-yaml
       - id: check-json
         exclude: ^frontend/tsconfig.*\.json$
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: project-metadata
+        name: project metadata is synchronized
+        entry: python scripts/sync_project_metadata.py --check
+        language: python
+        additional_dependencies:
+          - PyYAML>=6.0
+        pass_filenames: false
+        files: ^(VERSION|README\.md|package\.json|backend/(tools|templates)\.yaml|\.github/workflows/release\.yml)$
