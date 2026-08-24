@@ -64,6 +64,13 @@ else
   pip install clairvoyance
 fi
 
+if command -v jwt_tool >/dev/null 2>&1; then
+  skip "JWT Tool" "$(command -v jwt_tool)"
+else
+  log "Installing JWT Tool (jwt_tool)"
+  pip install jwt_tool  # or git clone https://github.com/ticarpi/jwt_tool
+fi
+
 # ── Archive ─────────────────────────────────────────────────────
 if command -v gau >/dev/null 2>&1; then
   skip "GAU" "$(command -v gau)"
@@ -181,6 +188,13 @@ else
   go install github.com/edoardottt/cariddi/cmd/cariddi@latest
 fi
 
+if command -v crawlergo >/dev/null 2>&1; then
+  skip "crawlergo" "$(command -v crawlergo)"
+else
+  log "Installing crawlergo (crawlergo)"
+  download a release from https://github.com/Qianlitp/crawlergo/releases
+fi
+
 # ── Enumeration ─────────────────────────────────────────────────
 if command -v gobuster >/dev/null 2>&1; then
   skip "Gobuster" "$(command -v gobuster)"
@@ -236,6 +250,20 @@ if command -v shortscan >/dev/null 2>&1; then
 else
   log "Installing Shortscan (shortscan)"
   go install github.com/bitquark/shortscan/cmd/shortscan@latest
+fi
+
+if command -v dirhunt >/dev/null 2>&1; then
+  skip "Dirhunt" "$(command -v dirhunt)"
+else
+  log "Installing Dirhunt (dirhunt)"
+  pip install dirhunt
+fi
+
+if command -v byp4xx >/dev/null 2>&1; then
+  skip "byp4xx" "$(command -v byp4xx)"
+else
+  log "Installing byp4xx (byp4xx)"
+  go install github.com/lobuhi/byp4xx@latest
 fi
 
 # ── Fuzzing ─────────────────────────────────────────────────────
@@ -701,6 +729,13 @@ else
   go install github.com/edoardottt/csprecon/cmd/csprecon@latest
 fi
 
+if command -v webanalyze >/dev/null 2>&1; then
+  skip "webanalyze" "$(command -v webanalyze)"
+else
+  log "Installing webanalyze (webanalyze)"
+  go install github.com/rverton/webanalyze/cmd/webanalyze@latest
+fi
+
 # ── SSRF ────────────────────────────────────────────────────────
 if command -v ssrfmap >/dev/null 2>&1; then
   skip "SSRFmap" "$(command -v ssrfmap)"
@@ -743,6 +778,14 @@ if command -v tplmap >/dev/null 2>&1; then
 else
   log "Installing Tplmap (tplmap)"
   pip install tplmap
+fi
+
+# ── Scanner ─────────────────────────────────────────────────────
+if command -v sniper >/dev/null 2>&1; then
+  skip "Sn1per" "$(command -v sniper)"
+else
+  log "Installing Sn1per (sniper)"
+  git clone https://github.com/1N3/Sn1per && cd Sn1per && bash install.sh
 fi
 
 # ── Secrets ─────────────────────────────────────────────────────
@@ -992,6 +1035,20 @@ if command -v ppfuzz >/dev/null 2>&1; then
 else
   log "Installing ppfuzz (ppfuzz)"
   cargo install ppfuzz
+fi
+
+if command -v wapiti >/dev/null 2>&1; then
+  skip "Wapiti" "$(command -v wapiti)"
+else
+  log "Installing Wapiti (wapiti)"
+  pip install wapiti3
+fi
+
+if command -v zap-baseline.py >/dev/null 2>&1; then
+  skip "OWASP ZAP" "$(command -v zap-baseline.py)"
+else
+  log "Installing OWASP ZAP (zap-baseline.py)"
+  docker pull ghcr.io/zaproxy/zaproxy:stable  # provides zap-baseline.py
 fi
 
 # ── Wordlist ────────────────────────────────────────────────────

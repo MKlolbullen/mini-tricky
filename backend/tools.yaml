@@ -436,6 +436,18 @@ tools:
         label: Extract Links
         description: Extract links from response body
         type: flag
+      - flag: -f
+        label: Add Slash
+        description: Also request each word with a trailing slash
+        type: flag
+      - flag: -g
+        label: Collect Words
+        description: Harvest words from responses to feed further scanning
+        type: flag
+      - flag: -B
+        label: Collect Backups
+        description: Request likely backup files for discovered pages
+        type: flag
       - flag: -t
         label: Threads
         description: Number of concurrent threads
@@ -446,13 +458,61 @@ tools:
         description: Maximum recursion depth
         type: int
         default: '4'
-      - flag: -C
-        label: Filter Codes
-        description: Filter status codes
-        type: string
+      - flag: --rate-limit
+        label: Rate Limit
+        description: Maximum requests per second (per directory)
+        type: int
+      - flag: -L
+        label: Scan Limit
+        description: Maximum number of directories scanned concurrently
+        type: int
       - flag: -x
         label: Extensions
-        description: File extensions to search for
+        description: File extensions to search for (e.g. php,bak,txt)
+        type: string
+      - flag: -m
+        label: HTTP Methods
+        description: HTTP methods to try (e.g. GET,POST)
+        type: string
+      - flag: -H
+        label: Headers
+        description: Add a custom request header
+        type: string
+      - flag: -b
+        label: Cookies
+        description: Cookie header value to send
+        type: string
+      - flag: -a
+        label: User-Agent
+        description: Override the User-Agent string
+        type: string
+      - flag: --proxy
+        label: Proxy
+        description: Send traffic through an HTTP proxy (http://host:port)
+        type: string
+      - flag: -C
+        label: Filter Codes
+        description: Filter out these status codes (e.g. 404,403)
+        type: string
+      - flag: -s
+        label: Status Codes
+        description: Only report these status codes (e.g. 200,301)
+        type: string
+      - flag: -S
+        label: Filter Size
+        description: Filter out responses of this byte size
+        type: string
+      - flag: -W
+        label: Filter Words
+        description: Filter out responses with this word count
+        type: string
+      - flag: -N
+        label: Filter Lines
+        description: Filter out responses with this line count
+        type: string
+      - flag: -X
+        label: Filter Regex
+        description: Filter out responses matching this regex
         type: string
 
   - id: wfuzz
@@ -706,26 +766,88 @@ tools:
     args:
       - flag: --deep-domxss
         label: Deep DOM XSS
-        description: Find DOM XSS with more payloads
+        description: Enable more DOM XSS analysis (slower, higher coverage)
+        type: flag
+      - flag: --mining-dict
+        label: Dict Param Mining
+        description: Discover new parameters with a dictionary attack
+        type: flag
+      - flag: --mining-dom
+        label: DOM Param Mining
+        description: Discover new parameters by parsing the DOM
+        type: flag
+      - flag: --skip-bav
+        label: Skip BAV
+        description: Skip basic-another-vulnerability checks (SSTI, SQLi, etc.)
+        type: flag
+      - flag: --skip-mining-all
+        label: Skip Mining
+        description: Disable all parameter mining
         type: flag
       - flag: --follow-redirects
         label: Follow Redirects
         description: Follow HTTP redirects
         type: flag
-      - flag: --mining-dict
-        label: Mining Dict
-        description: Find new parameter with dictionary attack
+      - flag: --waf-evasion
+        label: WAF Evasion
+        description: Slow down and adapt when a WAF is detected
         type: flag
+      - flag: --only-poc
+        label: Only PoC
+        description: Print only proof-of-concept results
+        type: string
+      - flag: -b
+        label: Blind XSS URL
+        description: Blind XSS callback URL (e.g. your interactsh/collaborator)
+        type: string
+      - flag: --custom-payload
+        label: Custom Payloads
+        description: Path to a file of additional XSS payloads
+        type: string
+      - flag: -p
+        label: Param
+        description: Test only this specific parameter
+        type: string
+      - flag: --method
+        label: HTTP Method
+        description: HTTP method to use
+        type: string
+        default: GET
+      - flag: -H
+        label: Header
+        description: Add a custom request header (repeatable)
+        type: string
+      - flag: -C
+        label: Cookie
+        description: Cookie header value to send
+        type: string
+      - flag: --user-agent
+        label: User-Agent
+        description: Override the User-Agent string
+        type: string
+      - flag: --proxy
+        label: Proxy
+        description: Send traffic through an HTTP proxy (http://host:port)
+        type: string
+      - flag: --grep
+        label: Grep Pattern
+        description: Path to a custom grepping (secret-detection) pattern file
+        type: string
       - flag: -w
         label: Workers
-        description: Number of worker
+        description: Number of concurrent workers
         type: int
         default: '100'
       - flag: -d
         label: Delay
-        description: Milliseconds between each request
+        description: Milliseconds of delay between requests
         type: int
         default: '0'
+      - flag: --timeout
+        label: Timeout
+        description: Per-request timeout in seconds
+        type: int
+        default: '10'
 
   # ── Fuzzing ────────────────────────────────────────────────
   - id: ffuf
@@ -2692,17 +2814,60 @@ tools:
     args:
       - flag: -s
         label: Signatures
-        description: Signature selector (e.g. 'cves/', 'common/')
+        description: Signature selector (e.g. 'cves/', 'common/', 'sensitive/')
         type: string
+      - flag: -x
+        label: Exclude Signatures
+        description: Signature selector to exclude
+        type: string
+      - flag: -L
+        label: Severity Level
+        description: Filter signatures by severity level (1-5)
+        type: int
+        default: '1'
+      - flag: -p
+        label: Custom Params
+        description: Custom variable to inject into signatures (name=value)
+        type: string
+      - flag: -H
+        label: Header
+        description: Add a default header to every request
+        type: string
+      - flag: --proxy
+        label: Proxy
+        description: Send requests through a proxy (http://host:port)
+        type: string
+      - flag: --timeout
+        label: Timeout
+        description: Per-request timeout in seconds
+        type: int
+        default: '20'
+      - flag: --retry
+        label: Retries
+        description: Number of times to retry a failed request
+        type: int
+        default: '1'
       - flag: -c
         label: Concurrency
         description: Number of concurrent threads
         type: int
         default: '20'
-      - flag: --proxy
-        label: Proxy
-        description: Send requests through a proxy
-        type: string
+      - flag: --chunk
+        label: Chunk Run
+        description: Split the target list into chunks to reduce memory use
+        type: flag
+      - flag: --passive
+        label: Passive
+        description: Enable passive detections while scanning
+        type: flag
+      - flag: -J
+        label: JSON Output
+        description: Emit results as JSON
+        type: flag
+      - flag: -v
+        label: Verbose
+        description: Verbose output
+        type: flag
 
   - id: cmseek
     name: CMSeeK
@@ -2773,11 +2938,50 @@ tools:
     output_mode: stdout
     timeout_seconds: 300
     args:
+      - flag: --http-method
+        label: HTTP Method
+        description: Base HTTP method to bypass with
+        type: string
+        default: GET
+      - flag: -H
+        label: Header
+        description: Add a custom request header (repeatable)
+        type: string
+      - flag: -d
+        label: Payloads Dir
+        description: Directory of custom bypass payloads
+        type: string
+      - flag: -f
+        label: Request File
+        description: Load a raw HTTP request from a file
+        type: string
+      - flag: -m
+        label: Max Retries
+        description: Maximum retries per request
+        type: int
+        default: '3'
       - flag: -t
         label: Max Goroutines
         description: Maximum number of concurrent requests
         type: int
         default: '20'
+      - flag: --timeout
+        label: Timeout
+        description: Per-request timeout in milliseconds
+        type: int
+        default: '10000'
+      - flag: -r
+        label: Follow Redirects
+        description: Follow HTTP redirects
+        type: flag
+      - flag: -k
+        label: Bypass Local Paths
+        description: Also attempt local-path traversal bypasses
+        type: flag
+      - flag: --unique
+        label: Unique
+        description: Only display unique responses
+        type: flag
       - flag: --random-agent
         label: Random Agent
         description: Use a random User-Agent per request
@@ -3668,3 +3872,341 @@ tools:
     output_mode: stdout
     timeout_seconds: 600
     args: []
+
+  # ── Scanner (automated frameworks) ─────────────────────────
+  - id: sn1per
+    name: Sn1per
+    category: Scanner
+    description: Automated reconnaissance and vulnerability scanning framework
+    inputs: [targets]
+    outputs: [findings]
+    command: [sniper, -t, '{targets}', -o, --noreport]
+    output_mode: stdout
+    timeout_seconds: 1800
+    args:
+      - flag: -m
+        label: Mode
+        description: Scan mode (normal, stealth, discover, web, webscan, massvulnscan)
+        type: string
+        default: normal
+      - flag: -w
+        label: Workspace
+        description: Workspace name to store results under
+        type: string
+      - flag: -re
+        label: Recon
+        description: Enable OSINT reconnaissance
+        type: flag
+      - flag: -b
+        label: Bruteforce
+        description: Enable brute-force of discovered services
+        type: flag
+      - flag: -fp
+        label: Full Ports
+        description: Scan all 65535 TCP ports
+        type: flag
+      - flag: --osint
+        label: OSINT
+        description: Enable OSINT collection modules
+        type: flag
+      - flag: --skipportscan
+        label: Skip Port Scan
+        description: Skip the port-scanning phase
+        type: flag
+      - flag: --skipwebscan
+        label: Skip Web Scan
+        description: Skip the web-application scanning phase
+        type: flag
+
+  # ── API (JWT) ──────────────────────────────────────────────
+  - id: jwt_tool
+    name: JWT Tool
+    category: API
+    description: Test, tamper, and attack JSON Web Tokens
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [jwt_tool, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -M
+        label: Mode
+        description: Scanning mode (pb=playbook, at=all-tests, cd=common, er=errors)
+        type: string
+      - flag: -X
+        label: Exploit
+        description: Exploit type (a=alg:none, n=null-sig, b=blank, s=key-confusion, k=key-inject)
+        type: string
+      - flag: -I
+        label: Inject Claims
+        description: Tamper with the token and inject claims
+        type: flag
+      - flag: -pc
+        label: Payload Claim
+        description: Claim name to tamper (used with -pv)
+        type: string
+      - flag: -pv
+        label: Payload Value
+        description: New value for the tampered claim
+        type: string
+      - flag: -S
+        label: Sign Algorithm
+        description: Signing algorithm to re-sign with (e.g. hs256, rs256)
+        type: string
+      - flag: -k
+        label: Key File
+        description: Path to a key file for verification/signing
+        type: string
+      - flag: -rc
+        label: Cookies
+        description: Cookie header to send when probing a live target
+        type: string
+      - flag: -rh
+        label: Header
+        description: Extra request header when probing a live target
+        type: string
+      - flag: -p
+        label: Password
+        description: Password/secret for HMAC brute or signing
+        type: string
+
+  # ── Vulnerability (full web scanners) ──────────────────────
+  - id: wapiti
+    name: Wapiti
+    category: Vulnerability
+    description: Black-box web-application vulnerability scanner
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [wapiti, -u, '{targets}', -f, json, -o, wapiti-report.json]
+    output_mode: file
+    timeout_seconds: 1800
+    args:
+      - flag: -m
+        label: Modules
+        description: Attack modules to run (e.g. xss,sql,exec,file,ssrf)
+        type: string
+      - flag: --scope
+        label: Scope
+        description: Crawl scope (page, folder, domain, url, punk)
+        type: string
+        default: folder
+      - flag: -d
+        label: Depth
+        description: Maximum crawl depth
+        type: int
+        default: '40'
+      - flag: --max-links-per-page
+        label: Max Links/Page
+        description: Cap on links extracted per page
+        type: int
+      - flag: -x
+        label: Exclude
+        description: URL pattern to exclude from the scan
+        type: string
+      - flag: -p
+        label: Proxy
+        description: Send traffic through an HTTP proxy (http://host:port)
+        type: string
+      - flag: -H
+        label: Header
+        description: Add a custom request header
+        type: string
+      - flag: -A
+        label: User-Agent
+        description: Override the User-Agent string
+        type: string
+      - flag: -l
+        label: Level
+        description: Attack level (1=quick, 2=thorough)
+        type: int
+        default: '1'
+      - flag: -t
+        label: Timeout
+        description: Per-request timeout in seconds
+        type: int
+        default: '6'
+      - flag: --flush-session
+        label: Flush Session
+        description: Start a fresh scan, ignoring any saved session
+        type: flag
+
+  - id: zaproxy
+    name: OWASP ZAP
+    category: Vulnerability
+    description: Run an OWASP ZAP baseline passive scan against a target
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [zap-baseline.py, -t, '{targets}', -J, zap-report.json]
+    output_mode: file
+    timeout_seconds: 1800
+    args:
+      - flag: -a
+        label: Include Alpha
+        description: Include alpha-quality passive scan rules
+        type: flag
+      - flag: -j
+        label: AJAX Spider
+        description: Use the AJAX spider in addition to the traditional one
+        type: flag
+      - flag: -m
+        label: Spider Minutes
+        description: Minutes to spider before scanning
+        type: int
+        default: '1'
+      - flag: -T
+        label: Max Time
+        description: Maximum total run time in minutes
+        type: int
+      - flag: -l
+        label: Min Level
+        description: Minimum alert level to report (PASS, IGNORE, INFO, WARN, FAIL)
+        type: string
+        default: WARN
+      - flag: -d
+        label: Debug
+        description: Show debug messages
+        type: flag
+      - flag: -s
+        label: Short
+        description: Short output format
+        type: flag
+
+  # ── Enumeration (content / bypass) ─────────────────────────
+  - id: dirhunt
+    name: Dirhunt
+    category: Enumeration
+    description: Find and analyze web directories by parsing index pages
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [dirhunt, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '10'
+      - flag: -e
+        label: Exclude Flags
+        description: Result flags to exclude (e.g. 404,not_found)
+        type: string
+      - flag: -i
+        label: Include Flags
+        description: Only show results with these flags (e.g. 200,html)
+        type: string
+      - flag: --max-depth
+        label: Max Depth
+        description: Maximum directory recursion depth
+        type: int
+        default: '3'
+      - flag: -p
+        label: Proxy
+        description: Send traffic through an HTTP proxy (http://host:port)
+        type: string
+      - flag: -a
+        label: User-Agent
+        description: Override the User-Agent string
+        type: string
+      - flag: --timeout
+        label: Timeout
+        description: Per-request timeout in seconds
+        type: int
+        default: '10'
+
+  - id: byp4xx
+    name: byp4xx
+    category: Enumeration
+    description: Bypass 40x responses via verbs, headers, and path mutations
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [byp4xx, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -t
+        label: Threads
+        description: Number of concurrent threads
+        type: int
+        default: '10'
+      - flag: -H
+        label: Header
+        description: Add a custom request header
+        type: string
+      - flag: -x
+        label: Proxy
+        description: Send requests through an HTTP proxy (http://host:port)
+        type: string
+      - flag: --timeout
+        label: Timeout
+        description: Per-request timeout in seconds
+        type: int
+        default: '10'
+
+  # ── Crawling (headless) ────────────────────────────────────
+  - id: crawlergo
+    name: crawlergo
+    category: Crawling
+    description: Headless-Chrome crawler that exercises the DOM and forms
+    inputs: [targets, url]
+    outputs: [url]
+    command: [crawlergo, -c, /usr/bin/chromium, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 900
+    args:
+      - flag: -t
+        label: Max Tabs
+        description: Number of parallel browser tabs
+        type: int
+        default: '8'
+      - flag: --fuzz-path
+        label: Fuzz Path
+        description: Fuzz common paths using a built-in dictionary
+        type: flag
+      - flag: --robots-path
+        label: Robots Path
+        description: Seed the crawl from /robots.txt
+        type: flag
+      - flag: --max-crawled-count
+        label: Max Crawled
+        description: Maximum number of tasks to crawl
+        type: int
+      - flag: -f
+        label: Filter Mode
+        description: URL de-duplication mode (simple, smart, strict)
+        type: string
+        default: smart
+      - flag: -i
+        label: Ignore Keywords
+        description: Comma-separated keywords to skip in URLs (e.g. logout,delete)
+        type: string
+
+  # ── Recon (fingerprint) ────────────────────────────────────
+  - id: webanalyze
+    name: webanalyze
+    category: Recon
+    description: Fingerprint web technologies (Wappalyzer engine) at scale
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [webanalyze, -host, '{targets}', -output, json]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -crawl
+        label: Crawl Depth
+        description: Links to crawl per host (0 = only the host itself)
+        type: int
+        default: '0'
+      - flag: -worker
+        label: Workers
+        description: Number of concurrent workers
+        type: int
+        default: '4'
+      - flag: -redirect
+        label: Follow Redirect
+        description: Follow HTTP redirects to the final destination
+        type: flag
+      - flag: -silent
+        label: Silent
+        description: Suppress the progress banner
+        type: flag

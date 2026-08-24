@@ -17,6 +17,9 @@ export const TOOL_GLYPHS: Record<string, string> = {
   ppfuzz: '\u{1F9EC}', shortscan: '\u{1F4CF}',
   bbot: '\u{1F916}', crtsh: '\u{1F4DC}', massdns: '\u{1F4A8}', csprecon: '\u{1F6E1}',
   'github-endpoints': '\u{1F419}', 'gitlab-subdomains': '\u{1F98A}', nrich: '\u{1F4C8}', dnsreaper: '\u{1F480}',
+  // Scanners / web-app frameworks
+  sn1per: '\u{1F3AF}', jwt_tool: '\u{1F511}', wapiti: '\u{1F989}', zaproxy: '\u{26A1}',
+  dirhunt: '\u{1F5C3}', byp4xx: '\u{1F513}', crawlergo: '\u{1F577}', webanalyze: '\u{1F52C}',
   // Enumeration
   gobuster: '\u{1F528}', dirsearch: '\u{1F4C1}', feroxbuster: '\u{1F980}', wfuzz: '\u{1F300}',
   // Vulnerability

@@ -2695,6 +2695,15 @@ INSTALL_HINTS: dict[str, str] = {
     "gitlab-subdomains": "go install github.com/gwen001/gitlab-subdomains@latest",
     "nrich": "cargo install nrich",
     "dnsreaper": "pipx install dnsReaper  # or docker run punksecurity/dnsreaper",
+    # Web-app scanners / frameworks
+    "sniper": "git clone https://github.com/1N3/Sn1per && cd Sn1per && bash install.sh",
+    "jwt_tool": "pip install jwt_tool  # or git clone https://github.com/ticarpi/jwt_tool",
+    "wapiti": "pip install wapiti3",
+    "zap-baseline.py": "docker pull ghcr.io/zaproxy/zaproxy:stable  # provides zap-baseline.py",
+    "dirhunt": "pip install dirhunt",
+    "byp4xx": "go install github.com/lobuhi/byp4xx@latest",
+    "crawlergo": "download a release from https://github.com/Qianlitp/crawlergo/releases",
+    "webanalyze": "go install github.com/rverton/webanalyze/cmd/webanalyze@latest",
 }
 
 
