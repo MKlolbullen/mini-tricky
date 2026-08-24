@@ -7,7 +7,7 @@
 <p align="center">
   <strong>Local-first visual workflow automation for authorized offensive security.</strong>
   <br />
-  Build typed recon, web, API, cloud, network, and analysis pipelines as runnable DAGs — without turning your terminal history into an archaeological site.
+  Build typed recon, web, API, cloud, network, supply-chain, and analysis pipelines as runnable DAGs — without turning your terminal history into an archaeological site.
 </p>
 
 <p align="center">
@@ -53,20 +53,21 @@ The core application is local-first. Individual security tools, OSINT providers,
 
 ## At a glance
 
-- **<!-- tools-count -->148<!-- /tools-count --> integrated security tools** defined as typed tool specifications.
-- **<!-- templates-count -->55<!-- /templates-count --> built-in workflow templates** spanning recon, web application testing, APIs, cloud, secrets, injection, takeover, source review, and more.
-- **21+ tool categories** plus purpose-built logic/source nodes.
+- **<!-- tools-count -->151<!-- /tools-count --> integrated security tools** defined as typed tool specifications.
+- **<!-- templates-count -->57<!-- /templates-count --> built-in workflow templates** spanning recon, web application testing, APIs, cloud, software supply chain, secrets, injection, takeover, source review, and more.
+- **22+ tool categories** plus purpose-built logic/source nodes.
 - **Electron desktop app** for macOS, Windows, and Linux, plus browser-only development/web mode.
 - **FastAPI + WebSocket execution engine** with live node state and logs.
 - **React + React Flow** canvas with typed, color-coded connections.
 - **SQLite + Alembic** persistence for workflows, runs, profiles, presets, and versions.
 - **OS-keychain-backed secrets** through Python `keyring` with a restricted local fallback.
 - **Mermaid ⇄ workflow conversion** for documentation and graph interchange.
+- **Risk-aware capability planning** over typed tool transitions without executing tools.
 - **Optional AI workflow generation** with a non-AI fallback when no provider key is configured.
 
 Current release metadata: `<!-- release-version -->0.4.0-beta<!-- /release-version -->`.
 
-> Catalog counts and release metadata are synchronized from source files. Run `python scripts/sync_project_metadata.py --write` after changing tools, templates, or release metadata; CI checks for drift.
+> Catalog counts and release metadata are synchronized from the core catalog plus extension packs. Run `python scripts/sync_project_metadata.py --write` after changing tools, templates, or release metadata; CI checks for drift.
 
 ## Guided tour
 
@@ -213,6 +214,29 @@ flowchart LR
     W --> O
 ```
 
+### Internet exposure correlation
+
+```mermaid
+flowchart LR
+    Q[Search Query] --> U[Uncover]
+    U --> H[HTTPX]
+    H --> N[Nuclei]
+    N --> O[Artifacts]
+```
+
+Uncover remains a passive/provider-backed OSINT stage; the selected provider engines may require credentials in Uncover's provider configuration. Its text output is deliberately typed as `targets`, so JSONL mode is not exposed on this node contract.
+
+### SBOM vulnerability review
+
+```mermaid
+flowchart LR
+    F[Project Folder] --> S[Syft]
+    S -->|sbom| G[Grype]
+    G -->|findings| O[Artifacts]
+```
+
+Syft writes CycloneDX JSON to the node's saved `sbom` artifact. Grype consumes that saved SBOM and emits JSON findings, keeping mini-tricky's artifact layer in control of the pipeline.
+
 ### Deep injection workflow
 
 ```mermaid
@@ -251,7 +275,7 @@ Payload category names are allowlisted by the backend before file paths are cons
 | Node | Purpose | Typical inputs | Typical outputs |
 | --- | --- | --- | --- |
 | **Tool** | Execute an integrated CLI tool | tool-defined | tool-defined |
-| **Variable** | Provide a domain, targets, URL, file, folder, or other value | — | typed value |
+| **Variable** | Provide a domain, targets, URL, query, file, folder, SBOM, or other value | — | typed value |
 | **Payload Set** | Build an encoded payload wordlist | — | `wordlist` |
 | **Merge & Sort** | Fan-in, concatenate, sort, and deduplicate upstream data | `any` | `targets` or `url` |
 | **Script** | Inline Bash/Python transformation | `targets` | `targets` |
@@ -264,7 +288,9 @@ The validator rejects cycles, unknown tools, invalid socket contracts, and confl
 
 ## Tool catalog
 
-Tool definitions live in [`backend/tools.yaml`](backend/tools.yaml). The catalog covers areas including:
+Core tool definitions live in [`backend/tools.yaml`](backend/tools.yaml). Focused feature packs can add tools, install hints, and capability metadata through [`backend/tools.d/`](backend/tools.d/); built-in workflow packs use [`backend/templates.d/`](backend/templates.d/) alongside the core [`backend/templates.yaml`](backend/templates.yaml).
+
+The catalog covers areas including:
 
 - passive and active reconnaissance;
 - DNS and subdomain discovery;
@@ -277,12 +303,13 @@ Tool definitions live in [`backend/tools.yaml`](backend/tools.yaml). The catalog
 - TLS/network scanning;
 - screenshots;
 - cloud and source security;
+- software supply-chain/SBOM analysis;
 - secrets detection;
 - OSINT provider queries;
 - takeover, CORS, CSRF, SSRF, SSTI, JWT, and header checks;
 - workflow utilities and transformations.
 
-Recent expansion includes wide web-app assessment graphs, GraphQL tooling, JS-analysis tooling, source/cloud review, payload nodes, URL/file/folder socket types, and first-class merge/deduplication.
+Recent expansion includes Uncover exposure intelligence, Syft → Grype SBOM analysis, risk/cost capability metadata, typed `query`/`sbom` sockets, wide web-app assessment graphs, GraphQL tooling, JS-analysis tooling, source/cloud review, payload nodes, and first-class merge/deduplication.
 
 To add a tool, read [`CONTRIBUTING.md`](CONTRIBUTING.md). Tool definitions should expose real capabilities and typed contracts rather than becoming arbitrary shell-command wrappers.
 
@@ -318,6 +345,7 @@ flowchart TB
 
     subgraph BE[FastAPI backend]
       V[Graph validation]
+      P[Capability planner]
       X[Execution engine]
       DB[(SQLite + Alembic)]
       S[Secrets store]
@@ -334,6 +362,7 @@ flowchart TB
     E --> FE
     B --> FE
     FE <-->|HTTP + WebSocket| BE
+    P --> V
     V --> X
     X --> T
     X --> A
@@ -341,7 +370,7 @@ flowchart TB
     S --> K
 ```
 
-The Electron main process launches the backend, waits for `/api/health`, and then opens the UI. In packaged releases it prefers the bundled Python runtime; development mode uses the system Python interpreter.
+The Electron main process launches the authenticated loopback backend, waits for `/api/health`, and then opens the UI. In packaged releases it prefers the bundled Python runtime; development mode uses the system Python interpreter.
 
 ## Persistence and artifacts
 
@@ -379,8 +408,8 @@ mini-tricky intentionally executes powerful local binaries, custom scripts, impo
 Security-sensitive areas include:
 
 - Electron preload and IPC authorization;
-- arbitrary filesystem access;
-- local FastAPI/WebSocket exposure and origin handling;
+- dialog-granted filesystem access;
+- authenticated local FastAPI/WebSocket exposure and origin handling;
 - command/argument construction;
 - imported workflow validation;
 - custom script execution;
@@ -389,7 +418,7 @@ Security-sensitive areas include:
 - URLs passed to the operating system;
 - release and dependency integrity.
 
-Read [`SECURITY.md`](SECURITY.md) before reporting a vulnerability. Use mini-tricky only on systems and targets you are authorized to assess.
+Read [`SECURITY.md`](SECURITY.md) and [`docs/security-model.md`](docs/security-model.md) before reporting a vulnerability or changing a runtime trust boundary. Use mini-tricky only on systems and targets you are authorized to assess.
 
 ## API
 
@@ -399,7 +428,7 @@ FastAPI exposes interactive local API documentation while the backend is running
 http://127.0.0.1:5000/docs
 ```
 
-The API covers system/tool health, workflows and validation, runs and replay, artifacts, profiles/secrets, templates, schedules, presets, normalization, reports, Mermaid conversion, and optional workflow generation.
+The API covers system/tool health, capability metadata and advisory path planning, workflows and validation, runs and replay, artifacts, profiles/secrets, templates, schedules, presets, normalization, reports, Mermaid conversion, and optional workflow generation.
 
 Keeping the endpoint-by-endpoint reference in generated FastAPI docs prevents the README from becoming a second API schema that quietly rots.
 
@@ -444,20 +473,24 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-CI runs frontend lint/test/build and backend Ruff/mypy/pytest checks. Security-oriented GitHub workflows and browser smoke coverage are being expanded alongside the beta release process.
+CI runs frontend lint/test/build, Electron syntax checks, backend Ruff/mypy/pytest, Playwright smoke coverage, metadata drift validation, dependency review, and CodeQL.
 
 ## Repository map
 
 ```text
 mini-tricky/
-├── backend/                 FastAPI orchestration engine, schemas, tools, templates, tests
+├── backend/                 FastAPI orchestration engine, schemas, catalogs, extension packs, tests
+│   ├── tools.yaml           Core tool catalog
+│   ├── tools.d/             Composable tool/install/capability packs
+│   ├── templates.yaml       Core built-in workflows
+│   └── templates.d/         Composable built-in workflow packs
 ├── frontend/                React/TypeScript/React Flow UI and Playwright smoke tests
 ├── electron/                Desktop process, preload bridge, menus, tray, backend lifecycle
 ├── payloads/                Allowlisted payload-set source data
 ├── scripts/                 Tool installer and project-maintenance scripts
 ├── build/                   Application icons and build resources
 ├── docs/                    Screenshots and extended documentation
-├── .github/workflows/       CI and release automation
+├── .github/workflows/       CI, security, and release automation
 ├── VERSION                  Canonical release version
 ├── SECURITY.md              Vulnerability-reporting policy
 ├── CONTRIBUTING.md          Development/tool/template contribution rules
@@ -468,15 +501,14 @@ mini-tricky/
 
 The highest-value next steps are less about blindly increasing the tool counter and more about improving orchestration quality:
 
-- stronger Electron/local-API trust boundaries;
-- code signing, release provenance, SBOMs, and update integrity;
-- richer typed artifact contracts such as SBOMs;
+- a dedicated CloudFox adapter/profile model and cloud attack-surface templates;
 - differential runs: scan what is new or changed instead of repeating everything;
+- feed capability planning into AI workflow generation and operator suggestions;
 - resource/rate budgets per node and per run;
 - sandboxed execution options for selected tools;
-- capability metadata so workflow generation can plan by **what a tool does**, not merely by its name;
-- distributed workers for genuinely large engagements;
-- additional cloud, exposure-intelligence, and software-supply-chain integrations.
+- code signing, update integrity, and stronger release distribution UX;
+- locally bundled Monaco assets so packaged Electron can remove its remaining CDN CSP exception;
+- distributed workers for genuinely large engagements.
 
 ## Contributing
 
