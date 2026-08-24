@@ -174,6 +174,13 @@ else
   go install -v github.com/tomnomnom/waybackurls@latest
 fi
 
+if command -v cariddi >/dev/null 2>&1; then
+  skip "Cariddi" "$(command -v cariddi)"
+else
+  log "Installing Cariddi (cariddi)"
+  go install github.com/edoardottt/cariddi/cmd/cariddi@latest
+fi
+
 # ── Enumeration ─────────────────────────────────────────────────
 if command -v gobuster >/dev/null 2>&1; then
   skip "Gobuster" "$(command -v gobuster)"
@@ -222,6 +229,13 @@ if command -v dirb >/dev/null 2>&1; then
 else
   log "Installing Dirb (dirb)"
   apt install dirb  # or brew install dirb
+fi
+
+if command -v shortscan >/dev/null 2>&1; then
+  skip "Shortscan" "$(command -v shortscan)"
+else
+  log "Installing Shortscan (shortscan)"
+  go install github.com/bitquark/shortscan/cmd/shortscan@latest
 fi
 
 # ── Fuzzing ─────────────────────────────────────────────────────
@@ -433,6 +447,20 @@ else
   pip install spiderfoot
 fi
 
+if command -v github-subdomains >/dev/null 2>&1; then
+  skip "GitHub Subdomains" "$(command -v github-subdomains)"
+else
+  log "Installing GitHub Subdomains (github-subdomains)"
+  go install github.com/gwen001/github-subdomains@latest
+fi
+
+if command -v gitdorker >/dev/null 2>&1; then
+  skip "GitDorker" "$(command -v gitdorker)"
+else
+  log "Installing GitDorker (gitdorker)"
+  git clone https://github.com/obheda12/GitDorker && pip install -r GitDorker/requirements.txt
+fi
+
 # ── Params ──────────────────────────────────────────────────────
 if command -v arjun >/dev/null 2>&1; then
   skip "Arjun" "$(command -v arjun)"
@@ -603,6 +631,27 @@ else
   npm install -g wappalyzer
 fi
 
+if command -v httprobe >/dev/null 2>&1; then
+  skip "httprobe" "$(command -v httprobe)"
+else
+  log "Installing httprobe (httprobe)"
+  go install github.com/tomnomnom/httprobe@latest
+fi
+
+if command -v urlfinder >/dev/null 2>&1; then
+  skip "URLFinder" "$(command -v urlfinder)"
+else
+  log "Installing URLFinder (urlfinder)"
+  go install github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest
+fi
+
+if command -v hakip2host >/dev/null 2>&1; then
+  skip "hakip2host" "$(command -v hakip2host)"
+else
+  log "Installing hakip2host (hakip2host)"
+  go install github.com/hakluke/hakip2host@latest
+fi
+
 # ── SSRF ────────────────────────────────────────────────────────
 if command -v ssrfmap >/dev/null 2>&1; then
   skip "SSRFmap" "$(command -v ssrfmap)"
@@ -762,6 +811,20 @@ else
   go install github.com/tomnomnom/meg@latest
 fi
 
+if command -v dsieve >/dev/null 2>&1; then
+  skip "dsieve" "$(command -v dsieve)"
+else
+  log "Installing dsieve (dsieve)"
+  go install github.com/trickest/dsieve@latest
+fi
+
+if command -v dnsvalidator >/dev/null 2>&1; then
+  skip "DNSValidator" "$(command -v dnsvalidator)"
+else
+  log "Installing DNSValidator (dnsvalidator)"
+  pip install dnsvalidator
+fi
+
 # ── Vulnerability ───────────────────────────────────────────────
 if command -v nikto >/dev/null 2>&1; then
   skip "Nikto" "$(command -v nikto)"
@@ -866,6 +929,13 @@ if command -v retire >/dev/null 2>&1; then
 else
   log "Installing Retire.js (retire)"
   npm install -g retire
+fi
+
+if command -v ppfuzz >/dev/null 2>&1; then
+  skip "ppfuzz" "$(command -v ppfuzz)"
+else
+  log "Installing ppfuzz (ppfuzz)"
+  cargo install ppfuzz
 fi
 
 # ── Wordlist ────────────────────────────────────────────────────

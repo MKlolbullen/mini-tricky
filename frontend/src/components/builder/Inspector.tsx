@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import type { FlowNode, Tool, ToolArg, RunRecord, ReplayRecord, ArtifactItem, ArtifactPreview, WorkflowNodePayload, WorkflowVersion, WorkflowRecord } from '../../types';
-import { CATEGORY_COLORS, CATEGORY_ICONS, socketColor } from '../../types';
+import { CATEGORY_COLORS, CATEGORY_ICONS, socketColor, PAYLOAD_TYPES, PAYLOAD_ENCODINGS } from '../../types';
 import { toolGlyph } from '../../toolIcons';
 import { artifactRawUrl, fetchWorkflowVersions, restoreWorkflowVersion, fetchPresets, savePreset, deletePreset, type Preset } from '../../api';
 import type { Edge } from '@xyflow/react';
@@ -242,6 +242,46 @@ export default function Inspector({
                   </div>
                 </div>
               )}
+
+              {/* ── Payload Node: Types + Encodings ── */}
+              {selectedNode.data.kind === 'payload' && (() => {
+                const params = selectedNode.data.params || {};
+                const selTypes = (params.payload_types || '').split(',').map((s) => s.trim()).filter(Boolean);
+                const selEnc = (params.encodings || 'raw').split(',').map((s) => s.trim()).filter(Boolean);
+                const toggle = (key: 'payload_types' | 'encodings', val: string, list: string[]) => {
+                  const next = list.includes(val) ? list.filter((x) => x !== val) : [...list, val];
+                  onUpdateNodeData(selectedNode.id, { params: { ...params, [key]: next.join(',') } });
+                };
+                const rowStyle = { display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer' } as const;
+                return (
+                  <>
+                    <div className="arg-section">
+                      <div className="arg-section-title">
+                        Payload Types
+                        <span className="arg-count-badge">{selTypes.length}/{PAYLOAD_TYPES.length}</span>
+                      </div>
+                      {PAYLOAD_TYPES.map((t) => (
+                        <label key={t} style={rowStyle}>
+                          <input type="checkbox" checked={selTypes.includes(t)} onChange={() => toggle('payload_types', t, selTypes)} />
+                          <span className="arg-field-name">{t}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="arg-section">
+                      <div className="arg-section-title">
+                        Encodings
+                        <span className="arg-count-badge">{selEnc.length}/{PAYLOAD_ENCODINGS.length}</span>
+                      </div>
+                      {PAYLOAD_ENCODINGS.map((e) => (
+                        <label key={e.key} style={rowStyle}>
+                          <input type="checkbox" checked={selEnc.includes(e.key)} onChange={() => toggle('encodings', e.key, selEnc)} />
+                          <span className="arg-field-name">{e.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* ── Tool Node: Argument Switches ── */}
               {selectedNode.data.kind === 'tool' && selectedTool && (

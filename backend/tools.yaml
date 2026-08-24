@@ -3427,3 +3427,142 @@ tools:
     output_mode: stdout
     timeout_seconds: 300
     args: []
+
+  # ── Recon (probing / URL discovery) ────────────────────────
+  - id: httprobe
+    name: httprobe
+    category: Recon
+    description: Probe a list of hosts for working HTTP and HTTPS servers
+    inputs: [targets]
+    outputs: [targets, url]
+    command: [httprobe]
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -p
+        label: Extra Ports
+        description: Additional port to probe, e.g. http:8080
+        type: string
+
+  - id: urlfinder
+    name: URLFinder
+    category: Recon
+    description: Passively collect URLs for a domain from multiple online sources
+    inputs: [domain]
+    outputs: [targets, url]
+    command: [urlfinder, -d, '{domain}', -silent]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: hakip2host
+    name: hakip2host
+    category: Recon
+    description: Discover hostnames tied to a list of IP addresses
+    inputs: [targets]
+    outputs: [targets]
+    command: [hakip2host]
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  # ── Crawling ───────────────────────────────────────────────
+  - id: cariddi
+    name: Cariddi
+    category: Crawling
+    description: Crawl endpoints and hunt for secrets, tokens, and juicy files
+    inputs: [targets, url]
+    outputs: [url, findings]
+    command: [cariddi, -s]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: -e
+        label: Endpoints
+        description: Hunt for known juicy endpoints
+        type: flag
+      - flag: -info
+        label: Info
+        description: Hunt for information disclosure (emails, tokens)
+        type: flag
+
+  # ── Utility ────────────────────────────────────────────────
+  - id: dsieve
+    name: dsieve
+    category: Utility
+    description: Filter and extract subdomains by level from a list
+    inputs: [targets]
+    outputs: [targets]
+    command: [dsieve, -if, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 120
+    args:
+      - flag: -f
+        label: Level Filter
+        description: Domain level(s) to keep, e.g. 3 or 2:4
+        type: string
+
+  - id: dnsvalidator
+    name: DNSValidator
+    category: Utility
+    description: Build a list of reliable, non-poisoned DNS resolvers
+    inputs: [targets]
+    outputs: [targets]
+    command: [dnsvalidator, -tL, '{targets_file}', -threads, '20']
+    output_mode: stdout
+    timeout_seconds: 600
+    args: []
+
+  # ── OSINT (GitHub) ─────────────────────────────────────────
+  - id: github-subdomains
+    name: GitHub Subdomains
+    category: OSINT
+    description: Discover subdomains referenced across public GitHub code
+    inputs: [domain]
+    outputs: [targets]
+    command: [github-subdomains, -d, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -e
+        label: Extended
+        description: Also search for subdomains in a wider result set
+        type: flag
+
+  - id: gitdorker
+    name: GitDorker
+    category: OSINT
+    description: Search GitHub with dork lists to surface leaked secrets and info
+    inputs: [domain]
+    outputs: [findings]
+    command: [gitdorker, -q, '{domain}']
+    output_mode: stdout
+    timeout_seconds: 600
+    args: []
+
+  # ── Vulnerability / Enumeration ────────────────────────────
+  - id: ppfuzz
+    name: ppfuzz
+    category: Vulnerability
+    description: Fuzz web applications for client-side prototype pollution
+    inputs: [url, targets]
+    outputs: [findings]
+    command: [ppfuzz, -l, '{targets_file}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args: []
+
+  - id: shortscan
+    name: Shortscan
+    category: Enumeration
+    description: Discover IIS 8.3 short filenames via tilde enumeration
+    inputs: [targets, url]
+    outputs: [findings]
+    command: [shortscan, '{targets}']
+    output_mode: stdout
+    timeout_seconds: 300
+    args:
+      - flag: -F
+        label: Full URLs
+        description: Output full candidate URLs for discovered names
+        type: flag

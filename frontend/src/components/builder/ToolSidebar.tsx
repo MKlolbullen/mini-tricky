@@ -9,6 +9,7 @@ type Props = {
   onAddTool: (tool: Tool) => void;
   onAddVariable: (type: string, label: string) => void;
   onAddOutput: () => void;
+  onAddPayload: () => void;
   onLoadWorkflow: (workflow: WorkflowRecord) => void;
 };
 
@@ -17,7 +18,7 @@ function startDrag(event: DragEvent, type: string, data: any) {
   event.dataTransfer.effectAllowed = 'move';
 }
 
-export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVariable, onAddOutput, onLoadWorkflow }: Props) {
+export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVariable, onAddOutput, onAddPayload, onLoadWorkflow }: Props) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -148,6 +149,21 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
           <span>Input: {o.type}</span>
         </div>
       ))}
+
+      <div className="section-title">Payloads</div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'payload', {})}
+        onClick={onAddPayload}
+      >
+        <div className="tool-card-header">
+          <strong>{'\u{1F4A3}'} Payload Set</strong>
+          <span className="tool-cat-badge" style={{ background: CATEGORY_COLORS['Payload'] }}>Payload</span>
+        </div>
+        <span className="tool-desc">Check LFI / XSS / SQLI / RCE / SSRF / SSTI + encodings</span>
+        <span className="tool-io">&rarr; wordlist</span>
+      </div>
 
       <div className="section-title">Tools ({filteredTools.length})</div>
       {Object.entries(groupedTools).map(([category, catTools]) => (

@@ -24,7 +24,7 @@ export type Tool = {
 export type Health = { status: string };
 
 export type WorkflowNodePayload = {
-  kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop';
+  kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload';
   label: string;
   toolId?: string;
   variableType?: string;
@@ -56,7 +56,7 @@ export type WorkflowRecord = {
   graph: {
     nodes: Array<{
       id: string;
-      kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop';
+      kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload';
       label: string;
       tool_id?: string | null;
       variable_type?: string | null;
@@ -192,6 +192,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Cloud: '#22d3ee',
   Kubernetes: '#326ce5',
   Secrets: '#f43f5e',
+  Payload: '#ff6ec7',
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -217,6 +218,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Cloud: '\u{2601}',
   Kubernetes: '\u{2638}',
   Secrets: '\u{1F510}',
+  Payload: '\u{1F4A3}',
 };
 
 // Per-socket-type colors, shared by the canvas nodes (SocketNode) and the
@@ -251,3 +253,15 @@ export const variableCatalog = [
 ];
 
 export const outputCatalog = [{ label: 'Artifacts', type: 'any' }];
+
+// Payload node — the six categories it can emit (one file per category under
+// the project-root payloads/ folder) and the encodings it can apply. Kept in
+// sync with PAYLOAD_TYPES / PAYLOAD_ENCODINGS in the backend.
+export const PAYLOAD_TYPES = ['LFI', 'XSS', 'SQLI', 'RCE', 'SSRF', 'SSTI'] as const;
+export const PAYLOAD_ENCODINGS: { key: string; label: string }[] = [
+  { key: 'raw', label: 'Raw' },
+  { key: 'url', label: 'URL-encode' },
+  { key: 'double_url', label: 'Double URL' },
+  { key: 'base64', label: 'Base64' },
+  { key: 'html', label: 'HTML entities' },
+];
