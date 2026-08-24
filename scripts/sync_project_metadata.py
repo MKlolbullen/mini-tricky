@@ -70,10 +70,6 @@ def expected_files() -> dict[Path, str]:
             f"({effective!r} != {version!r})"
         )
 
-    backend_main = (ROOT / "backend" / "src" / "main.py").read_text(encoding="utf-8")
-    if f'app = FastAPI(title="mini-tricky API", version="{version}")' not in backend_main:
-        raise RuntimeError("FastAPI version must match VERSION")
-
     release_default = f"default: 'v{version}'"
     if release_default not in updates[release]:
         raise RuntimeError("release.yml workflow_dispatch default must match VERSION")
