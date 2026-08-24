@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import pytest
 from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from src.secure_entry import SessionAuthMiddleware
 
 
-def _test_app(token: str = "test-session-token") -> FastAPI:
+def _test_app(token: str = "test-session-token", with_cors: bool = False) -> FastAPI:
     app = FastAPI()
 
     @app.get("/api/ping")
@@ -26,6 +27,14 @@ def _test_app(token: str = "test-session-token") -> FastAPI:
         await websocket.send_text(text)
 
     app.add_middleware(SessionAuthMiddleware, token=token)
+    if with_cors:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["http://127.0.0.1:5173"],
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type", "X-Mini-Tricky-Token"],
+        )
     return app
 
 
@@ -56,6 +65,21 @@ def test_non_api_routes_are_not_token_gated() -> None:
 def test_auth_can_be_disabled_for_web_mode() -> None:
     client = TestClient(_test_app(token=""))
     assert client.get("/api/ping").status_code == 200
+
+
+def test_cors_preflight_is_handled_outside_authentication() -> None:
+    client = TestClient(_test_app(with_cors=True))
+    response = client.options(
+        "/api/ping",
+        headers={
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-Mini-Tricky-Token",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
 
 
 def test_websocket_requires_query_token() -> None:
