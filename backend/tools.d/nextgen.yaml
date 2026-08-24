@@ -2,7 +2,7 @@ tools:
   - id: uncover
     name: Uncover
     category: OSINT
-    description: Query multiple internet-search engines for exposed hosts and feed the results into typed recon pipelines.
+    description: Query multiple internet-search engines for exposed hosts and feed text results into typed recon pipelines. Provider credentials may be required by the selected engines.
     icon: uncover
     inputs: [query]
     outputs: [targets]
@@ -12,11 +12,11 @@ tools:
     args:
       - flag: -e
         label: Engines
-        description: Comma-separated search engines (for example shodan,censys,fofa,netlas).
+        description: Comma-separated search engines such as shodan,censys,fofa,netlas.
         type: string
       - flag: -f
         label: Output field
-        description: Output field/format such as ip, host, port, or ip:port.
+        description: Text output field/format such as ip, host, port, or ip:port.
         type: string
         default: ip:port
       - flag: -l
@@ -42,14 +42,10 @@ tools:
         label: Proxy
         description: HTTP proxy for provider API requests.
         type: string
-      - flag: -j
-        label: JSONL output
-        description: Emit JSON Lines instead of the selected text field.
-        type: flag
 
   - id: syft
     name: Syft
-    category: Secrets
+    category: Supply Chain
     description: Generate a CycloneDX JSON software bill of materials from a local project directory.
     icon: syft
     inputs: [folder]
@@ -73,8 +69,8 @@ tools:
 
   - id: grype
     name: Grype
-    category: Vulnerability
-    description: Scan a Syft/CycloneDX SBOM for known vulnerabilities and emit normalized JSON source data.
+    category: Supply Chain
+    description: Scan a saved Syft/CycloneDX SBOM for known vulnerabilities and emit JSON findings.
     icon: grype
     inputs: [sbom]
     outputs: [findings]
@@ -90,10 +86,6 @@ tools:
         label: Only fixed
         description: Report only vulnerabilities with an available fix.
         type: flag
-      - flag: --ignore-wont-fix
-        label: Ignore won't-fix
-        description: Ignore vulnerabilities explicitly marked won't-fix where supported.
-        type: flag
       - flag: -q
         label: Quiet
         description: Suppress non-result logging.
@@ -103,3 +95,30 @@ install_hints:
   uncover: go install -v github.com/projectdiscovery/uncover/cmd/uncover@latest
   syft: curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
   grype: curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin
+
+capability_policy:
+  category_defaults:
+    Supply Chain:
+      risk: passive
+      network_cost: low
+      cpu_cost: medium
+      capabilities: [software_supply_chain]
+  tools:
+    uncover:
+      risk: passive
+      network_cost: low
+      cpu_cost: low
+      capabilities: [internet_exposure_search, provider_backed_osint]
+      platforms: [linux, macos, windows]
+    syft:
+      risk: passive
+      network_cost: none
+      cpu_cost: medium
+      capabilities: [sbom_generation, software_inventory]
+      platforms: [linux, macos, windows]
+    grype:
+      risk: passive
+      network_cost: low
+      cpu_cost: medium
+      capabilities: [sbom_vulnerability_assessment, software_composition_analysis]
+      platforms: [linux, macos, windows]
