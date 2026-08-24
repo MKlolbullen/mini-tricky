@@ -77,11 +77,7 @@ def metadata_for_tool(tool: Any, policy: dict[str, Any] | None = None) -> dict[s
     secrets = [str(value) for value in override.get("secrets", []) if str(value).strip()]
     platforms = [str(value) for value in override.get("platforms", []) if str(value).strip()]
 
-    transitions = [
-        {"from": input_type, "to": output_type}
-        for input_type in tool.inputs
-        for output_type in tool.outputs
-    ]
+    transitions = [{"from": input_type, "to": output_type} for input_type in tool.inputs for output_type in tool.outputs]
 
     return {
         "id": tool.id,
@@ -112,7 +108,9 @@ def policy_issues(tools: list[Any] | None = None, policy: dict[str, Any] | None 
     overrides = policy.get("tools") or {}
     if not isinstance(overrides, dict):
         return ["capabilities.yaml tools must be a mapping"]
-    return [f"capability override references unknown tool: {tool_id}" for tool_id in overrides if tool_id not in known_ids]
+    return [
+        f"capability override references unknown tool: {tool_id}" for tool_id in overrides if tool_id not in known_ids
+    ]
 
 
 def plan_paths(
@@ -162,12 +160,7 @@ def plan_paths(
                 continue
 
             for output_type in tool["outputs"]:
-                step_cost = (
-                    10
-                    + risk_value * 100
-                    + COST_ORDER[tool["network_cost"]] * 5
-                    + COST_ORDER[tool["cpu_cost"]] * 3
-                )
+                step_cost = 10 + risk_value * 100 + COST_ORDER[tool["network_cost"]] * 5 + COST_ORDER[tool["cpu_cost"]] * 3
                 next_score = score + step_cost
                 step = {
                     "tool_id": tool_id,
