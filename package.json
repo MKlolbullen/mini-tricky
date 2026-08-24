@@ -17,8 +17,8 @@
     "frontend:install": "npm --prefix frontend install",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
-    "backend:dev": "cd backend && python3 -m uvicorn src.main:app --host 127.0.0.1 --port 5000 --reload",
-    "dev": "concurrently -k -n be,fe,el -c red,cyan,yellow \"npm run backend:dev\" \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5000/api/health http://127.0.0.1:5173 && electron .\"",
+    "backend:dev": "cd backend && python3 -m uvicorn src.secure_entry:app --host 127.0.0.1 --port 5000 --reload",
+    "dev": "concurrently -k -n fe,el -c cyan,yellow \"npm run frontend:dev\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "start": "npm run frontend:build && electron .",
     "web": "concurrently -k -n be,fe -c red,cyan \"npm run backend:dev\" \"npm run frontend:dev\"",
     "electron:dev": "npm run dev",
@@ -74,7 +74,7 @@
       "icon": "build/icon.png",
       "maintainer": "MKlolbullen <mini-tricky@users.noreply.github.com>",
       "synopsis": "Local-first Trickest-style bug bounty workflow builder",
-      "description": "mini-tricky is a local-first desktop app for building and running offensive security workflows. It wraps 75+ bug-bounty and red team tools behind a typed node-graph canvas, executes them via a Python/FastAPI backend, and ships as a self-contained Electron binary."
+      "description": "mini-tricky is a local-first desktop app for building and running authorized security workflows. It wraps a large typed security-tool catalog behind a node-graph canvas, executes tools via a Python/FastAPI backend, and ships as a self-contained Electron application."
     },
     "nsis": {
       "oneClick": false,
