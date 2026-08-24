@@ -14,14 +14,14 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@xyflow/react": "^12.8.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@xyflow/react": "^12.11.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
     "@vitejs/plugin-react": "^4.3.4",
