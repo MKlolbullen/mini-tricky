@@ -12,7 +12,6 @@ permissions:
 env:
   NODE_VERSION: '22'
   PYTHON_VERSION: '3.12'
-  # Opt JavaScript actions into the Node 24 runtime, matching release.yml.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
@@ -79,6 +78,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Metadata drift check
+        if: matrix.step == 'lint'
+        run: python scripts/sync_project_metadata.py --check
+
       - name: Ruff lint
         if: matrix.step == 'lint'
         working-directory: backend
@@ -95,3 +98,54 @@ jobs:
         if: matrix.step == 'test'
         working-directory: backend
         run: pytest
+
+  e2e:
+    name: Playwright smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright smoke tests
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          if-no-files-found: ignore
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
