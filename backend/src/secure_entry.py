@@ -18,6 +18,7 @@ from urllib.parse import parse_qs
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from .capabilities import router as capabilities_router
 from .main import app
 
 TOKEN_ENV = "MINI_TRICKY_SESSION_TOKEN"
@@ -106,6 +107,9 @@ class SessionAuthMiddleware:
 
         await self.app(scope, receive, send)
 
+
+# Compose extension routers before locking in the middleware stack.
+app.include_router(capabilities_router)
 
 # src.main historically installed a permissive CORS layer. Remove it here and
 # replace it with the local UI origins accepted by the secure entrypoint.
