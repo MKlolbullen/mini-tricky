@@ -183,7 +183,7 @@ tools:
   waybackurls:
     risk: passive
     capabilities: [historical_url_discovery]
-  shodan:
+  shodan-cli:
     risk: passive
     capabilities: [internet_exposure_search]
     secrets: [SHODAN_API_KEY]
