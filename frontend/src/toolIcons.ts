@@ -15,6 +15,8 @@ export const TOOL_GLYPHS: Record<string, string> = {
   httprobe: '\u{1F4E1}', urlfinder: '\u{1F517}', hakip2host: '\u{1F503}', dsieve: '\u{1FA9C}',
   dnsvalidator: '\u{2705}', 'github-subdomains': '\u{1F419}', gitdorker: '\u{1F50E}', cariddi: '\u{1F30A}',
   ppfuzz: '\u{1F9EC}', shortscan: '\u{1F4CF}',
+  bbot: '\u{1F916}', crtsh: '\u{1F4DC}', massdns: '\u{1F4A8}', csprecon: '\u{1F6E1}',
+  'github-endpoints': '\u{1F419}', 'gitlab-subdomains': '\u{1F98A}', nrich: '\u{1F4C8}', dnsreaper: '\u{1F480}',
   // Enumeration
   gobuster: '\u{1F528}', dirsearch: '\u{1F4C1}', feroxbuster: '\u{1F980}', wfuzz: '\u{1F300}',
   // Vulnerability

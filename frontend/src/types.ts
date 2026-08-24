@@ -24,7 +24,7 @@ export type Tool = {
 export type Health = { status: string };
 
 export type WorkflowNodePayload = {
-  kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload';
+  kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload' | 'merge';
   label: string;
   toolId?: string;
   variableType?: string;
@@ -56,7 +56,7 @@ export type WorkflowRecord = {
   graph: {
     nodes: Array<{
       id: string;
-      kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload';
+      kind: 'tool' | 'variable' | 'output' | 'script' | 'module' | 'condition' | 'loop' | 'payload' | 'merge';
       label: string;
       tool_id?: string | null;
       variable_type?: string | null;
@@ -193,6 +193,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Kubernetes: '#326ce5',
   Secrets: '#f43f5e',
   Payload: '#ff6ec7',
+  Merge: '#2dd4bf',
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -219,6 +220,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Kubernetes: '\u{2638}',
   Secrets: '\u{1F510}',
   Payload: '\u{1F4A3}',
+  Merge: '\u{1F500}',
 };
 
 // Per-socket-type colors, shared by the canvas nodes (SocketNode) and the

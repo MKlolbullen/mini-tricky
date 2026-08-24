@@ -283,6 +283,34 @@ export default function Inspector({
                 );
               })()}
 
+              {/* ── Merge Node: Output Type ── */}
+              {selectedNode.data.kind === 'merge' && (() => {
+                const params = selectedNode.data.params || {};
+                const outType = params.output_type || 'targets';
+                const setType = (val: string) =>
+                  onUpdateNodeData(selectedNode.id, { params: { ...params, output_type: val }, outputs: [val] });
+                return (
+                  <div className="arg-section">
+                    <div className="arg-section-title">Merge &amp; Sort</div>
+                    <p className="arg-hint" style={{ opacity: 0.7, fontSize: '12px', margin: '4px 0 10px' }}>
+                      Connect several nodes into this one. It concatenates their outputs, sorts, and removes duplicates &mdash; then writes a single unique file.
+                    </p>
+                    <div className="arg-field-header"><span className="arg-field-name">Output socket</span></div>
+                    <div className="mode-toggle" style={{ display: 'flex', gap: '8px' }}>
+                      {['targets', 'url'].map((t) => (
+                        <button
+                          key={t}
+                          className={`mode-btn ${outType === t ? 'active' : ''}`}
+                          onClick={() => setType(t)}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* ── Tool Node: Argument Switches ── */}
               {selectedNode.data.kind === 'tool' && selectedTool && (
                 <div className="arg-section">

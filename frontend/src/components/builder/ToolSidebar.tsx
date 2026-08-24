@@ -10,6 +10,7 @@ type Props = {
   onAddVariable: (type: string, label: string) => void;
   onAddOutput: () => void;
   onAddPayload: () => void;
+  onAddMerge: () => void;
   onLoadWorkflow: (workflow: WorkflowRecord) => void;
 };
 
@@ -18,7 +19,7 @@ function startDrag(event: DragEvent, type: string, data: any) {
   event.dataTransfer.effectAllowed = 'move';
 }
 
-export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVariable, onAddOutput, onAddPayload, onLoadWorkflow }: Props) {
+export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVariable, onAddOutput, onAddPayload, onAddMerge, onLoadWorkflow }: Props) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -120,6 +121,19 @@ export default function ToolSidebar({ tools, savedWorkflows, onAddTool, onAddVar
         </div>
         <span className="tool-desc">Loop over input items line-by-line</span>
         <span className="tool-io">targets &rarr; item</span>
+      </div>
+      <div
+        className="palette-item tool draggable-item"
+        draggable
+        onDragStart={(e) => startDrag(e, 'merge', {})}
+        onClick={onAddMerge}
+      >
+        <div className="tool-card-header">
+          <strong>{'\u{1F500}'} Merge &amp; Sort</strong>
+          <span className="tool-cat-badge" style={{ background: CATEGORY_COLORS['Merge'] }}>Merge</span>
+        </div>
+        <span className="tool-desc">Fan-in many lists, then sort &amp; deduplicate (cat | sort -u)</span>
+        <span className="tool-io">any* &rarr; targets</span>
       </div>
 
       <div className="section-title">Variables</div>
