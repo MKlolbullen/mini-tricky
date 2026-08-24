@@ -2208,3 +2208,163 @@ templates:
           target: output-1
           source_handle: "out:findings"
           target_handle: "in:any"
+
+  - id: tpl-url-param-fuzz
+    name: URL Parameter Fuzz Chain
+    description: Feed a URL list through gf pattern-matching and qsreplace, then scan the resulting URLs with Nuclei — wired entirely on url sockets.
+    category: Fuzzing
+    tags: [url, gf, qsreplace, nuclei, parameters]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: URL Input
+          variable_type: url
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: gf (params)
+          tool_id: gf
+          params: {}
+          position: { x: 360, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: qsreplace
+          tool_id: qsreplace
+          params: {}
+          position: { x: 640, y: 200 }
+        - id: tool-3
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 920, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1200, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:url"
+          target_handle: "in:url"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:url"
+          target_handle: "in:url"
+        - id: e3
+          source: tool-2
+          target: tool-3
+          source_handle: "out:url"
+          target_handle: "in:url"
+        - id: e4
+          source: tool-3
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-repo-folder-secrets
+    name: Repository Folder Secret Scan
+    description: Scan a checked-out repository folder for leaked credentials with TruffleHog and Gitleaks — driven by a folder socket.
+    category: Secrets
+    tags: [folder, secrets, trufflehog, gitleaks, repo]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: Repository Folder
+          variable_type: folder
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: TruffleHog
+          tool_id: trufflehog
+          params: {}
+          position: { x: 400, y: 100 }
+        - id: tool-2
+          kind: tool
+          label: Gitleaks
+          tool_id: gitleaks
+          params: {}
+          position: { x: 400, y: 300 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 720, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:folder"
+          target_handle: "in:folder"
+        - id: e2
+          source: variable-1
+          target: tool-2
+          source_handle: "out:folder"
+          target_handle: "in:folder"
+        - id: e3
+          source: tool-1
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+        - id: e4
+          source: tool-2
+          target: output-1
+          source_handle: "out:findings"
+          target_handle: "in:any"
+
+  - id: tpl-js-endpoint-mining
+    name: JavaScript Endpoint Mining
+    description: Collect JavaScript files from a URL list with GetJS, then extract endpoints from those files with LinkFinder — demonstrating a url to file socket handoff.
+    category: JSAnalysis
+    tags: [file, url, javascript, getjs, linkfinder]
+    graph:
+      nodes:
+        - id: variable-1
+          kind: variable
+          label: URL Input
+          variable_type: url
+          value: ""
+          params: {}
+          position: { x: 80, y: 200 }
+        - id: tool-1
+          kind: tool
+          label: GetJS
+          tool_id: getjs
+          params: {}
+          position: { x: 400, y: 200 }
+        - id: tool-2
+          kind: tool
+          label: LinkFinder
+          tool_id: linkfinder
+          params: {}
+          position: { x: 720, y: 200 }
+        - id: output-1
+          kind: output
+          label: Artifacts
+          params: {}
+          position: { x: 1040, y: 200 }
+      edges:
+        - id: e1
+          source: variable-1
+          target: tool-1
+          source_handle: "out:url"
+          target_handle: "in:url"
+        - id: e2
+          source: tool-1
+          target: tool-2
+          source_handle: "out:file"
+          target_handle: "in:file"
+        - id: e3
+          source: tool-2
+          target: output-1
+          source_handle: "out:url"
+          target_handle: "in:any"

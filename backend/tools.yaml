@@ -41,8 +41,8 @@ tools:
     name: HTTPX
     category: Recon
     description: Fast HTTP toolkit for probing live hosts
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url]
+    outputs: [targets, url]
     command: [httpx, -silent, -l, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 300
@@ -493,7 +493,7 @@ tools:
     name: Nuclei
     category: Vulnerability
     description: Fast vulnerability scanner using community-powered templates
-    inputs: [targets]
+    inputs: [targets, url]
     outputs: [findings]
     command: [nuclei, -silent, -l, '{targets_file}', -jsonl]
     output_mode: stdout
@@ -796,8 +796,8 @@ tools:
     name: Katana
     category: Crawling
     description: Next-generation crawling and spidering framework
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url]
+    outputs: [targets, url]
     command: [katana, -silent, -list, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 600
@@ -1277,7 +1277,7 @@ tools:
     category: Archive
     description: Fetch known URLs from AlienVault OTX, Wayback, and Common Crawl
     inputs: [domain]
-    outputs: [targets]
+    outputs: [targets, url]
     command: [gau, '{domain}']
     output_mode: stdout
     timeout_seconds: 300
@@ -1353,8 +1353,8 @@ tools:
     name: QSReplace
     category: Utility
     description: Replace query string parameter values in URLs
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url]
+    outputs: [targets, url]
     command: [qsreplace, FUZZ]
     output_mode: stdout
     timeout_seconds: 120
@@ -1445,8 +1445,8 @@ tools:
     name: GF Patterns
     category: Utility
     description: Grep for useful patterns in URLs and parameters (by tomnomnom)
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url]
+    outputs: [targets, url]
     command: [gf, '{pattern}']
     output_mode: stdout
     timeout_seconds: 120
@@ -2227,8 +2227,8 @@ tools:
     name: LinkFinder
     category: JSAnalysis
     description: Find endpoints in JavaScript files
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url, file]
+    outputs: [targets, url]
     command: [linkfinder, -i, '{targets}', -o, cli]
     output_mode: stdout
     timeout_seconds: 300
@@ -2286,8 +2286,8 @@ tools:
     name: GetJS
     category: JSAnalysis
     description: Extract JavaScript file URLs from a list of targets
-    inputs: [targets]
-    outputs: [targets]
+    inputs: [targets, url]
+    outputs: [targets, url, file]
     command: [getJS, --input, '{targets_file}']
     output_mode: stdout
     timeout_seconds: 300
@@ -2459,7 +2459,7 @@ tools:
     name: TruffleHog
     category: Secrets
     description: Find leaked credentials in Git repos, S3 buckets, and more
-    inputs: [targets]
+    inputs: [targets, folder]
     outputs: [findings]
     command: [trufflehog, git, '{targets}']
     output_mode: stdout
@@ -2487,7 +2487,7 @@ tools:
     name: Gitleaks
     category: Secrets
     description: Detect and prevent hardcoded secrets in git repos
-    inputs: [targets]
+    inputs: [targets, folder]
     outputs: [findings]
     command: [gitleaks, detect, --source, '{targets}']
     output_mode: stdout
@@ -2914,6 +2914,7 @@ tools:
     description: Scan container images, filesystems, and IaC for vulnerabilities and misconfigurations
     inputs:
       - targets
+      - folder
     outputs:
       - findings
     command:

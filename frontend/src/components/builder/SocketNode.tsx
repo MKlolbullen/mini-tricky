@@ -1,23 +1,7 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import type { WorkflowNodePayload } from '../../types';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../types';
+import { CATEGORY_COLORS, CATEGORY_ICONS, socketColor } from '../../types';
 import { toolGlyph } from '../../toolIcons';
-
-/** Color map for socket data types */
-const SOCKET_COLORS: Record<string, string> = {
-  domain: '#5b8cff',
-  targets: '#43d9ad',
-  wordlist: '#ffcf5b',
-  findings: '#ff5b6c',
-  any: '#b47cff',
-  pass: '#43d9ad',
-  fail: '#ff5b6c',
-  item: '#ffcf5b',
-};
-
-function socketColor(name: string): string {
-  return SOCKET_COLORS[name] || '#63e6ff';
-}
 
 // Build compact "flag value" chips from a node's configured params. Boolean
 // flags are stored with the '__flag__' sentinel (see Inspector) and render as
