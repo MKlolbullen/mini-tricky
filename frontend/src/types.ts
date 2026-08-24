@@ -192,6 +192,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Cloud: '#22d3ee',
   Kubernetes: '#326ce5',
   Secrets: '#f43f5e',
+  'Supply Chain': '#10b981',
   Payload: '#ff6ec7',
   Merge: '#2dd4bf',
   Scanner: '#f97316',
@@ -220,6 +221,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   Cloud: '\u{2601}',
   Kubernetes: '\u{2638}',
   Secrets: '\u{1F510}',
+  'Supply Chain': '\u{1F4E6}',
   Payload: '\u{1F4A3}',
   Merge: '\u{1F500}',
   Scanner: '\u{1F6A8}',
@@ -232,9 +234,11 @@ export const SOCKET_COLORS: Record<string, string> = {
   domain: '#5b8cff', // blue
   targets: '#43d9ad', // teal — hosts/IPs/mixed target lists
   url: '#38bdf8', // sky blue — URL lists
+  query: '#c084fc', // purple — provider/search query text
   wordlist: '#ffcf5b', // gold
   file: '#ff9f43', // orange — a single file artifact
   folder: '#ffd43a', // yellow — a directory of artifacts
+  sbom: '#10b981', // green — software bill of materials
   findings: '#ff5b6c', // red
   any: '#b47cff', // purple — aggregation sink
   pass: '#43d9ad',
@@ -251,9 +255,11 @@ export const variableCatalog = [
   { label: 'Domain Input', type: 'domain' },
   { label: 'Target List', type: 'targets' },
   { label: 'URL Input', type: 'url' },
+  { label: 'Search Query', type: 'query' },
   { label: 'Wordlist', type: 'wordlist' },
   { label: 'File Input', type: 'file' },
   { label: 'Folder Input', type: 'folder' },
+  { label: 'SBOM Input', type: 'sbom' },
 ];
 
 export const outputCatalog = [{ label: 'Artifacts', type: 'any' }];
