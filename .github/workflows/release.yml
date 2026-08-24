@@ -23,8 +23,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 # Catalog metadata used by scripts/sync_project_metadata.py.
-# tools: <!-- tools-count -->148<!-- /tools-count -->
-# templates: <!-- templates-count -->55<!-- /templates-count -->
+# tools: <!-- tools-count -->151<!-- /tools-count -->
+# templates: <!-- templates-count -->57<!-- /templates-count -->
 
 jobs:
   build:
@@ -183,8 +183,8 @@ jobs:
             ### Highlights
 
             - Typed React Flow DAG editor with real CLI argument controls
-            - <!-- tools-count -->148<!-- /tools-count --> integrated security tools
-            - <!-- templates-count -->55<!-- /templates-count --> built-in workflow templates
+            - <!-- tools-count -->151<!-- /tools-count --> integrated security tools
+            - <!-- templates-count -->57<!-- /templates-count --> built-in workflow templates
             - Merge & Sort fan-in/deduplication and Payload Set source nodes
             - Live WebSocket execution, per-node artifacts, cancellation, and replay
             - Workflow versions, scheduling, modules, conditions, loops, and custom scripts

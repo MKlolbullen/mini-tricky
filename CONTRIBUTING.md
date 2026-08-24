@@ -53,28 +53,61 @@ npm run test:e2e
 
 ## Adding a security tool
 
-Tool definitions live in `backend/tools.yaml`. A useful tool contribution should include:
+The original/core catalog lives in `backend/tools.yaml`. New focused integrations should normally be added as a composable pack under `backend/tools.d/*.yaml` so their tool definitions, install hints, and capability policy stay together.
+
+A tool-pack document may contain:
+
+```yaml
+tools:
+  - id: example
+    name: Example
+    category: Recon
+    inputs: [domain]
+    outputs: [targets]
+    command: [example, "{domain}"]
+    output_mode: stdout
+
+install_hints:
+  example: go install example.org/example@latest
+
+capability_policy:
+  tools:
+    example:
+      risk: passive
+      network_cost: low
+      cpu_cost: low
+      capabilities: [passive_asset_discovery]
+      platforms: [linux, macos, windows]
+```
+
+A useful tool contribution should include:
 
 - upstream project/repository and license checked;
 - deterministic executable name;
 - installation hint in the generated installer path;
 - correct category;
 - typed input/output sockets;
+- capability metadata describing default risk and resource cost;
 - real CLI flags rather than a thin free-form command box;
 - safe defaults and a realistic timeout;
-- required secret/environment variables documented;
+- required secret/environment/provider configuration documented;
 - OS limitations documented;
 - frontend icon/category mapping where appropriate;
 - at least one validation test when behavior changes.
+
+Do not advertise one output socket type while exposing flags that change the output into a structurally incompatible format. If a flag changes the artifact contract, model that as a separate tool/node contract instead.
 
 Prefer tools that add a new capability or materially improve a workflow. "One more scanner" is less valuable than a new typed transformation, artifact type, or reusable stage.
 
 ## Adding a workflow template
 
-Templates live in `backend/templates.yaml`. New templates should:
+The core template library lives in `backend/templates.yaml`. Templates that belong to a focused feature pack should normally live under `backend/templates.d/*.yaml`.
+
+New templates should:
 
 - validate as a DAG;
 - use typed sockets correctly;
+- reference tools that exist in the composed catalog;
 - merge/deduplicate fan-in explicitly;
 - expose inputs through variable/profile nodes rather than hard-coded targets;
 - avoid destructive or unexpectedly intrusive defaults;
@@ -83,17 +116,17 @@ Templates live in `backend/templates.yaml`. New templates should:
 
 ## Documentation metadata
 
-`VERSION` is the canonical release version. Tool/template counts are computed from YAML and synchronized into marked documentation sections by:
+`VERSION` is the canonical release version. Tool/template counts are computed from the core YAML plus `tools.d` / `templates.d` extension packs and synchronized into marked documentation sections by:
 
 ```bash
 python scripts/sync_project_metadata.py --write
 ```
 
-CI runs the same script with `--check` and rejects stale metadata.
+CI runs the same script with `--check` and rejects stale metadata or duplicate catalog IDs.
 
 ## Security-sensitive changes
 
-Changes touching Electron IPC, filesystem access, local HTTP/WebSocket access, command construction, secrets, workflow imports, or release integrity should explain the threat model in the PR description. Keep the renderer least-privileged and validate data at trust boundaries.
+Changes touching Electron IPC, filesystem access, local HTTP/WebSocket access, command construction, secrets, workflow imports, capability/risk metadata, or release integrity should explain the threat model in the PR description. Keep the renderer least-privileged and validate data at trust boundaries.
 
 ## Pull requests
 

@@ -6,7 +6,7 @@ Usage:
     python scripts/sync_project_metadata.py --check
 
 The canonical release version lives in VERSION. Tool/template counts are
-computed from backend/tools.yaml and backend/templates.yaml.
+computed from the core YAML files plus backend/tools.d and backend/templates.d.
 """
 
 from __future__ import annotations
@@ -34,18 +34,39 @@ def replace_marker(text: str, name: str, value: str) -> str:
     return updated
 
 
-def catalog_count(path: Path, key: str) -> int:
+def _catalog_items(path: Path, key: str) -> list[dict]:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     items = data.get(key, [])
     if not isinstance(items, list):
         raise RuntimeError(f"{path}: expected {key!r} to be a list")
+    return items
+
+
+def catalog_count(path: Path, key: str, extension_dir: Path | None = None) -> int:
+    items = list(_catalog_items(path, key))
+    if extension_dir and extension_dir.exists():
+        extension_paths = sorted({*extension_dir.glob("*.yaml"), *extension_dir.glob("*.yml")})
+        for extension_path in extension_paths:
+            items.extend(_catalog_items(extension_path, key))
+
+    ids = [str(item.get("id", "")).strip() for item in items if isinstance(item, dict)]
+    if any(not item_id for item_id in ids):
+        raise RuntimeError(f"{path}: catalog item missing id")
+    if len(ids) != len(set(ids)):
+        raise RuntimeError(f"{path}: duplicate catalog ids across core/extensions")
     return len(items)
+
+
+def current_counts() -> tuple[int, int]:
+    backend = ROOT / "backend"
+    tools = catalog_count(backend / "tools.yaml", "tools", backend / "tools.d")
+    templates = catalog_count(backend / "templates.yaml", "templates", backend / "templates.d")
+    return tools, templates
 
 
 def expected_files() -> dict[Path, str]:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    tools = catalog_count(ROOT / "backend" / "tools.yaml", "tools")
-    templates = catalog_count(ROOT / "backend" / "templates.yaml", "templates")
+    tools, templates = current_counts()
 
     updates: dict[Path, str] = {}
 
@@ -106,8 +127,7 @@ def main() -> int:
         return 1
 
     if args.write:
-        tools = catalog_count(ROOT / "backend" / "tools.yaml", "tools")
-        templates = catalog_count(ROOT / "backend" / "templates.yaml", "templates")
+        tools, templates = current_counts()
         print(f"synced metadata: {tools} tools, {templates} templates")
 
     return 0

@@ -1,0 +1,120 @@
+tools:
+  - id: uncover
+    name: Uncover
+    category: OSINT
+    description: Query multiple internet-search engines for exposed hosts and feed text results into typed recon pipelines. Provider credentials may be required by the selected engines.
+    icon: uncover
+    inputs: [query]
+    outputs: [targets]
+    command: [uncover, -q, "{query}", -silent]
+    output_mode: stdout
+    timeout_seconds: 180
+    args:
+      - flag: -e
+        label: Engines
+        description: Comma-separated search engines such as shodan,censys,fofa,netlas.
+        type: string
+      - flag: -f
+        label: Output field
+        description: Text output field/format such as ip, host, port, or ip:port.
+        type: string
+        default: ip:port
+      - flag: -l
+        label: Result limit
+        description: Maximum results returned by each query.
+        type: int
+        default: "100"
+      - flag: -timeout
+        label: Timeout
+        description: Provider request timeout in seconds.
+        type: int
+        default: "30"
+      - flag: -retry
+        label: Retries
+        description: Number of retries for failed provider requests.
+        type: int
+        default: "2"
+      - flag: -rl
+        label: Rate limit
+        description: Maximum provider HTTP requests per second.
+        type: int
+      - flag: -proxy
+        label: Proxy
+        description: HTTP proxy for provider API requests.
+        type: string
+
+  - id: syft
+    name: Syft
+    category: Supply Chain
+    description: Generate a CycloneDX JSON software bill of materials from a local project directory.
+    icon: syft
+    inputs: [folder]
+    outputs: [sbom]
+    command: [syft, "{folder}", -o, cyclonedx-json]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --scope
+        label: Scope
+        description: Package selection scope supported by the installed Syft version.
+        type: string
+      - flag: --exclude
+        label: Exclude
+        description: Exclude paths or patterns from cataloging.
+        type: string
+      - flag: -q
+        label: Quiet
+        description: Suppress non-result logging.
+        type: flag
+
+  - id: grype
+    name: Grype
+    category: Supply Chain
+    description: Scan a saved Syft/CycloneDX SBOM for known vulnerabilities and emit JSON findings.
+    icon: grype
+    inputs: [sbom]
+    outputs: [findings]
+    command: [grype, "sbom:{sbom_file}", -o, json]
+    output_mode: stdout
+    timeout_seconds: 600
+    args:
+      - flag: --only-fixed
+        label: Only fixed
+        description: Report only vulnerabilities with an available fix.
+        type: flag
+      - flag: -q
+        label: Quiet
+        description: Suppress non-result logging.
+        type: flag
+
+install_hints:
+  uncover: go install -v github.com/projectdiscovery/uncover/cmd/uncover@latest
+  syft: curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
+  grype: curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin
+
+capability_policy:
+  category_defaults:
+    Supply Chain:
+      risk: passive
+      network_cost: low
+      cpu_cost: medium
+      capabilities: [software_supply_chain]
+  tools:
+    uncover:
+      risk: passive
+      network_cost: low
+      cpu_cost: low
+      capabilities: [internet_exposure_search, provider_backed_osint]
+      platforms: [linux, macos, windows]
+    syft:
+      risk: passive
+      network_cost: none
+      cpu_cost: medium
+      capabilities: [sbom_generation, software_inventory]
+      platforms: [linux, macos, windows]
+    grype:
+      risk: passive
+      network_cost: low
+      cpu_cost: medium
+      capabilities: [sbom_vulnerability_assessment, software_composition_analysis]
+      platforms: [linux, macos, windows]

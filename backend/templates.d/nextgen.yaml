@@ -1,0 +1,79 @@
+templates:
+  - id: tpl-internet-exposure-correlation
+    name: Internet Exposure Correlation
+    description: Query internet-search providers with Uncover, probe discovered hosts with HTTPX, then run a template-based Nuclei assessment on live services.
+    category: OSINT
+    tags: [osint, uncover, exposure, httpx, nuclei, correlation]
+    graph:
+      nodes:
+        - id: variable-query
+          kind: variable
+          label: Search Query
+          variable_type: query
+          value: ""
+          params: {}
+          position: { x: 40, y: 260 }
+        - id: tool-uncover
+          kind: tool
+          label: Uncover
+          tool_id: uncover
+          params: {}
+          position: { x: 300, y: 260 }
+        - id: tool-httpx
+          kind: tool
+          label: HTTPX
+          tool_id: httpx
+          params: {}
+          position: { x: 560, y: 260 }
+        - id: tool-nuclei
+          kind: tool
+          label: Nuclei
+          tool_id: nuclei
+          params: {}
+          position: { x: 820, y: 260 }
+        - id: output-exposure
+          kind: output
+          label: Exposure Findings
+          params: {}
+          position: { x: 1080, y: 260 }
+      edges:
+        - { id: e1, source: variable-query, target: tool-uncover, source_handle: "out:query", target_handle: "in:query" }
+        - { id: e2, source: tool-uncover, target: tool-httpx, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e3, source: tool-httpx, target: tool-nuclei, source_handle: "out:targets", target_handle: "in:targets" }
+        - { id: e4, source: tool-nuclei, target: output-exposure, source_handle: "out:findings", target_handle: "in:any" }
+
+  - id: tpl-sbom-vulnerability-review
+    name: SBOM Vulnerability Review
+    description: Generate a CycloneDX SBOM for a local project directory with Syft and scan the saved SBOM with Grype.
+    category: Supply Chain
+    tags: [supply-chain, sbom, syft, grype, sca, local]
+    graph:
+      nodes:
+        - id: variable-folder
+          kind: variable
+          label: Project Folder
+          variable_type: folder
+          value: ""
+          params: {}
+          position: { x: 40, y: 260 }
+        - id: tool-syft
+          kind: tool
+          label: Syft
+          tool_id: syft
+          params: {}
+          position: { x: 320, y: 260 }
+        - id: tool-grype
+          kind: tool
+          label: Grype
+          tool_id: grype
+          params: {}
+          position: { x: 600, y: 260 }
+        - id: output-sca
+          kind: output
+          label: Supply Chain Findings
+          params: {}
+          position: { x: 880, y: 260 }
+      edges:
+        - { id: e1, source: variable-folder, target: tool-syft, source_handle: "out:folder", target_handle: "in:folder" }
+        - { id: e2, source: tool-syft, target: tool-grype, source_handle: "out:sbom", target_handle: "in:sbom" }
+        - { id: e3, source: tool-grype, target: output-sca, source_handle: "out:findings", target_handle: "in:any" }
