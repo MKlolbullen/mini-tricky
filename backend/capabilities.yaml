@@ -1,0 +1,223 @@
+version: 1
+
+# Category defaults are intentionally conservative. Tool-specific entries below
+# override the defaults where behavior is materially safer or more intrusive.
+category_defaults:
+  Recon:
+    risk: low
+    network_cost: low
+    cpu_cost: low
+    capabilities: [asset_discovery]
+  Enumeration:
+    risk: medium
+    network_cost: medium
+    cpu_cost: medium
+    capabilities: [enumeration]
+  Vulnerability:
+    risk: medium
+    network_cost: medium
+    cpu_cost: medium
+    capabilities: [vulnerability_assessment]
+  Fuzzing:
+    risk: medium
+    network_cost: high
+    cpu_cost: medium
+    capabilities: [fuzzing]
+  Crawling:
+    risk: low
+    network_cost: medium
+    cpu_cost: low
+    capabilities: [content_discovery]
+  Network:
+    risk: medium
+    network_cost: high
+    cpu_cost: medium
+    capabilities: [network_discovery]
+  OSINT:
+    risk: passive
+    network_cost: low
+    cpu_cost: low
+    capabilities: [osint]
+  Archive:
+    risk: passive
+    network_cost: low
+    cpu_cost: low
+    capabilities: [historical_discovery]
+  Utility:
+    risk: passive
+    network_cost: none
+    cpu_cost: low
+    capabilities: [data_transform]
+  Params:
+    risk: low
+    network_cost: medium
+    cpu_cost: low
+    capabilities: [parameter_discovery]
+  API:
+    risk: medium
+    network_cost: medium
+    cpu_cost: medium
+    capabilities: [api_assessment]
+  SSRF:
+    risk: high
+    network_cost: medium
+    cpu_cost: low
+    capabilities: [ssrf_assessment]
+  SSTI:
+    risk: high
+    network_cost: medium
+    cpu_cost: low
+    capabilities: [ssti_assessment]
+  CSRF:
+    risk: medium
+    network_cost: low
+    cpu_cost: low
+    capabilities: [csrf_assessment]
+  CORS:
+    risk: low
+    network_cost: low
+    cpu_cost: low
+    capabilities: [cors_assessment]
+  Takeover:
+    risk: medium
+    network_cost: medium
+    cpu_cost: low
+    capabilities: [takeover_assessment]
+  Headers:
+    risk: low
+    network_cost: low
+    cpu_cost: low
+    capabilities: [header_assessment]
+  JSAnalysis:
+    risk: low
+    network_cost: low
+    cpu_cost: medium
+    capabilities: [javascript_analysis]
+  Wordlist:
+    risk: passive
+    network_cost: none
+    cpu_cost: low
+    capabilities: [wordlist_generation]
+  Cloud:
+    risk: low
+    network_cost: medium
+    cpu_cost: medium
+    capabilities: [cloud_discovery]
+  Kubernetes:
+    risk: low
+    network_cost: medium
+    cpu_cost: medium
+    capabilities: [kubernetes_discovery]
+  Secrets:
+    risk: passive
+    network_cost: none
+    cpu_cost: medium
+    capabilities: [secret_discovery]
+  Scanner:
+    risk: medium
+    network_cost: high
+    cpu_cost: high
+    capabilities: [broad_assessment]
+
+# Overrides are metadata only; they do not enable flags or bypass workflow
+# authorization. Risk represents the default invocation in tools.yaml.
+tools:
+  subfinder:
+    risk: passive
+    capabilities: [passive_subdomain_discovery]
+  assetfinder:
+    risk: passive
+    capabilities: [passive_subdomain_discovery]
+  findomain:
+    risk: passive
+    capabilities: [passive_subdomain_discovery]
+  chaos:
+    risk: passive
+    capabilities: [passive_subdomain_discovery]
+    secrets: [PDCP_API_KEY]
+  crtsh:
+    risk: passive
+    capabilities: [certificate_transparency_discovery]
+  httpx:
+    risk: low
+    capabilities: [http_probe, technology_fingerprint]
+  httprobe:
+    risk: low
+    capabilities: [http_probe]
+  dnsx:
+    risk: low
+    capabilities: [dns_resolution]
+  massdns:
+    risk: low
+    network_cost: high
+    capabilities: [dns_resolution]
+  naabu:
+    risk: medium
+    network_cost: high
+    capabilities: [port_discovery]
+  nmap:
+    risk: medium
+    network_cost: high
+    capabilities: [port_discovery, service_fingerprint]
+  masscan:
+    risk: high
+    network_cost: high
+    capabilities: [high_rate_port_discovery]
+  nuclei:
+    risk: medium
+    capabilities: [template_vulnerability_assessment]
+  ffuf:
+    risk: medium
+    network_cost: high
+    capabilities: [content_fuzzing, parameter_fuzzing]
+  feroxbuster:
+    risk: medium
+    network_cost: high
+    capabilities: [content_discovery]
+  katana:
+    risk: low
+    capabilities: [web_crawling]
+  gau:
+    risk: passive
+    capabilities: [historical_url_discovery]
+  waybackurls:
+    risk: passive
+    capabilities: [historical_url_discovery]
+  shodan-cli:
+    risk: passive
+    capabilities: [internet_exposure_search]
+    secrets: [SHODAN_API_KEY]
+  censys:
+    risk: passive
+    capabilities: [internet_exposure_search]
+    secrets: [CENSYS_API_ID, CENSYS_API_SECRET]
+  sqlmap:
+    risk: high
+    capabilities: [sql_injection_assessment]
+  ghauri:
+    risk: high
+    capabilities: [sql_injection_assessment]
+  commix:
+    risk: high
+    capabilities: [command_injection_assessment]
+  dalfox:
+    risk: high
+    capabilities: [xss_assessment]
+  xsstrike:
+    risk: high
+    capabilities: [xss_assessment]
+  trufflehog:
+    risk: passive
+    capabilities: [secret_discovery]
+  gitleaks:
+    risk: passive
+    capabilities: [secret_discovery]
+  semgrep:
+    risk: passive
+    capabilities: [static_analysis]
+  trivy:
+    risk: passive
+    capabilities: [dependency_vulnerability_assessment, container_assessment]
+  prowler:
+    risk: low
+    capabilities: [cloud_posture_assessment]
