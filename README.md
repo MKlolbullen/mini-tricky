@@ -151,6 +151,34 @@ You can also use **Settings → Tool Manager → Copy install script** in the ap
 which serves the same installer for the full composed catalog (core plus every
 `tools.d` pack) via `GET /api/tools/install-script`.
 
+#### Windows
+
+A native PowerShell installer covers the same catalog:
+
+```powershell
+# from the repo root, in an elevated-enough PowerShell 5.1+ session
+scripts\install-tools.ps1
+scripts\install-tools.ps1 -DryRun        # show what would be installed
+scripts\install-tools.ps1 -Only go       # go|pip|pipx|cargo|npm|gem|winget|scoop|choco|manual
+scripts\install-tools.ps1 -SkipPrereqs   # never auto-install toolchains
+scripts\install-tools.ps1 -Help
+```
+
+It detects the host package manager (`winget` → `scoop` → `choco`), bootstraps
+the toolchains it needs (Go, Python/pipx, Rust, Node, Ruby), and is idempotent
+and non-fatal like the bash installer. Cross-platform toolchain tools install
+directly; a few Linux-only tools (`nmap`, `jq`, `feroxbuster`, `findomain`, …)
+map to native Windows packages, and the remaining bash/source-only tools are
+listed as **manual** steps (usually easiest under WSL) rather than failing.
+Download it from `GET /api/tools/install-script?format=ps1`.
+
+The PowerShell installer is **OPSEC-conscious**: it opts out of tool telemetry
+(dotnet, PowerShell, Go, pip's version check, npm fund/audit), runs
+non-interactively, and emits **no host metadata** — no username, hostname, or
+resolved home path is collected, logged, or transmitted. Package downloads
+still reach their public sources (Go module proxy, PyPI, crates.io, npm,
+winget); route through a proxy/VPN if the fact of those requests is sensitive.
+
 > Beta installers are currently unsigned. Expect the normal macOS Gatekeeper / Windows SmartScreen warning for an unsigned application. Only install artifacts from this repository's release page and verify release provenance when available.
 
 ## Quick start

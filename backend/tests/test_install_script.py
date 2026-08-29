@@ -17,6 +17,7 @@ from src.catalog_extensions import extension_install_hints, extension_tool_dicts
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 STATIC_SCRIPT = REPO_ROOT / "scripts" / "install-tools.sh"
 CORE_SCRIPT = REPO_ROOT / "scripts" / "install-tools-core.sh"
+WINDOWS_SCRIPT = REPO_ROOT / "scripts" / "install-tools.ps1"
 EXTENSION_SCRIPT_DIR = REPO_ROOT / "scripts" / "install-tools.d"
 
 
@@ -124,3 +125,92 @@ def test_static_extension_fragments_cover_extension_install_hints():
             continue
         assert f"if command -v {binary} >/dev/null 2>&1; then" in body, f"missing static fragment guard for {binary}"
         assert hints[binary] in body, f"static fragment install hint drift for {binary}"
+
+
+# ── Windows (PowerShell) installer ────────────────────────────────────────────
+
+
+def test_generate_ps1_requires_and_opsec_optouts():
+    _install_runtime_extensions()
+    ps1 = main._generate_install_script_ps1()
+    assert ps1.startswith("#Requires -Version 5.1")
+    assert "param(" in ps1
+    # OPSEC: telemetry opt-outs and no host-metadata leakage.
+    for opt in (
+        "DOTNET_CLI_TELEMETRY_OPTOUT",
+        "POWERSHELL_TELEMETRY_OPTOUT",
+        "GOTELEMETRY",
+        "PIP_DISABLE_PIP_VERSION_CHECK",
+        "npm_config_audit",
+    ):
+        assert opt in ps1, f"missing telemetry opt-out: {opt}"
+
+
+def test_generate_ps1_has_no_invoke_expression():
+    """Security: the Windows installer must not eval arbitrary strings."""
+    _install_runtime_extensions()
+    ps1 = main._generate_install_script_ps1()
+    assert "Invoke-Expression" not in ps1
+    assert "\niex " not in ps1
+
+
+def test_generate_ps1_is_idempotent_per_tool():
+    _install_runtime_extensions()
+    ps1 = main._generate_install_script_ps1()
+    for tool in main.load_tools():
+        if not tool.command:
+            continue
+        binary = tool.command[0]
+        if binary in main.INSTALL_HINTS:
+            assert f"if (Have '{binary}') {{" in ps1, f"missing Get-Command guard for {binary!r}"
+
+
+def test_generate_ps1_covers_all_tools_with_hints():
+    _install_runtime_extensions()
+    ps1 = main._generate_install_script_ps1()
+    for tool in main.load_tools():
+        if not tool.command:
+            continue
+        if tool.command[0] in main.INSTALL_HINTS:
+            assert f"Installing {tool.name}" in ps1, f"{tool.name} not present in generated PowerShell installer"
+
+
+def test_windows_install_dispatch_maps_methods():
+    # go hints reduce to a bare module spec (no `go install`, no flags).
+    assert main._windows_install_dispatch("subfinder", main.INSTALL_HINTS["subfinder"]) == (
+        "go",
+        "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+    )
+    # Linux apt/bash/git hints become manual steps unless overridden.
+    assert main._windows_install_dispatch("massdns", main.INSTALL_HINTS["massdns"])[0] == "manual"
+    # Curated Windows-native overrides.
+    assert main._windows_install_dispatch("nmap", main.INSTALL_HINTS["nmap"]) == ("winget", "Insecure.Nmap")
+    assert main._windows_install_dispatch("feroxbuster", main.INSTALL_HINTS["feroxbuster"]) == ("cargo", "feroxbuster")
+    # Cross-platform toolchain methods pass through.
+    assert main._windows_install_dispatch("arjun", main.INSTALL_HINTS["arjun"]) == ("pip", "arjun")
+
+
+def test_ps1_endpoint_returns_powershell(client):
+    _install_runtime_extensions()
+    resp = client.get("/api/tools/install-script", params={"format": "ps1"})
+    assert resp.status_code == 200
+    body = resp.text
+    assert body.startswith("#Requires -Version 5.1")
+    assert "DOTNET_CLI_TELEMETRY_OPTOUT" in body
+    # Composed catalog covers the tools.d packs too.
+    assert "Installing Uncover" in body
+
+
+def test_sh_endpoint_is_default_format(client):
+    _install_runtime_extensions()
+    resp = client.get("/api/tools/install-script")
+    assert resp.status_code == 200
+    assert resp.text.startswith("#!/usr/bin/env bash")
+
+
+def test_static_windows_installer_is_up_to_date():
+    """The committed scripts/install-tools.ps1 equals the composed generator."""
+    _install_runtime_extensions()
+    committed = WINDOWS_SCRIPT.read_text(encoding="utf-8")
+    fresh = main._generate_install_script_ps1()
+    assert committed == fresh, "scripts/install-tools.ps1 is stale; regenerate it"
