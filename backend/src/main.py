@@ -6,6 +6,7 @@ import html
 import json
 import logging
 import mimetypes
+import re
 import subprocess
 import urllib.parse
 from collections import defaultdict, deque
@@ -2712,32 +2713,270 @@ def _get_install_hint(binary: str) -> str:
     return INSTALL_HINTS.get(binary, f"Install {binary} and ensure it is on your PATH")
 
 
-def _generate_install_script() -> str:
-    """Build a bash installer script covering every tool in ``tools.yaml``.
+_INSTALL_SCRIPT_PREAMBLE = r"""#!/usr/bin/env bash
+#
+# install-tools.sh — bootstrap the security binaries mini-tricky drives.
+#
+# Generated from backend/src/main.py::_generate_install_script. Re-generate with:
+#   curl -s http://localhost:8000/api/tools/install-script > scripts/install-tools-core.sh
+#
+# Idempotent: every tool is guarded by `command -v`, so re-running only installs
+# what is still missing. The runtime detects the host package manager, bootstraps
+# the language toolchains it needs (go / pipx / cargo / npm / gem), never aborts
+# on a single failure, and prints a summary of what installed, was already
+# present, came from source, or failed.
+#
+# Flags:  --dry-run            print what would be installed, do nothing
+#         --only <method>      only go|pip|pipx|cargo|npm|gem|pm|git|sh tools
+#         --skip-prereqs       do not try to install missing toolchains
+#         -h | --help          show usage
+# Env:    MINI_TRICKY_HOME     base dir for source checkouts (default ~/.mini-tricky)
+#
+set -euo pipefail
 
-    Each tool becomes a block guarded by ``command -v`` so the script is
-    idempotent: tools already on the PATH are skipped. Unknown binaries fall
-    through to a ``# TODO`` stub so the operator can fill them in manually.
+MT_HOME="${MINI_TRICKY_HOME:-$HOME/.mini-tricky}"
+MT_SRC_DIR="$MT_HOME/src"
+MT_DRY_RUN=""
+MT_ONLY=""
+MT_SKIP_PREREQS=""
+
+if [[ -t 1 ]]; then
+  C_CYAN=$'\033[1;36m'; C_DIM=$'\033[2m'; C_YEL=$'\033[1;33m'; C_RED=$'\033[1;31m'; C_RST=$'\033[0m'
+else
+  C_CYAN=""; C_DIM=""; C_YEL=""; C_RED=""; C_RST=""
+fi
+log()  { printf '%s[install-tools]%s %s\n' "$C_CYAN" "$C_RST" "$*"; }
+warn() { printf '%s[install-tools]%s %s\n' "$C_YEL" "$C_RST" "$*" >&2; }
+err()  { printf '%s[install-tools]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; }
+
+MT_OK=(); MT_SKIP=(); MT_SRC=(); MT_FAIL=(); MT_LAST_RC=0
+skip() { printf '%s[install-tools] %s already installed at %s%s\n' "$C_DIM" "$1" "$2" "$C_RST"; MT_SKIP+=("$1"); }
+
+usage() {
+  cat <<'USAGE'
+Usage: install-tools.sh [--dry-run] [--only <method>] [--skip-prereqs] [-h]
+  --dry-run        print what would be installed, do nothing
+  --only <method>  only install one method: go pip pipx cargo npm gem pm git sh
+  --skip-prereqs   do not attempt to install missing language toolchains
+  -h, --help       show this help
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) MT_DRY_RUN=1 ;;
+    --only) MT_ONLY="${2:-}"; shift ;;
+    --only=*) MT_ONLY="${1#*=}" ;;
+    --skip-prereqs) MT_SKIP_PREREQS=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) warn "unknown option: $1" ;;
+  esac
+  shift
+done
+
+MT_SUDO=""
+if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then MT_SUDO="sudo"; fi
+MT_PM=""
+detect_pm() {
+  [[ -n "$MT_PM" ]] && return 0
+  if   command -v apt-get >/dev/null 2>&1; then MT_PM="apt"
+  elif command -v dnf     >/dev/null 2>&1; then MT_PM="dnf"
+  elif command -v yum     >/dev/null 2>&1; then MT_PM="yum"
+  elif command -v pacman  >/dev/null 2>&1; then MT_PM="pacman"
+  elif command -v zypper  >/dev/null 2>&1; then MT_PM="zypper"
+  elif command -v apk     >/dev/null 2>&1; then MT_PM="apk"
+  elif command -v brew    >/dev/null 2>&1; then MT_PM="brew"
+  else MT_PM="none"; fi
+}
+pm_install() {
+  detect_pm
+  case "$MT_PM" in
+    apt)    $MT_SUDO apt-get update -qq && $MT_SUDO apt-get install -y "$@" ;;
+    dnf)    $MT_SUDO dnf install -y "$@" ;;
+    yum)    $MT_SUDO yum install -y "$@" ;;
+    pacman) $MT_SUDO pacman -Sy --noconfirm "$@" ;;
+    zypper) $MT_SUDO zypper install -y "$@" ;;
+    apk)    $MT_SUDO apk add "$@" ;;
+    brew)   brew install "$@" ;;
+    *)      err "no supported package manager to install: $*"; return 1 ;;
+  esac
+}
+
+_go_path() {
+  local gobin; gobin="$(go env GOBIN 2>/dev/null || true)"
+  [[ -z "$gobin" ]] && gobin="$(go env GOPATH 2>/dev/null || true)/bin"
+  case ":$PATH:" in *":$gobin:"*) : ;; *) export PATH="$PATH:$gobin" ;; esac
+}
+ensure_go() {
+  if command -v go >/dev/null 2>&1; then _go_path; return 0; fi
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Go toolchain"
+  pm_install golang-go || pm_install golang || pm_install go || return 1
+  command -v go >/dev/null 2>&1 && { _go_path; return 0; } || return 1
+}
+ensure_pipx() {
+  command -v pipx >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping pipx"
+  python3 -m pip install --user pipx >/dev/null 2>&1 \
+    || python3 -m pip install --user --break-system-packages pipx >/dev/null 2>&1 \
+    || pm_install pipx || return 1
+  export PATH="$PATH:$HOME/.local/bin"
+  command -v pipx >/dev/null 2>&1 || return 1
+  pipx ensurepath >/dev/null 2>&1 || true
+}
+ensure_cargo() {
+  command -v cargo >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Rust/cargo"
+  pm_install cargo || pm_install rust || return 1
+  command -v cargo >/dev/null 2>&1
+}
+ensure_npm() {
+  command -v npm >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Node/npm"
+  pm_install npm || pm_install nodejs || return 1
+  command -v npm >/dev/null 2>&1
+}
+ensure_gem() {
+  command -v gem >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Ruby/gem"
+  pm_install ruby || return 1
+  command -v gem >/dev/null 2>&1
+}
+ensure_git() {
+  command -v git >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  pm_install git
+}
+
+mt_pip() {
+  ensure_pipx && pipx install "$1" >/dev/null 2>&1 && return 0
+  export PATH="$PATH:$HOME/.local/bin"
+  python3 -m pip install --user "$1" >/dev/null 2>&1 && return 0
+  python3 -m pip install --user --break-system-packages "$1" >/dev/null 2>&1 && return 0
+  return 1
+}
+mt_gem() { gem install "$1" >/dev/null 2>&1 || gem install --user-install "$1"; }
+mt_git() { mkdir -p "$MT_SRC_DIR"; ( cd "$MT_SRC_DIR" && eval "$1" ); }
+
+_mt_install() {
+  local method="$1" payload="$2"
+  if [[ -n "$MT_ONLY" && "$MT_ONLY" != "$method" ]]; then return 0; fi
+  if [[ -n "$MT_DRY_RUN" ]]; then printf '   %s(dry-run %s)%s %s\n' "$C_DIM" "$method" "$C_RST" "$payload"; return 0; fi
+  MT_LAST_RC=0
+  set +e
+  case "$method" in
+    go)    ensure_go    && eval "$payload" ;;
+    pip)   mt_pip "$payload" ;;
+    pipx)  ensure_pipx  && pipx install "$payload" ;;
+    cargo) ensure_cargo && cargo install "$payload" ;;
+    npm)   ensure_npm   && npm install -g "$payload" ;;
+    gem)   ensure_gem   && mt_gem "$payload" ;;
+    pm)    pm_install $payload ;;
+    git)   ensure_git   && mt_git "$payload" ;;
+    sh)    eval "$payload" ;;
+    manual) printf '   %smanual step:%s %s\n' "$C_YEL" "$C_RST" "$payload" ;;
+    *)     eval "$payload" ;;
+  esac
+  MT_LAST_RC=$?
+  set -e
+  return 0
+}
+
+_mt_record() {
+  [[ -n "$MT_ONLY" && "$MT_ONLY" != "$3" ]] && return 0
+  [[ -n "$MT_DRY_RUN" ]] && return 0
+  if command -v "$2" >/dev/null 2>&1; then
+    MT_OK+=("$1")
+  elif [[ "$MT_LAST_RC" -eq 0 && ( "$3" == "git" || "$3" == "sh" || "$3" == "manual" ) ]]; then
+    MT_SRC+=("$1 ($2)")
+  else
+    MT_FAIL+=("$1 ($2)")
+    warn "could not install $1 ($2)"
+  fi
+}
+
+_mt_summary() {
+  echo
+  log "──────── summary ────────"
+  log "installed now: ${#MT_OK[@]}    already present: ${#MT_SKIP[@]}"
+  if [[ ${#MT_SRC[@]} -gt 0 ]]; then
+    log "from source / container (verify these are on your PATH):"
+    for t in "${MT_SRC[@]}"; do printf '   - %s\n' "$t"; done
+  fi
+  if [[ ${#MT_FAIL[@]} -gt 0 ]]; then
+    err "failed: ${#MT_FAIL[@]}"
+    for t in "${MT_FAIL[@]}"; do printf '   - %s\n' "$t"; done
+    warn "re-run after installing the needed toolchain, or install these by hand."
+  fi
+  log "PATH hint: add \$(go env GOPATH 2>/dev/null)/bin, \$HOME/.local/bin, and \$HOME/.cargo/bin"
+}
+trap _mt_summary EXIT
+"""
+
+
+def _classify_install_hint(hint: str) -> tuple[str, str]:
+    """Classify an ``INSTALL_HINTS`` string into ``(method, payload)``.
+
+    ``method`` selects the robust runtime installer emitted into the script
+    (``go``/``pip``/``pipx``/``cargo``/``npm``/``gem``/``pm``/``git``/``sh``/
+    ``manual``); ``payload`` is the package spec or the raw command to run.
+    Inline ``# ...`` alternatives in the hint are dropped from the payload.
+    """
+    core = re.split(r"\s+#", hint, maxsplit=1)[0].strip()
+    tokens = core.split()
+    if not tokens:
+        return "manual", hint.strip()
+    head = tokens[0]
+
+    def _after_install() -> str:
+        if "install" in tokens:
+            idx = tokens.index("install")
+            pkgs = [t for t in tokens[idx + 1 :] if not t.startswith("-")]
+            return " ".join(pkgs)
+        return ""
+
+    if head == "go":
+        return "go", core  # run `go install ...` verbatim (ensure_go handles PATH)
+    if head in ("pip", "pip3") or (head == "python3" and "pip" in tokens):
+        spec = _after_install()
+        return ("pip", spec) if spec else ("sh", core)
+    if head == "pipx":
+        spec = _after_install()
+        return ("pipx", spec) if spec else ("sh", core)
+    if head == "cargo":
+        spec = " ".join(t for t in tokens[2:] if not t.startswith("-")) if len(tokens) > 2 else ""
+        return ("cargo", spec) if spec else ("sh", core)
+    if head == "npm":
+        spec = _after_install() or (" ".join(tokens[2:]) if len(tokens) > 2 else "")
+        return ("npm", spec) if spec else ("sh", core)
+    if head == "gem":
+        spec = " ".join(t for t in tokens[2:] if not t.startswith("-")) if len(tokens) > 2 else ""
+        return ("gem", spec) if spec else ("sh", core)
+    if head in ("apt", "apt-get", "brew", "dnf", "yum", "pacman", "apk", "zypper"):
+        spec = _after_install()
+        return ("pm", spec) if spec else ("sh", core)
+    if head == "git":
+        return "git", core
+    if head == "download":
+        return "manual", core
+    return "sh", core
+
+
+def _generate_install_script() -> str:
+    """Build a robust, idempotent bash installer covering the whole catalog.
+
+    Each tool is guarded by ``command -v`` (so re-running only installs what is
+    missing) and routed through a runtime that detects the host package
+    manager, bootstraps the language toolchains it needs (go/pipx/cargo/npm/
+    gem), never aborts on a single failure, and prints an install summary.
+    Binaries without an install hint fall through to a ``# TODO`` stub.
     """
     tools = load_tools()
-    lines: list[str] = [
-        "#!/usr/bin/env bash",
-        "#",
-        "# install-tools.sh — bootstrap the 75+ binaries mini-tricky drives.",
-        "#",
-        "# Generated from backend/src/main.py::_generate_install_script. Re-generate with:",
-        "#   curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh",
-        "#",
-        "# Idempotent: each tool is guarded by `command -v`, so re-running only",
-        "# installs what is still missing. Requires go, python/pip, cargo, npm, and",
-        "# apt or brew on the host.",
-        "#",
-        "set -euo pipefail",
-        "",
-        'log() { printf "\\033[1;36m[install-tools]\\033[0m %s\\n" "$*"; }',
-        'skip() { printf "\\033[2m[install-tools] %s already installed at %s\\033[0m\\n" "$1" "$2"; }',
-        "",
-    ]
+    lines: list[str] = [_INSTALL_SCRIPT_PREAMBLE.rstrip("\n"), ""]
 
     seen: set[str] = set()
     missing: list[str] = []
@@ -2759,21 +2998,21 @@ def _generate_install_script() -> str:
                 lines.append(f"# TODO: no install hint for {tool.name} ({binary})")
                 lines.append("")
                 continue
-            # Shell-safe single-quoted binary; hint is emitted verbatim so users
-            # can eyeball the command before running the script.
+            method, payload = _classify_install_hint(hint)
+            payload_q = payload.replace("\\", "\\\\").replace("'", "'\\''")
+            name = tool.name.replace("\\", "\\\\").replace('"', '\\"')
             lines.append(f"if command -v {binary} >/dev/null 2>&1; then")
-            lines.append(f'  skip "{tool.name}" "$(command -v {binary})"')
-            lines.append("else")
-            lines.append(f'  log "Installing {tool.name} ({binary})"')
-            lines.append(f"  {hint}")
+            lines.append(f'  skip "{name}" "$(command -v {binary})"')
+            lines.append(f'elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "{method}" ]]; then')
+            lines.append(f'  log "Installing {name} ({binary})"')
+            lines.append(f"  _mt_install '{method}' '{payload_q}'")
+            lines.append(f'  _mt_record "{name}" "{binary}" "{method}"')
             lines.append("fi")
             lines.append("")
 
-    lines.append("log \"All done. Run 'npm run dev' or launch the desktop app.\"")
     if missing:
+        lines.append(f"# Note: {len(missing)} tools have no install hint yet: " + ", ".join(sorted(missing)))
         lines.append("")
-        lines.append(f"# Note: {len(missing)} tools have no install hint yet: " + ", ".join(missing))
-    lines.append("")
     return "\n".join(lines)
 
 
