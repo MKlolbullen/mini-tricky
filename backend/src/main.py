@@ -3016,12 +3016,271 @@ def _generate_install_script() -> str:
     return "\n".join(lines)
 
 
+_INSTALL_SCRIPT_PREAMBLE_PS1 = r"""#Requires -Version 5.1
+<#
+  install-tools.ps1 - Windows bootstrap for mini-tricky's security tool catalog.
+
+  Generated from backend/src/main.py::_generate_install_script_ps1. Regenerate:
+    Invoke-WebRequest 'http://localhost:8000/api/tools/install-script?format=ps1' -OutFile scripts/install-tools.ps1
+
+  Idempotent: each tool is guarded by Get-Command, so re-running only installs
+  what is missing. The runtime detects the Windows package manager (winget /
+  scoop / choco), bootstraps the language toolchains it needs (go / pipx /
+  cargo / npm / gem), never aborts on a single failure, and prints a summary.
+
+  OPSEC / metadata minimisation:
+    * Opts out of tool telemetry (dotnet, PowerShell, Go, pip version-check,
+      npm fund/audit) and runs non-interactively.
+    * Emits NO host metadata: no username, hostname, or machine details are
+      collected, logged, or transmitted; output stays on this console and no
+      resolved home path is printed.
+    * Installs still fetch packages from their public sources (Go module proxy,
+      PyPI, crates.io, npm, winget) - route through a proxy/VPN if the mere
+      fact of those download requests is sensitive.
+
+  Flags: -DryRun  -Only <method>  -SkipPrereqs  -Help
+#>
+[CmdletBinding()]
+param(
+  [switch]$DryRun,
+  [string]$Only = "",
+  [switch]$SkipPrereqs,
+  [switch]$Help
+)
+
+$ErrorActionPreference = 'Continue'
+$ProgressPreference    = 'SilentlyContinue'
+
+# ---- OPSEC: opt out of tool telemetry; transmit no host metadata ----
+$env:DOTNET_CLI_TELEMETRY_OPTOUT   = '1'
+$env:POWERSHELL_TELEMETRY_OPTOUT   = '1'
+$env:GOTELEMETRY                   = 'off'
+$env:PIP_DISABLE_PIP_VERSION_CHECK = '1'
+$env:PYTHONDONTWRITEBYTECODE       = '1'
+$env:npm_config_fund               = 'false'
+$env:npm_config_audit              = 'false'
+
+$MtHome = if ($env:MINI_TRICKY_HOME) { $env:MINI_TRICKY_HOME } else { Join-Path $HOME '.mini-tricky' }
+$MtSrc  = Join-Path $MtHome 'src'
+# Make freshly installed tools discoverable within this session.
+foreach ($p in @((Join-Path $HOME 'go\bin'), (Join-Path $HOME '.local\bin'), (Join-Path $HOME '.cargo\bin'))) {
+  if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$env:PATH;$p" }
+}
+
+function MtLog  { param([string]$m) Write-Host "[install-tools] $m" -ForegroundColor Cyan }
+function MtWarn { param([string]$m) Write-Host "[install-tools] $m" -ForegroundColor Yellow }
+function Have   { param([string]$b) $null -ne (Get-Command $b -ErrorAction SilentlyContinue) }
+function PyExe  { if (Have 'python') { 'python' } elseif (Have 'python3') { 'python3' } else { '' } }
+
+$script:Ok = @(); $script:Present = @(); $script:Src = @(); $script:Fail = @(); $script:Manual = @()
+$script:LastRc = 0
+function MtSkip { param([string]$n,[string]$p) Write-Host "[install-tools] $n already installed at $p" -ForegroundColor DarkGray; $script:Present += $n }
+
+if ($Help) {
+  Write-Host "Usage: install-tools.ps1 [-DryRun] [-Only <method>] [-SkipPrereqs] [-Help]"
+  Write-Host "  -DryRun        print what would be installed, do nothing"
+  Write-Host "  -Only <method> only one method: go pip pipx cargo npm gem winget scoop choco manual"
+  Write-Host "  -SkipPrereqs   do not attempt to install missing language toolchains"
+  exit 0
+}
+
+$script:WinPM = ""
+function DetectPM {
+  if ($script:WinPM) { return }
+  if     (Have 'winget') { $script:WinPM = 'winget' }
+  elseif (Have 'scoop')  { $script:WinPM = 'scoop'  }
+  elseif (Have 'choco')  { $script:WinPM = 'choco'  }
+  else                   { $script:WinPM = 'none'   }
+}
+function BootstrapTool {
+  param([string]$WingetId,[string]$ScoopId,[string]$ChocoId)
+  DetectPM
+  switch ($script:WinPM) {
+    'winget' { & winget install --id $WingetId --exact --silent --disable-interactivity --accept-source-agreements --accept-package-agreements; return ($LASTEXITCODE -eq 0) }
+    'scoop'  { & scoop install $ScoopId; return ($LASTEXITCODE -eq 0) }
+    'choco'  { & choco install $ChocoId -y --no-progress --limit-output; return ($LASTEXITCODE -eq 0) }
+    default  { return $false }
+  }
+}
+
+function EnsureGo    { if (Have 'go')    { return $true } if ($SkipPrereqs) { return $false } MtLog 'bootstrapping Go toolchain'; [void](BootstrapTool 'GoLang.Go' 'go' 'golang'); return (Have 'go') }
+function EnsureCargo { if (Have 'cargo') { return $true } if ($SkipPrereqs) { return $false } MtLog 'bootstrapping Rust/cargo';  [void](BootstrapTool 'Rustlang.Rustup' 'rustup' 'rust'); return (Have 'cargo') }
+function EnsureNpm   { if (Have 'npm')   { return $true } if ($SkipPrereqs) { return $false } MtLog 'bootstrapping Node/npm';    [void](BootstrapTool 'OpenJS.NodeJS' 'nodejs' 'nodejs'); return (Have 'npm') }
+function EnsureGem   { if (Have 'gem')   { return $true } if ($SkipPrereqs) { return $false } MtLog 'bootstrapping Ruby/gem';    [void](BootstrapTool 'RubyInstallerTeam.Ruby' 'ruby' 'ruby'); return (Have 'gem') }
+function EnsurePy    { if (PyExe)        { return $true } if ($SkipPrereqs) { return $false } MtLog 'bootstrapping Python';       [void](BootstrapTool 'Python.Python.3.12' 'python' 'python'); return [bool](PyExe) }
+function EnsurePipx {
+  if (Have 'pipx') { return $true }
+  if ($SkipPrereqs) { return $false }
+  if (-not (PyExe)) { [void](EnsurePy) }
+  $py = PyExe
+  if (-not $py) { return $false }
+  MtLog 'bootstrapping pipx'
+  & $py -m pip install --user pipx *> $null
+  $env:PATH = "$env:PATH;" + (Join-Path $HOME '.local\bin')
+  if (Have 'pipx') { & pipx ensurepath *> $null; return $true }
+  return $false
+}
+
+function MtPip {
+  param([string]$spec)
+  if (EnsurePipx) {
+    & pipx install $spec *> $null
+    if ($LASTEXITCODE -eq 0) { return $true }
+  }
+  $py = PyExe
+  if (-not $py) { return $false }
+  $env:PATH = "$env:PATH;" + (Join-Path $HOME '.local\bin')
+  & $py -m pip install --user $spec *> $null
+  if ($LASTEXITCODE -eq 0) { return $true }
+  & $py -m pip install --user --break-system-packages $spec *> $null
+  if ($LASTEXITCODE -eq 0) { return $true }
+  return $false
+}
+
+function MtInstall {
+  param([string]$method,[string]$payload)
+  if ($Only -and ($Only -ne $method)) { return }
+  if ($DryRun) { Write-Host "   (dry-run $method) $payload" -ForegroundColor DarkGray; return }
+  $script:LastRc = 0
+  try {
+    switch ($method) {
+      'go'     { if (EnsureGo)    { & go install $payload;    $script:LastRc = $LASTEXITCODE } else { $script:LastRc = 1 } }
+      'pip'    { if (MtPip $payload) { $script:LastRc = 0 } else { $script:LastRc = 1 } }
+      'pipx'   { if (EnsurePipx)  { & pipx install $payload;  $script:LastRc = $LASTEXITCODE } else { $script:LastRc = 1 } }
+      'cargo'  { if (EnsureCargo) { & cargo install $payload; $script:LastRc = $LASTEXITCODE } else { $script:LastRc = 1 } }
+      'npm'    { if (EnsureNpm)   { & npm install -g $payload; $script:LastRc = $LASTEXITCODE } else { $script:LastRc = 1 } }
+      'gem'    { if (EnsureGem)   { & gem install $payload;   $script:LastRc = $LASTEXITCODE } else { $script:LastRc = 1 } }
+      'winget' { if (Have 'winget') { & winget install --id $payload --exact --silent --disable-interactivity --accept-source-agreements --accept-package-agreements; $script:LastRc = $LASTEXITCODE } else { MtWarn 'winget not available'; $script:LastRc = 1 } }
+      'scoop'  { if (Have 'scoop')  { & scoop install $payload; $script:LastRc = $LASTEXITCODE } else { MtWarn 'scoop not available'; $script:LastRc = 1 } }
+      'choco'  { if (Have 'choco')  { & choco install $payload -y --no-progress --limit-output; $script:LastRc = $LASTEXITCODE } else { MtWarn 'choco not available'; $script:LastRc = 1 } }
+      'manual' { Write-Host "   manual: $payload" -ForegroundColor Yellow; $script:LastRc = 0 }
+      default  { $script:LastRc = 0 }
+    }
+  } catch {
+    $script:LastRc = 1
+  }
+}
+
+function MtRecord {
+  param([string]$name,[string]$bin,[string]$method)
+  if ($Only -and ($Only -ne $method)) { return }
+  if ($DryRun) { return }
+  if (Have $bin) { $script:Ok += $name }
+  elseif ($method -eq 'manual') { $script:Manual += "$name ($bin)" }
+  elseif (($script:LastRc -eq 0) -and ($method -in @('winget','scoop','choco'))) { $script:Src += "$name ($bin)" }
+  else { $script:Fail += "$name ($bin)"; MtWarn "could not install $name ($bin)" }
+}
+
+function MtSummary {
+  Write-Host ""
+  MtLog "-------- summary --------"
+  MtLog ("installed now: {0}    already present: {1}" -f $script:Ok.Count, $script:Present.Count)
+  if ($script:Src.Count -gt 0) {
+    MtLog "installed via package manager (verify on PATH after a new shell):"
+    $script:Src | ForEach-Object { Write-Host "   - $_" }
+  }
+  if ($script:Manual.Count -gt 0) {
+    MtLog "manual - no safe Windows automation (often easiest under WSL):"
+    $script:Manual | ForEach-Object { Write-Host "   - $_" }
+  }
+  if ($script:Fail.Count -gt 0) {
+    MtWarn ("failed: {0}" -f $script:Fail.Count)
+    $script:Fail | ForEach-Object { Write-Host "   - $_" }
+  }
+  MtLog 'PATH hint: add $HOME\go\bin, $HOME\.local\bin, and $HOME\.cargo\bin, then restart your shell'
+}
+"""
+
+
+# Binaries whose Linux install hint has a cleaner Windows-native equivalent.
+# Everything else that is ``pm`` (apt), ``sh`` (bash pipe), or ``git`` (source
+# build) on Linux is reported as a manual step on Windows rather than guessed.
+_WINDOWS_INSTALL_OVERRIDES: dict[str, tuple[str, str]] = {
+    "nmap": ("winget", "Insecure.Nmap"),
+    "jq": ("winget", "jqlang.jq"),
+    "feroxbuster": ("cargo", "feroxbuster"),
+    "findomain": ("scoop", "findomain"),
+}
+
+
+def _windows_install_dispatch(binary: str, hint: str) -> tuple[str, str]:
+    """Map a tool to a ``(method, payload)`` the Windows runtime can install.
+
+    Cross-platform toolchain methods (go/pip/pipx/cargo/npm/gem) are kept as-is;
+    Linux-only ``pm``/``sh``/``git`` hints become ``manual`` steps unless a
+    Windows override exists.
+    """
+    if binary in _WINDOWS_INSTALL_OVERRIDES:
+        return _WINDOWS_INSTALL_OVERRIDES[binary]
+    method, payload = _classify_install_hint(hint)
+    if method == "go":
+        toks = payload.split()
+        spec = " ".join(t for t in toks if t not in ("go", "install") and not t.startswith("-"))
+        return "go", spec or payload
+    if method in ("pm", "sh", "git"):
+        return "manual", hint
+    return method, payload
+
+
+def _generate_install_script_ps1() -> str:
+    """Build a robust, OPSEC-conscious Windows PowerShell installer.
+
+    Mirrors :func:`_generate_install_script`: idempotent ``Get-Command`` guards,
+    package-manager detection (winget/scoop/choco), on-demand toolchain
+    bootstrap, non-fatal execution, and a final summary. It opts out of tool
+    telemetry and emits no host metadata.
+    """
+    tools = load_tools()
+    lines: list[str] = [_INSTALL_SCRIPT_PREAMBLE_PS1.rstrip("\n"), ""]
+
+    seen: set[str] = set()
+    by_category: dict[str, list[Tool]] = {}
+    for tool in tools:
+        by_category.setdefault(tool.category or "Other", []).append(tool)
+
+    for category in sorted(by_category):
+        lines.append(f"# ---- {category} " + "-" * max(1, 56 - len(category)))
+        for tool in by_category[category]:
+            binary = tool.command[0] if tool.command else ""
+            if not binary or binary in seen:
+                continue
+            seen.add(binary)
+            if binary not in INSTALL_HINTS:
+                lines.append(f"# TODO: no install hint for {tool.name} ({binary})")
+                continue
+            method, payload = _windows_install_dispatch(binary, INSTALL_HINTS[binary])
+            bin_q = binary.replace("'", "''")
+            name_q = tool.name.replace("'", "''")
+            pay_q = payload.replace("'", "''")
+            lines.append(f"if (Have '{bin_q}') {{")
+            lines.append(f"  MtSkip '{name_q}' (Get-Command '{bin_q}').Source")
+            lines.append(f"}} elseif (-not $Only -or $Only -eq '{method}') {{")
+            lines.append(f"  MtLog 'Installing {name_q} ({bin_q})'")
+            lines.append(f"  MtInstall '{method}' '{pay_q}'")
+            lines.append(f"  MtRecord '{name_q}' '{bin_q}' '{method}'")
+            lines.append("}")
+            lines.append("")
+
+    lines.append("MtSummary")
+    lines.append("")
+    return "\n".join(lines)
+
+
 @app.get("/api/tools/install-script")
-def tools_install_script() -> PlainTextResponse:
-    """Return a bash script that installs every tool in ``tools.yaml``."""
-    script = _generate_install_script()
+def tools_install_script(fmt: str = Query("sh", alias="format")) -> PlainTextResponse:
+    """Return an installer for the full catalog.
+
+    ``?format=ps1`` (or ``powershell``/``windows``) returns the Windows
+    PowerShell installer; anything else returns the bash installer.
+    """
+    if fmt.lower() in ("ps1", "powershell", "windows", "pwsh"):
+        return PlainTextResponse(
+            content=_generate_install_script_ps1(),
+            media_type="text/plain",
+            headers={"Content-Disposition": 'attachment; filename="install-tools.ps1"'},
+        )
     return PlainTextResponse(
-        content=script,
+        content=_generate_install_script(),
         media_type="text/x-shellscript",
         headers={"Content-Disposition": 'attachment; filename="install-tools.sh"'},
     )
