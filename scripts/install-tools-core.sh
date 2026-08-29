@@ -1,1069 +1,1400 @@
 #!/usr/bin/env bash
 #
-# install-tools.sh — bootstrap the 75+ binaries mini-tricky drives.
+# install-tools.sh — bootstrap the security binaries mini-tricky drives.
 #
 # Generated from backend/src/main.py::_generate_install_script. Re-generate with:
-#   curl -s http://localhost:5000/api/tools/install-script > scripts/install-tools.sh
+#   curl -s http://localhost:8000/api/tools/install-script > scripts/install-tools-core.sh
 #
-# Idempotent: each tool is guarded by `command -v`, so re-running only
-# installs what is still missing. Requires go, python/pip, cargo, npm, and
-# apt or brew on the host.
+# Idempotent: every tool is guarded by `command -v`, so re-running only installs
+# what is still missing. The runtime detects the host package manager, bootstraps
+# the language toolchains it needs (go / pipx / cargo / npm / gem), never aborts
+# on a single failure, and prints a summary of what installed, was already
+# present, came from source, or failed.
+#
+# Flags:  --dry-run            print what would be installed, do nothing
+#         --only <method>      only go|pip|pipx|cargo|npm|gem|pm|git|sh tools
+#         --skip-prereqs       do not try to install missing toolchains
+#         -h | --help          show usage
+# Env:    MINI_TRICKY_HOME     base dir for source checkouts (default ~/.mini-tricky)
 #
 set -euo pipefail
 
-log() { printf "\033[1;36m[install-tools]\033[0m %s\n" "$*"; }
-skip() { printf "\033[2m[install-tools] %s already installed at %s\033[0m\n" "$1" "$2"; }
+MT_HOME="${MINI_TRICKY_HOME:-$HOME/.mini-tricky}"
+MT_SRC_DIR="$MT_HOME/src"
+MT_DRY_RUN=""
+MT_ONLY=""
+MT_SKIP_PREREQS=""
+
+if [[ -t 1 ]]; then
+  C_CYAN=$'\033[1;36m'; C_DIM=$'\033[2m'; C_YEL=$'\033[1;33m'; C_RED=$'\033[1;31m'; C_RST=$'\033[0m'
+else
+  C_CYAN=""; C_DIM=""; C_YEL=""; C_RED=""; C_RST=""
+fi
+log()  { printf '%s[install-tools]%s %s\n' "$C_CYAN" "$C_RST" "$*"; }
+warn() { printf '%s[install-tools]%s %s\n' "$C_YEL" "$C_RST" "$*" >&2; }
+err()  { printf '%s[install-tools]%s %s\n' "$C_RED" "$C_RST" "$*" >&2; }
+
+MT_OK=(); MT_SKIP=(); MT_SRC=(); MT_FAIL=(); MT_LAST_RC=0
+skip() { printf '%s[install-tools] %s already installed at %s%s\n' "$C_DIM" "$1" "$2" "$C_RST"; MT_SKIP+=("$1"); }
+
+usage() {
+  cat <<'USAGE'
+Usage: install-tools.sh [--dry-run] [--only <method>] [--skip-prereqs] [-h]
+  --dry-run        print what would be installed, do nothing
+  --only <method>  only install one method: go pip pipx cargo npm gem pm git sh
+  --skip-prereqs   do not attempt to install missing language toolchains
+  -h, --help       show this help
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) MT_DRY_RUN=1 ;;
+    --only) MT_ONLY="${2:-}"; shift ;;
+    --only=*) MT_ONLY="${1#*=}" ;;
+    --skip-prereqs) MT_SKIP_PREREQS=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) warn "unknown option: $1" ;;
+  esac
+  shift
+done
+
+MT_SUDO=""
+if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then MT_SUDO="sudo"; fi
+MT_PM=""
+detect_pm() {
+  [[ -n "$MT_PM" ]] && return 0
+  if   command -v apt-get >/dev/null 2>&1; then MT_PM="apt"
+  elif command -v dnf     >/dev/null 2>&1; then MT_PM="dnf"
+  elif command -v yum     >/dev/null 2>&1; then MT_PM="yum"
+  elif command -v pacman  >/dev/null 2>&1; then MT_PM="pacman"
+  elif command -v zypper  >/dev/null 2>&1; then MT_PM="zypper"
+  elif command -v apk     >/dev/null 2>&1; then MT_PM="apk"
+  elif command -v brew    >/dev/null 2>&1; then MT_PM="brew"
+  else MT_PM="none"; fi
+}
+pm_install() {
+  detect_pm
+  case "$MT_PM" in
+    apt)    $MT_SUDO apt-get update -qq && $MT_SUDO apt-get install -y "$@" ;;
+    dnf)    $MT_SUDO dnf install -y "$@" ;;
+    yum)    $MT_SUDO yum install -y "$@" ;;
+    pacman) $MT_SUDO pacman -Sy --noconfirm "$@" ;;
+    zypper) $MT_SUDO zypper install -y "$@" ;;
+    apk)    $MT_SUDO apk add "$@" ;;
+    brew)   brew install "$@" ;;
+    *)      err "no supported package manager to install: $*"; return 1 ;;
+  esac
+}
+
+_go_path() {
+  local gobin; gobin="$(go env GOBIN 2>/dev/null || true)"
+  [[ -z "$gobin" ]] && gobin="$(go env GOPATH 2>/dev/null || true)/bin"
+  case ":$PATH:" in *":$gobin:"*) : ;; *) export PATH="$PATH:$gobin" ;; esac
+}
+ensure_go() {
+  if command -v go >/dev/null 2>&1; then _go_path; return 0; fi
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Go toolchain"
+  pm_install golang-go || pm_install golang || pm_install go || return 1
+  command -v go >/dev/null 2>&1 && { _go_path; return 0; } || return 1
+}
+ensure_pipx() {
+  command -v pipx >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping pipx"
+  python3 -m pip install --user pipx >/dev/null 2>&1 \
+    || python3 -m pip install --user --break-system-packages pipx >/dev/null 2>&1 \
+    || pm_install pipx || return 1
+  export PATH="$PATH:$HOME/.local/bin"
+  command -v pipx >/dev/null 2>&1 || return 1
+  pipx ensurepath >/dev/null 2>&1 || true
+}
+ensure_cargo() {
+  command -v cargo >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Rust/cargo"
+  pm_install cargo || pm_install rust || return 1
+  command -v cargo >/dev/null 2>&1
+}
+ensure_npm() {
+  command -v npm >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Node/npm"
+  pm_install npm || pm_install nodejs || return 1
+  command -v npm >/dev/null 2>&1
+}
+ensure_gem() {
+  command -v gem >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  log "bootstrapping Ruby/gem"
+  pm_install ruby || return 1
+  command -v gem >/dev/null 2>&1
+}
+ensure_git() {
+  command -v git >/dev/null 2>&1 && return 0
+  [[ -n "$MT_SKIP_PREREQS" ]] && return 1
+  pm_install git
+}
+
+mt_pip() {
+  ensure_pipx && pipx install "$1" >/dev/null 2>&1 && return 0
+  python3 -m pip install --user "$1" >/dev/null 2>&1 && return 0
+  python3 -m pip install --user --break-system-packages "$1" >/dev/null 2>&1 && return 0
+  return 1
+}
+mt_gem() { gem install "$1" >/dev/null 2>&1 || gem install --user-install "$1"; }
+mt_git() { mkdir -p "$MT_SRC_DIR"; ( cd "$MT_SRC_DIR" && eval "$1" ); }
+
+_mt_install() {
+  local method="$1" payload="$2"
+  if [[ -n "$MT_ONLY" && "$MT_ONLY" != "$method" ]]; then return 0; fi
+  if [[ -n "$MT_DRY_RUN" ]]; then printf '   %s(dry-run %s)%s %s\n' "$C_DIM" "$method" "$C_RST" "$payload"; return 0; fi
+  MT_LAST_RC=0
+  set +e
+  case "$method" in
+    go)    ensure_go    && eval "$payload" ;;
+    pip)   mt_pip "$payload" ;;
+    pipx)  ensure_pipx  && pipx install "$payload" ;;
+    cargo) ensure_cargo && cargo install "$payload" ;;
+    npm)   ensure_npm   && npm install -g "$payload" ;;
+    gem)   ensure_gem   && mt_gem "$payload" ;;
+    pm)    pm_install $payload ;;
+    git)   ensure_git   && mt_git "$payload" ;;
+    sh)    eval "$payload" ;;
+    manual) printf '   %smanual step:%s %s\n' "$C_YEL" "$C_RST" "$payload" ;;
+    *)     eval "$payload" ;;
+  esac
+  MT_LAST_RC=$?
+  set -e
+  return 0
+}
+
+_mt_record() {
+  [[ -n "$MT_ONLY" && "$MT_ONLY" != "$3" ]] && return 0
+  [[ -n "$MT_DRY_RUN" ]] && return 0
+  if command -v "$2" >/dev/null 2>&1; then
+    MT_OK+=("$1")
+  elif [[ "$3" == "git" || "$3" == "sh" || "$3" == "manual" ]]; then
+    MT_SRC+=("$1 ($2)")
+  else
+    MT_FAIL+=("$1 ($2)")
+    warn "could not install $1 ($2)"
+  fi
+}
+
+_mt_summary() {
+  echo
+  log "──────── summary ────────"
+  log "installed now: ${#MT_OK[@]}    already present: ${#MT_SKIP[@]}"
+  if [[ ${#MT_SRC[@]} -gt 0 ]]; then
+    log "from source / container (verify these are on your PATH):"
+    for t in "${MT_SRC[@]}"; do printf '   - %s\n' "$t"; done
+  fi
+  if [[ ${#MT_FAIL[@]} -gt 0 ]]; then
+    err "failed: ${#MT_FAIL[@]}"
+    for t in "${MT_FAIL[@]}"; do printf '   - %s\n' "$t"; done
+    warn "re-run after installing the needed toolchain, or install these by hand."
+  fi
+  log "PATH hint: add \$(go env GOPATH 2>/dev/null)/bin, \$HOME/.local/bin, and \$HOME/.cargo/bin"
+}
+trap _mt_summary EXIT
 
 # ── API ─────────────────────────────────────────────────────────
 if command -v kr >/dev/null 2>&1; then
   skip "Kiterunner" "$(command -v kr)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Kiterunner (kr)"
-  go install github.com/assetnote/kiterunner/cmd/kr@latest
+  _mt_install 'go' 'go install github.com/assetnote/kiterunner/cmd/kr@latest'
+  _mt_record "Kiterunner" "kr" "go"
 fi
 
 if command -v APIFuzzer >/dev/null 2>&1; then
   skip "APIFuzzer" "$(command -v APIFuzzer)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing APIFuzzer (APIFuzzer)"
-  pip install APIFuzzer
+  _mt_install 'pip' 'APIFuzzer'
+  _mt_record "APIFuzzer" "APIFuzzer" "pip"
 fi
 
 if command -v oasdiff >/dev/null 2>&1; then
   skip "OpenAPI Diff" "$(command -v oasdiff)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing OpenAPI Diff (oasdiff)"
-  go install github.com/tufin/oasdiff@latest
+  _mt_install 'go' 'go install github.com/tufin/oasdiff@latest'
+  _mt_record "OpenAPI Diff" "oasdiff" "go"
 fi
 
 if command -v restler >/dev/null 2>&1; then
   skip "RESTler" "$(command -v restler)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing RESTler (restler)"
-  pip install restler-fuzzer  # or download from github.com/microsoft/restler-fuzzer
+  _mt_install 'pip' 'restler-fuzzer'
+  _mt_record "RESTler" "restler" "pip"
 fi
 
 if command -v graphw00f >/dev/null 2>&1; then
   skip "graphw00f" "$(command -v graphw00f)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing graphw00f (graphw00f)"
-  pip install graphw00f
+  _mt_install 'pip' 'graphw00f'
+  _mt_record "graphw00f" "graphw00f" "pip"
 fi
 
 if command -v graphql-cop >/dev/null 2>&1; then
   skip "GraphQL Cop" "$(command -v graphql-cop)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing GraphQL Cop (graphql-cop)"
-  pip install graphql-cop
+  _mt_install 'pip' 'graphql-cop'
+  _mt_record "GraphQL Cop" "graphql-cop" "pip"
 fi
 
 if command -v clairvoyance >/dev/null 2>&1; then
   skip "Clairvoyance" "$(command -v clairvoyance)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Clairvoyance (clairvoyance)"
-  pip install clairvoyance
+  _mt_install 'pip' 'clairvoyance'
+  _mt_record "Clairvoyance" "clairvoyance" "pip"
 fi
 
 if command -v jwt_tool >/dev/null 2>&1; then
   skip "JWT Tool" "$(command -v jwt_tool)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing JWT Tool (jwt_tool)"
-  pip install jwt_tool  # or git clone https://github.com/ticarpi/jwt_tool
+  _mt_install 'pip' 'jwt_tool'
+  _mt_record "JWT Tool" "jwt_tool" "pip"
 fi
 
 # ── Archive ─────────────────────────────────────────────────────
 if command -v gau >/dev/null 2>&1; then
   skip "GAU" "$(command -v gau)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GAU (gau)"
-  go install -v github.com/lc/gau/v2/cmd/gau@latest
+  _mt_install 'go' 'go install -v github.com/lc/gau/v2/cmd/gau@latest'
+  _mt_record "GAU" "gau" "go"
 fi
 
 if command -v waymore >/dev/null 2>&1; then
   skip "Waymore" "$(command -v waymore)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Waymore (waymore)"
-  pip install waymore
+  _mt_install 'pip' 'waymore'
+  _mt_record "Waymore" "waymore" "pip"
 fi
 
 # ── CORS ────────────────────────────────────────────────────────
 if command -v cors_scan >/dev/null 2>&1; then
   skip "CORScanner" "$(command -v cors_scan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing CORScanner (cors_scan)"
-  pip install CORScanner
+  _mt_install 'pip' 'CORScanner'
+  _mt_record "CORScanner" "cors_scan" "pip"
 fi
 
 if command -v crlfuzz >/dev/null 2>&1; then
   skip "CRLFuzz" "$(command -v crlfuzz)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing CRLFuzz (crlfuzz)"
-  go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest
+  _mt_install 'go' 'go install github.com/dwisiswant0/crlfuzz/cmd/crlfuzz@latest'
+  _mt_record "CRLFuzz" "crlfuzz" "go"
 fi
 
 # ── CSRF ────────────────────────────────────────────────────────
 if command -v xsrfprobe >/dev/null 2>&1; then
   skip "XSRFProbe" "$(command -v xsrfprobe)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing XSRFProbe (xsrfprobe)"
-  pip install xsrfprobe
+  _mt_install 'pip' 'xsrfprobe'
+  _mt_record "XSRFProbe" "xsrfprobe" "pip"
 fi
 
 # ── Cloud ───────────────────────────────────────────────────────
 if command -v s3scanner >/dev/null 2>&1; then
   skip "S3Scanner" "$(command -v s3scanner)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing S3Scanner (s3scanner)"
-  pip install s3scanner
+  _mt_install 'pip' 's3scanner'
+  _mt_record "S3Scanner" "s3scanner" "pip"
 fi
 
 if command -v cloud_enum >/dev/null 2>&1; then
   skip "Cloud Enum" "$(command -v cloud_enum)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Cloud Enum (cloud_enum)"
-  pip install cloud_enum
+  _mt_install 'pip' 'cloud_enum'
+  _mt_record "Cloud Enum" "cloud_enum" "pip"
 fi
 
 if command -v prowler >/dev/null 2>&1; then
   skip "Prowler" "$(command -v prowler)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Prowler (prowler)"
-  pip install prowler
+  _mt_install 'pip' 'prowler'
+  _mt_record "Prowler" "prowler" "pip"
 fi
 
 if command -v scout >/dev/null 2>&1; then
   skip "ScoutSuite" "$(command -v scout)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing ScoutSuite (scout)"
-  pip install scoutsuite
+  _mt_install 'pip' 'scoutsuite'
+  _mt_record "ScoutSuite" "scout" "pip"
 fi
 
 if command -v cloudsploit >/dev/null 2>&1; then
   skip "CloudSploit" "$(command -v cloudsploit)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "npm" ]]; then
   log "Installing CloudSploit (cloudsploit)"
-  npm install -g cloudsploit  # or git clone github.com/aquasecurity/cloudsploit
+  _mt_install 'npm' 'cloudsploit'
+  _mt_record "CloudSploit" "cloudsploit" "npm"
 fi
 
 if command -v gcpbucketbrute >/dev/null 2>&1; then
   skip "GCPBucketBrute" "$(command -v gcpbucketbrute)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pipx" ]]; then
   log "Installing GCPBucketBrute (gcpbucketbrute)"
-  pipx install gcpbucketbrute  # or git clone github.com/RhinoSecurityLabs/GCPBucketBrute
+  _mt_install 'pipx' 'gcpbucketbrute'
+  _mt_record "GCPBucketBrute" "gcpbucketbrute" "pipx"
 fi
 
 # ── Crawling ────────────────────────────────────────────────────
 if command -v katana >/dev/null 2>&1; then
   skip "Katana" "$(command -v katana)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Katana (katana)"
-  go install -v github.com/projectdiscovery/katana/cmd/katana@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/katana/cmd/katana@latest'
+  _mt_record "Katana" "katana" "go"
 fi
 
 if command -v gospider >/dev/null 2>&1; then
   skip "GoSpider" "$(command -v gospider)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GoSpider (gospider)"
-  go install -v github.com/jaeles-project/gospider@latest
+  _mt_install 'go' 'go install -v github.com/jaeles-project/gospider@latest'
+  _mt_record "GoSpider" "gospider" "go"
 fi
 
 if command -v hakrawler >/dev/null 2>&1; then
   skip "Hakrawler" "$(command -v hakrawler)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Hakrawler (hakrawler)"
-  go install -v github.com/hakluke/hakrawler@latest
+  _mt_install 'go' 'go install -v github.com/hakluke/hakrawler@latest'
+  _mt_record "Hakrawler" "hakrawler" "go"
 fi
 
 if command -v waybackurls >/dev/null 2>&1; then
   skip "Waybackurls" "$(command -v waybackurls)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Waybackurls (waybackurls)"
-  go install -v github.com/tomnomnom/waybackurls@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/waybackurls@latest'
+  _mt_record "Waybackurls" "waybackurls" "go"
 fi
 
 if command -v cariddi >/dev/null 2>&1; then
   skip "Cariddi" "$(command -v cariddi)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Cariddi (cariddi)"
-  go install github.com/edoardottt/cariddi/cmd/cariddi@latest
+  _mt_install 'go' 'go install github.com/edoardottt/cariddi/cmd/cariddi@latest'
+  _mt_record "Cariddi" "cariddi" "go"
 fi
 
 if command -v crawlergo >/dev/null 2>&1; then
   skip "crawlergo" "$(command -v crawlergo)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "manual" ]]; then
   log "Installing crawlergo (crawlergo)"
-  download a release from https://github.com/Qianlitp/crawlergo/releases
+  _mt_install 'manual' 'download a release from https://github.com/Qianlitp/crawlergo/releases'
+  _mt_record "crawlergo" "crawlergo" "manual"
 fi
 
 # ── Enumeration ─────────────────────────────────────────────────
 if command -v gobuster >/dev/null 2>&1; then
   skip "Gobuster" "$(command -v gobuster)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Gobuster (gobuster)"
-  go install github.com/OJ/gobuster/v3@latest
+  _mt_install 'go' 'go install github.com/OJ/gobuster/v3@latest'
+  _mt_record "Gobuster" "gobuster" "go"
 fi
 
 if command -v dirsearch >/dev/null 2>&1; then
   skip "Dirsearch" "$(command -v dirsearch)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Dirsearch (dirsearch)"
-  pip install dirsearch
+  _mt_install 'pip' 'dirsearch'
+  _mt_record "Dirsearch" "dirsearch" "pip"
 fi
 
 if command -v feroxbuster >/dev/null 2>&1; then
   skip "Feroxbuster" "$(command -v feroxbuster)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]]; then
   log "Installing Feroxbuster (feroxbuster)"
-  curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash
+  _mt_install 'sh' 'curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash'
+  _mt_record "Feroxbuster" "feroxbuster" "sh"
 fi
 
 if command -v wfuzz >/dev/null 2>&1; then
   skip "Wfuzz" "$(command -v wfuzz)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Wfuzz (wfuzz)"
-  pip install wfuzz
+  _mt_install 'pip' 'wfuzz'
+  _mt_record "Wfuzz" "wfuzz" "pip"
 fi
 
 if command -v cmseek >/dev/null 2>&1; then
   skip "CMSeeK" "$(command -v cmseek)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing CMSeeK (cmseek)"
-  git clone https://github.com/Tuhinshubhra/CMSeeK && pip install -r CMSeeK/requirements.txt
+  _mt_install 'git' 'git clone https://github.com/Tuhinshubhra/CMSeeK && pip install -r CMSeeK/requirements.txt'
+  _mt_record "CMSeeK" "cmseek" "git"
 fi
 
 if command -v nomore403 >/dev/null 2>&1; then
   skip "nomore403" "$(command -v nomore403)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing nomore403 (nomore403)"
-  go install github.com/devploit/nomore403@latest
+  _mt_install 'go' 'go install github.com/devploit/nomore403@latest'
+  _mt_record "nomore403" "nomore403" "go"
 fi
 
 if command -v dirb >/dev/null 2>&1; then
   skip "Dirb" "$(command -v dirb)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing Dirb (dirb)"
-  apt install dirb  # or brew install dirb
+  _mt_install 'pm' 'dirb'
+  _mt_record "Dirb" "dirb" "pm"
 fi
 
 if command -v shortscan >/dev/null 2>&1; then
   skip "Shortscan" "$(command -v shortscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Shortscan (shortscan)"
-  go install github.com/bitquark/shortscan/cmd/shortscan@latest
+  _mt_install 'go' 'go install github.com/bitquark/shortscan/cmd/shortscan@latest'
+  _mt_record "Shortscan" "shortscan" "go"
 fi
 
 if command -v dirhunt >/dev/null 2>&1; then
   skip "Dirhunt" "$(command -v dirhunt)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Dirhunt (dirhunt)"
-  pip install dirhunt
+  _mt_install 'pip' 'dirhunt'
+  _mt_record "Dirhunt" "dirhunt" "pip"
 fi
 
 if command -v byp4xx >/dev/null 2>&1; then
   skip "byp4xx" "$(command -v byp4xx)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing byp4xx (byp4xx)"
-  go install github.com/lobuhi/byp4xx@latest
+  _mt_install 'go' 'go install github.com/lobuhi/byp4xx@latest'
+  _mt_record "byp4xx" "byp4xx" "go"
 fi
 
 # ── Fuzzing ─────────────────────────────────────────────────────
 if command -v ffuf >/dev/null 2>&1; then
   skip "FFUF" "$(command -v ffuf)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing FFUF (ffuf)"
-  go install -v github.com/ffuf/ffuf/v2@latest
+  _mt_install 'go' 'go install -v github.com/ffuf/ffuf/v2@latest'
+  _mt_record "FFUF" "ffuf" "go"
 fi
 
 # ── Headers ─────────────────────────────────────────────────────
 if command -v shcheck >/dev/null 2>&1; then
   skip "Shcheck" "$(command -v shcheck)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Shcheck (shcheck)"
-  pip install shcheck
+  _mt_install 'pip' 'shcheck'
+  _mt_record "Shcheck" "shcheck" "pip"
 fi
 
 if command -v hakcheckurl >/dev/null 2>&1; then
   skip "Hakcheckurl" "$(command -v hakcheckurl)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Hakcheckurl (hakcheckurl)"
-  go install github.com/hakluke/hakcheckurl@latest
+  _mt_install 'go' 'go install github.com/hakluke/hakcheckurl@latest'
+  _mt_record "Hakcheckurl" "hakcheckurl" "go"
 fi
 
 # ── JSAnalysis ──────────────────────────────────────────────────
 if command -v linkfinder >/dev/null 2>&1; then
   skip "LinkFinder" "$(command -v linkfinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing LinkFinder (linkfinder)"
-  pip install linkfinder
+  _mt_install 'pip' 'linkfinder'
+  _mt_record "LinkFinder" "linkfinder" "pip"
 fi
 
 if command -v SecretFinder >/dev/null 2>&1; then
   skip "SecretFinder" "$(command -v SecretFinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SecretFinder (SecretFinder)"
-  pip install SecretFinder
+  _mt_install 'pip' 'SecretFinder'
+  _mt_record "SecretFinder" "SecretFinder" "pip"
 fi
 
 if command -v getJS >/dev/null 2>&1; then
   skip "GetJS" "$(command -v getJS)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GetJS (getJS)"
-  go install github.com/003random/getJS/v2@latest
+  _mt_install 'go' 'go install github.com/003random/getJS/v2@latest'
+  _mt_record "GetJS" "getJS" "go"
 fi
 
 if command -v subjs >/dev/null 2>&1; then
   skip "SubJS" "$(command -v subjs)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing SubJS (subjs)"
-  go install -v github.com/lc/subjs@latest
+  _mt_install 'go' 'go install -v github.com/lc/subjs@latest'
+  _mt_record "SubJS" "subjs" "go"
 fi
 
 if command -v jsluice >/dev/null 2>&1; then
   skip "jsluice" "$(command -v jsluice)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing jsluice (jsluice)"
-  go install github.com/BishopFox/jsluice/cmd/jsluice@latest
+  _mt_install 'go' 'go install github.com/BishopFox/jsluice/cmd/jsluice@latest'
+  _mt_record "jsluice" "jsluice" "go"
 fi
 
 if command -v mantra >/dev/null 2>&1; then
   skip "Mantra" "$(command -v mantra)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Mantra (mantra)"
-  go install github.com/MrEmpy/mantra@latest
+  _mt_install 'go' 'go install github.com/MrEmpy/mantra@latest'
+  _mt_record "Mantra" "mantra" "go"
 fi
 
 if command -v xnLinkFinder >/dev/null 2>&1; then
   skip "xnLinkFinder" "$(command -v xnLinkFinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing xnLinkFinder (xnLinkFinder)"
-  pip install xnLinkFinder
+  _mt_install 'pip' 'xnLinkFinder'
+  _mt_record "xnLinkFinder" "xnLinkFinder" "pip"
 fi
 
 # ── Kubernetes ──────────────────────────────────────────────────
 if command -v kube-hunter >/dev/null 2>&1; then
   skip "kube-hunter" "$(command -v kube-hunter)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing kube-hunter (kube-hunter)"
-  pip install kube-hunter
+  _mt_install 'pip' 'kube-hunter'
+  _mt_record "kube-hunter" "kube-hunter" "pip"
 fi
 
 if command -v kube-bench >/dev/null 2>&1; then
   skip "kube-bench" "$(command -v kube-bench)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing kube-bench (kube-bench)"
-  go install github.com/aquasecurity/kube-bench@latest  # or docker run aquasec/kube-bench
+  _mt_install 'go' 'go install github.com/aquasecurity/kube-bench@latest'
+  _mt_record "kube-bench" "kube-bench" "go"
 fi
 
 if command -v kubeaudit >/dev/null 2>&1; then
   skip "kubeaudit" "$(command -v kubeaudit)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing kubeaudit (kubeaudit)"
-  go install github.com/Shopify/kubeaudit@latest
+  _mt_install 'go' 'go install github.com/Shopify/kubeaudit@latest'
+  _mt_record "kubeaudit" "kubeaudit" "go"
 fi
 
 if command -v trivy >/dev/null 2>&1; then
   skip "Trivy" "$(command -v trivy)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Trivy (trivy)"
-  go install github.com/aquasecurity/trivy/cmd/trivy@latest  # or brew install trivy
+  _mt_install 'go' 'go install github.com/aquasecurity/trivy/cmd/trivy@latest'
+  _mt_record "Trivy" "trivy" "go"
 fi
 
 if command -v kubeletctl >/dev/null 2>&1; then
   skip "kubeletctl" "$(command -v kubeletctl)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing kubeletctl (kubeletctl)"
-  go install github.com/cyberark/kubeletctl@latest
+  _mt_install 'go' 'go install github.com/cyberark/kubeletctl@latest'
+  _mt_record "kubeletctl" "kubeletctl" "go"
 fi
 
 if command -v popeye >/dev/null 2>&1; then
   skip "Popeye" "$(command -v popeye)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Popeye (popeye)"
-  go install github.com/derailed/popeye@latest  # or brew install derailed/popeye/popeye
+  _mt_install 'go' 'go install github.com/derailed/popeye@latest'
+  _mt_record "Popeye" "popeye" "go"
 fi
 
 # ── Network ─────────────────────────────────────────────────────
 if command -v nmap >/dev/null 2>&1; then
   skip "Nmap" "$(command -v nmap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing Nmap (nmap)"
-  apt install nmap  # or brew install nmap
+  _mt_install 'pm' 'nmap'
+  _mt_record "Nmap" "nmap" "pm"
 fi
 
 if command -v masscan >/dev/null 2>&1; then
   skip "Masscan" "$(command -v masscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing Masscan (masscan)"
-  apt install masscan  # or brew install masscan
+  _mt_install 'pm' 'masscan'
+  _mt_record "Masscan" "masscan" "pm"
 fi
 
 if command -v naabu >/dev/null 2>&1; then
   skip "Naabu" "$(command -v naabu)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Naabu (naabu)"
-  go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/naabu/v2/cmd/naabu@latest'
+  _mt_record "Naabu" "naabu" "go"
 fi
 
 if command -v rustscan >/dev/null 2>&1; then
   skip "RustScan" "$(command -v rustscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "cargo" ]]; then
   log "Installing RustScan (rustscan)"
-  cargo install rustscan
+  _mt_install 'cargo' 'rustscan'
+  _mt_record "RustScan" "rustscan" "cargo"
 fi
 
 if command -v testssl.sh >/dev/null 2>&1; then
   skip "testssl.sh" "$(command -v testssl.sh)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing testssl.sh (testssl.sh)"
-  git clone https://github.com/drwetter/testssl.sh.git
+  _mt_install 'git' 'git clone https://github.com/drwetter/testssl.sh.git'
+  _mt_record "testssl.sh" "testssl.sh" "git"
 fi
 
 if command -v sslscan >/dev/null 2>&1; then
   skip "SSLScan" "$(command -v sslscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing SSLScan (sslscan)"
-  apt install sslscan  # or brew install sslscan
+  _mt_install 'pm' 'sslscan'
+  _mt_record "SSLScan" "sslscan" "pm"
 fi
 
 if command -v mapcidr >/dev/null 2>&1; then
   skip "MapCIDR" "$(command -v mapcidr)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing MapCIDR (mapcidr)"
-  go install github.com/projectdiscovery/mapcidr/cmd/mapcidr@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/mapcidr/cmd/mapcidr@latest'
+  _mt_record "MapCIDR" "mapcidr" "go"
 fi
 
 if command -v cdncheck >/dev/null 2>&1; then
   skip "CDNCheck" "$(command -v cdncheck)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing CDNCheck (cdncheck)"
-  go install github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/cdncheck/cmd/cdncheck@latest'
+  _mt_record "CDNCheck" "cdncheck" "go"
 fi
 
 if command -v smap >/dev/null 2>&1; then
   skip "Smap" "$(command -v smap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Smap (smap)"
-  go install github.com/s0md3v/smap/cmd/smap@latest
+  _mt_install 'go' 'go install github.com/s0md3v/smap/cmd/smap@latest'
+  _mt_record "Smap" "smap" "go"
 fi
 
 if command -v nrich >/dev/null 2>&1; then
   skip "nrich" "$(command -v nrich)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "cargo" ]]; then
   log "Installing nrich (nrich)"
-  cargo install nrich
+  _mt_install 'cargo' 'nrich'
+  _mt_record "nrich" "nrich" "cargo"
 fi
 
 # ── OSINT ───────────────────────────────────────────────────────
 if command -v theHarvester >/dev/null 2>&1; then
   skip "theHarvester" "$(command -v theHarvester)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing theHarvester (theHarvester)"
-  pip install theHarvester
+  _mt_install 'pip' 'theHarvester'
+  _mt_record "theHarvester" "theHarvester" "pip"
 fi
 
 if command -v shodan >/dev/null 2>&1; then
   skip "Shodan CLI" "$(command -v shodan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Shodan CLI (shodan)"
-  pip install shodan
+  _mt_install 'pip' 'shodan'
+  _mt_record "Shodan CLI" "shodan" "pip"
 fi
 
 if command -v censys >/dev/null 2>&1; then
   skip "Censys" "$(command -v censys)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Censys (censys)"
-  pip install censys
+  _mt_install 'pip' 'censys'
+  _mt_record "Censys" "censys" "pip"
 fi
 
 if command -v spiderfoot >/dev/null 2>&1; then
   skip "SpiderFoot" "$(command -v spiderfoot)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SpiderFoot (spiderfoot)"
-  pip install spiderfoot
+  _mt_install 'pip' 'spiderfoot'
+  _mt_record "SpiderFoot" "spiderfoot" "pip"
 fi
 
 if command -v github-subdomains >/dev/null 2>&1; then
   skip "GitHub Subdomains" "$(command -v github-subdomains)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GitHub Subdomains (github-subdomains)"
-  go install github.com/gwen001/github-subdomains@latest
+  _mt_install 'go' 'go install github.com/gwen001/github-subdomains@latest'
+  _mt_record "GitHub Subdomains" "github-subdomains" "go"
 fi
 
 if command -v gitdorker >/dev/null 2>&1; then
   skip "GitDorker" "$(command -v gitdorker)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing GitDorker (gitdorker)"
-  git clone https://github.com/obheda12/GitDorker && pip install -r GitDorker/requirements.txt
+  _mt_install 'git' 'git clone https://github.com/obheda12/GitDorker && pip install -r GitDorker/requirements.txt'
+  _mt_record "GitDorker" "gitdorker" "git"
 fi
 
 if command -v github-endpoints >/dev/null 2>&1; then
   skip "GitHub Endpoints" "$(command -v github-endpoints)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GitHub Endpoints (github-endpoints)"
-  go install github.com/gwen001/github-endpoints@latest
+  _mt_install 'go' 'go install github.com/gwen001/github-endpoints@latest'
+  _mt_record "GitHub Endpoints" "github-endpoints" "go"
 fi
 
 if command -v gitlab-subdomains >/dev/null 2>&1; then
   skip "GitLab Subdomains" "$(command -v gitlab-subdomains)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GitLab Subdomains (gitlab-subdomains)"
-  go install github.com/gwen001/gitlab-subdomains@latest
+  _mt_install 'go' 'go install github.com/gwen001/gitlab-subdomains@latest'
+  _mt_record "GitLab Subdomains" "gitlab-subdomains" "go"
 fi
 
 # ── Params ──────────────────────────────────────────────────────
 if command -v arjun >/dev/null 2>&1; then
   skip "Arjun" "$(command -v arjun)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Arjun (arjun)"
-  pip install arjun
+  _mt_install 'pip' 'arjun'
+  _mt_record "Arjun" "arjun" "pip"
 fi
 
 if command -v paramspider >/dev/null 2>&1; then
   skip "ParamSpider" "$(command -v paramspider)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing ParamSpider (paramspider)"
-  pip install paramspider
+  _mt_install 'pip' 'paramspider'
+  _mt_record "ParamSpider" "paramspider" "pip"
 fi
 
 if command -v x8 >/dev/null 2>&1; then
   skip "x8" "$(command -v x8)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "cargo" ]]; then
   log "Installing x8 (x8)"
-  cargo install x8
+  _mt_install 'cargo' 'x8'
+  _mt_record "x8" "x8" "cargo"
 fi
 
 if command -v paraminer >/dev/null 2>&1; then
   skip "Paraminer" "$(command -v paraminer)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Paraminer (paraminer)"
-  pip install paraminer
+  _mt_install 'pip' 'paraminer'
+  _mt_record "Paraminer" "paraminer" "pip"
 fi
 
 # ── Recon ───────────────────────────────────────────────────────
 if command -v subfinder >/dev/null 2>&1; then
   skip "Subfinder" "$(command -v subfinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Subfinder (subfinder)"
-  go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest'
+  _mt_record "Subfinder" "subfinder" "go"
 fi
 
 if command -v httpx >/dev/null 2>&1; then
   skip "HTTPX" "$(command -v httpx)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing HTTPX (httpx)"
-  go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest'
+  _mt_record "HTTPX" "httpx" "go"
 fi
 
 if command -v amass >/dev/null 2>&1; then
   skip "Amass" "$(command -v amass)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Amass (amass)"
-  go install -v github.com/owasp-amass/amass/v4/...@master
+  _mt_install 'go' 'go install -v github.com/owasp-amass/amass/v4/...@master'
+  _mt_record "Amass" "amass" "go"
 fi
 
 if command -v assetfinder >/dev/null 2>&1; then
   skip "Assetfinder" "$(command -v assetfinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Assetfinder (assetfinder)"
-  go install -v github.com/tomnomnom/assetfinder@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/assetfinder@latest'
+  _mt_record "Assetfinder" "assetfinder" "go"
 fi
 
 if command -v findomain >/dev/null 2>&1; then
   skip "Findomain" "$(command -v findomain)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]]; then
   log "Installing Findomain (findomain)"
-  curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip
+  _mt_install 'sh' 'curl -LO https://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip && unzip findomain-linux.zip'
+  _mt_record "Findomain" "findomain" "sh"
 fi
 
 if command -v dnsx >/dev/null 2>&1; then
   skip "DNSx" "$(command -v dnsx)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing DNSx (dnsx)"
-  go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest'
+  _mt_record "DNSx" "dnsx" "go"
 fi
 
 if command -v shuffledns >/dev/null 2>&1; then
   skip "ShuffleDNS" "$(command -v shuffledns)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing ShuffleDNS (shuffledns)"
-  go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/shuffledns/cmd/shuffledns@latest'
+  _mt_record "ShuffleDNS" "shuffledns" "go"
 fi
 
 if command -v chaos >/dev/null 2>&1; then
   skip "Chaos" "$(command -v chaos)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Chaos (chaos)"
-  go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/chaos-client/cmd/chaos@latest'
+  _mt_record "Chaos" "chaos" "go"
 fi
 
 if command -v whatweb >/dev/null 2>&1; then
   skip "WhatWeb" "$(command -v whatweb)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "gem" ]]; then
   log "Installing WhatWeb (whatweb)"
-  gem install whatweb  # or apt install whatweb
+  _mt_install 'gem' 'whatweb'
+  _mt_record "WhatWeb" "whatweb" "gem"
 fi
 
 if command -v wafw00f >/dev/null 2>&1; then
   skip "WAFW00F" "$(command -v wafw00f)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing WAFW00F (wafw00f)"
-  pip install wafw00f
+  _mt_install 'pip' 'wafw00f'
+  _mt_record "WAFW00F" "wafw00f" "pip"
 fi
 
 if command -v puredns >/dev/null 2>&1; then
   skip "PureDNS" "$(command -v puredns)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing PureDNS (puredns)"
-  go install github.com/d3mondev/puredns/v2@latest
+  _mt_install 'go' 'go install github.com/d3mondev/puredns/v2@latest'
+  _mt_record "PureDNS" "puredns" "go"
 fi
 
 if command -v alterx >/dev/null 2>&1; then
   skip "AlterX" "$(command -v alterx)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing AlterX (alterx)"
-  go install github.com/projectdiscovery/alterx/cmd/alterx@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/alterx/cmd/alterx@latest'
+  _mt_record "AlterX" "alterx" "go"
 fi
 
 if command -v dnsgen >/dev/null 2>&1; then
   skip "DNSGen" "$(command -v dnsgen)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing DNSGen (dnsgen)"
-  pip install dnsgen
+  _mt_install 'pip' 'dnsgen'
+  _mt_record "DNSGen" "dnsgen" "pip"
 fi
 
 if command -v gotator >/dev/null 2>&1; then
   skip "Gotator" "$(command -v gotator)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Gotator (gotator)"
-  go install github.com/Josue87/gotator@latest
+  _mt_install 'go' 'go install github.com/Josue87/gotator@latest'
+  _mt_record "Gotator" "gotator" "go"
 fi
 
 if command -v tlsx >/dev/null 2>&1; then
   skip "TLSX" "$(command -v tlsx)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing TLSX (tlsx)"
-  go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest'
+  _mt_record "TLSX" "tlsx" "go"
 fi
 
 if command -v asnmap >/dev/null 2>&1; then
   skip "ASNMap" "$(command -v asnmap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing ASNMap (asnmap)"
-  go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/asnmap/cmd/asnmap@latest'
+  _mt_record "ASNMap" "asnmap" "go"
 fi
 
 if command -v cero >/dev/null 2>&1; then
   skip "Cero" "$(command -v cero)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Cero (cero)"
-  go install github.com/glebarez/cero@latest
+  _mt_install 'go' 'go install github.com/glebarez/cero@latest'
+  _mt_record "Cero" "cero" "go"
 fi
 
 if command -v gowitness >/dev/null 2>&1; then
   skip "GoWitness" "$(command -v gowitness)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GoWitness (gowitness)"
-  go install github.com/sensepost/gowitness@latest
+  _mt_install 'go' 'go install github.com/sensepost/gowitness@latest'
+  _mt_record "GoWitness" "gowitness" "go"
 fi
 
 if command -v aquatone >/dev/null 2>&1; then
   skip "Aquatone" "$(command -v aquatone)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Aquatone (aquatone)"
-  go install github.com/michenriksen/aquatone@latest
+  _mt_install 'go' 'go install github.com/michenriksen/aquatone@latest'
+  _mt_record "Aquatone" "aquatone" "go"
 fi
 
 if command -v wappalyzer >/dev/null 2>&1; then
   skip "Wappalyzer" "$(command -v wappalyzer)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "npm" ]]; then
   log "Installing Wappalyzer (wappalyzer)"
-  npm install -g wappalyzer
+  _mt_install 'npm' 'wappalyzer'
+  _mt_record "Wappalyzer" "wappalyzer" "npm"
 fi
 
 if command -v httprobe >/dev/null 2>&1; then
   skip "httprobe" "$(command -v httprobe)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing httprobe (httprobe)"
-  go install github.com/tomnomnom/httprobe@latest
+  _mt_install 'go' 'go install github.com/tomnomnom/httprobe@latest'
+  _mt_record "httprobe" "httprobe" "go"
 fi
 
 if command -v urlfinder >/dev/null 2>&1; then
   skip "URLFinder" "$(command -v urlfinder)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing URLFinder (urlfinder)"
-  go install github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest
+  _mt_install 'go' 'go install github.com/projectdiscovery/urlfinder/cmd/urlfinder@latest'
+  _mt_record "URLFinder" "urlfinder" "go"
 fi
 
 if command -v hakip2host >/dev/null 2>&1; then
   skip "hakip2host" "$(command -v hakip2host)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing hakip2host (hakip2host)"
-  go install github.com/hakluke/hakip2host@latest
+  _mt_install 'go' 'go install github.com/hakluke/hakip2host@latest'
+  _mt_record "hakip2host" "hakip2host" "go"
 fi
 
 if command -v bbot >/dev/null 2>&1; then
   skip "BBOT" "$(command -v bbot)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pipx" ]]; then
   log "Installing BBOT (bbot)"
-  pipx install bbot
+  _mt_install 'pipx' 'bbot'
+  _mt_record "BBOT" "bbot" "pipx"
 fi
 
 if command -v crtsh >/dev/null 2>&1; then
   skip "crt.sh" "$(command -v crtsh)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pipx" ]]; then
   log "Installing crt.sh (crtsh)"
-  pipx install crtsh  # or query https://crt.sh directly
+  _mt_install 'pipx' 'crtsh'
+  _mt_record "crt.sh" "crtsh" "pipx"
 fi
 
 if command -v massdns >/dev/null 2>&1; then
   skip "MassDNS" "$(command -v massdns)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing MassDNS (massdns)"
-  apt install massdns  # or build from github.com/blechschmidt/massdns
+  _mt_install 'pm' 'massdns'
+  _mt_record "MassDNS" "massdns" "pm"
 fi
 
 if command -v csprecon >/dev/null 2>&1; then
   skip "CSPRecon" "$(command -v csprecon)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing CSPRecon (csprecon)"
-  go install github.com/edoardottt/csprecon/cmd/csprecon@latest
+  _mt_install 'go' 'go install github.com/edoardottt/csprecon/cmd/csprecon@latest'
+  _mt_record "CSPRecon" "csprecon" "go"
 fi
 
 if command -v webanalyze >/dev/null 2>&1; then
   skip "webanalyze" "$(command -v webanalyze)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing webanalyze (webanalyze)"
-  go install github.com/rverton/webanalyze/cmd/webanalyze@latest
+  _mt_install 'go' 'go install github.com/rverton/webanalyze/cmd/webanalyze@latest'
+  _mt_record "webanalyze" "webanalyze" "go"
 fi
 
 # ── SSRF ────────────────────────────────────────────────────────
 if command -v ssrfmap >/dev/null 2>&1; then
   skip "SSRFmap" "$(command -v ssrfmap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SSRFmap (ssrfmap)"
-  pip install ssrfmap
+  _mt_install 'pip' 'ssrfmap'
+  _mt_record "SSRFmap" "ssrfmap" "pip"
 fi
 
 if command -v gopherus >/dev/null 2>&1; then
   skip "Gopherus" "$(command -v gopherus)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Gopherus (gopherus)"
-  pip install gopherus
+  _mt_install 'pip' 'gopherus'
+  _mt_record "Gopherus" "gopherus" "pip"
 fi
 
 if command -v interactsh-client >/dev/null 2>&1; then
   skip "Interactsh" "$(command -v interactsh-client)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Interactsh (interactsh-client)"
-  go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest'
+  _mt_record "Interactsh" "interactsh-client" "go"
 fi
 
 if command -v ssrf-sheriff >/dev/null 2>&1; then
   skip "SSRF Sheriff" "$(command -v ssrf-sheriff)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SSRF Sheriff (ssrf-sheriff)"
-  pip install ssrf-sheriff
+  _mt_install 'pip' 'ssrf-sheriff'
+  _mt_record "SSRF Sheriff" "ssrf-sheriff" "pip"
 fi
 
 # ── SSTI ────────────────────────────────────────────────────────
 if command -v sstimap >/dev/null 2>&1; then
   skip "SSTImap" "$(command -v sstimap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SSTImap (sstimap)"
-  pip install sstimap
+  _mt_install 'pip' 'sstimap'
+  _mt_record "SSTImap" "sstimap" "pip"
 fi
 
 if command -v tplmap >/dev/null 2>&1; then
   skip "Tplmap" "$(command -v tplmap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Tplmap (tplmap)"
-  pip install tplmap
+  _mt_install 'pip' 'tplmap'
+  _mt_record "Tplmap" "tplmap" "pip"
 fi
 
 # ── Scanner ─────────────────────────────────────────────────────
 if command -v sniper >/dev/null 2>&1; then
   skip "Sn1per" "$(command -v sniper)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing Sn1per (sniper)"
-  git clone https://github.com/1N3/Sn1per && cd Sn1per && bash install.sh
+  _mt_install 'git' 'git clone https://github.com/1N3/Sn1per && cd Sn1per && bash install.sh'
+  _mt_record "Sn1per" "sniper" "git"
 fi
 
 # ── Secrets ─────────────────────────────────────────────────────
 if command -v trufflehog >/dev/null 2>&1; then
   skip "TruffleHog" "$(command -v trufflehog)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing TruffleHog (trufflehog)"
-  go install github.com/trufflesecurity/trufflehog/v3@latest
+  _mt_install 'go' 'go install github.com/trufflesecurity/trufflehog/v3@latest'
+  _mt_record "TruffleHog" "trufflehog" "go"
 fi
 
 if command -v gitleaks >/dev/null 2>&1; then
   skip "Gitleaks" "$(command -v gitleaks)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Gitleaks (gitleaks)"
-  go install github.com/gitleaks/gitleaks/v8@latest
+  _mt_install 'go' 'go install github.com/gitleaks/gitleaks/v8@latest'
+  _mt_record "Gitleaks" "gitleaks" "go"
 fi
 
 if command -v semgrep >/dev/null 2>&1; then
   skip "Semgrep" "$(command -v semgrep)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Semgrep (semgrep)"
-  pip install semgrep
+  _mt_install 'pip' 'semgrep'
+  _mt_record "Semgrep" "semgrep" "pip"
 fi
 
 # ── Takeover ────────────────────────────────────────────────────
 if command -v subjack >/dev/null 2>&1; then
   skip "Subjack" "$(command -v subjack)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Subjack (subjack)"
-  go install github.com/haccer/subjack@latest
+  _mt_install 'go' 'go install github.com/haccer/subjack@latest'
+  _mt_record "Subjack" "subjack" "go"
 fi
 
 if command -v subzy >/dev/null 2>&1; then
   skip "Subzy" "$(command -v subzy)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Subzy (subzy)"
-  go install -v github.com/PentestPad/subzy@latest
+  _mt_install 'go' 'go install -v github.com/PentestPad/subzy@latest'
+  _mt_record "Subzy" "subzy" "go"
 fi
 
 if command -v nuclei >/dev/null 2>&1; then
   skip "Nuclei Takeover" "$(command -v nuclei)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Nuclei Takeover (nuclei)"
-  go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest'
+  _mt_record "Nuclei Takeover" "nuclei" "go"
 fi
 
 if command -v dnsreaper >/dev/null 2>&1; then
   skip "DNSReaper" "$(command -v dnsreaper)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pipx" ]]; then
   log "Installing DNSReaper (dnsreaper)"
-  pipx install dnsReaper  # or docker run punksecurity/dnsreaper
+  _mt_install 'pipx' 'dnsReaper'
+  _mt_record "DNSReaper" "dnsreaper" "pipx"
 fi
 
 # ── Utility ─────────────────────────────────────────────────────
 if command -v anew >/dev/null 2>&1; then
   skip "Anew" "$(command -v anew)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Anew (anew)"
-  go install -v github.com/tomnomnom/anew@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/anew@latest'
+  _mt_record "Anew" "anew" "go"
 fi
 
 if command -v qsreplace >/dev/null 2>&1; then
   skip "QSReplace" "$(command -v qsreplace)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing QSReplace (qsreplace)"
-  go install -v github.com/tomnomnom/qsreplace@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/qsreplace@latest'
+  _mt_record "QSReplace" "qsreplace" "go"
 fi
 
 if command -v uro >/dev/null 2>&1; then
   skip "URO" "$(command -v uro)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing URO (uro)"
-  pip install uro
+  _mt_install 'pip' 'uro'
+  _mt_record "URO" "uro" "pip"
 fi
 
 if command -v unfurl >/dev/null 2>&1; then
   skip "Unfurl" "$(command -v unfurl)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Unfurl (unfurl)"
-  go install -v github.com/tomnomnom/unfurl@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/unfurl@latest'
+  _mt_record "Unfurl" "unfurl" "go"
 fi
 
 if command -v jq >/dev/null 2>&1; then
   skip "JQ Filter" "$(command -v jq)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing JQ Filter (jq)"
-  apt install jq  # or brew install jq
+  _mt_install 'pm' 'jq'
+  _mt_record "JQ Filter" "jq" "pm"
 fi
 
 if command -v gf >/dev/null 2>&1; then
   skip "GF Patterns" "$(command -v gf)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing GF Patterns (gf)"
-  go install -v github.com/tomnomnom/gf@latest
+  _mt_install 'go' 'go install -v github.com/tomnomnom/gf@latest'
+  _mt_record "GF Patterns" "gf" "go"
 fi
 
 if command -v interlace >/dev/null 2>&1; then
   skip "Interlace" "$(command -v interlace)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Interlace (interlace)"
-  pip install interlace
+  _mt_install 'pip' 'interlace'
+  _mt_record "Interlace" "interlace" "pip"
 fi
 
 if command -v rush >/dev/null 2>&1; then
   skip "Rush" "$(command -v rush)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Rush (rush)"
-  go install github.com/shenwei356/rush@latest
+  _mt_install 'go' 'go install github.com/shenwei356/rush@latest'
+  _mt_record "Rush" "rush" "go"
 fi
 
 if command -v notify >/dev/null 2>&1; then
   skip "Notify" "$(command -v notify)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Notify (notify)"
-  go install -v github.com/projectdiscovery/notify/cmd/notify@latest
+  _mt_install 'go' 'go install -v github.com/projectdiscovery/notify/cmd/notify@latest'
+  _mt_record "Notify" "notify" "go"
 fi
 
 if command -v meg >/dev/null 2>&1; then
   skip "Meg" "$(command -v meg)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Meg (meg)"
-  go install github.com/tomnomnom/meg@latest
+  _mt_install 'go' 'go install github.com/tomnomnom/meg@latest'
+  _mt_record "Meg" "meg" "go"
 fi
 
 if command -v dsieve >/dev/null 2>&1; then
   skip "dsieve" "$(command -v dsieve)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing dsieve (dsieve)"
-  go install github.com/trickest/dsieve@latest
+  _mt_install 'go' 'go install github.com/trickest/dsieve@latest'
+  _mt_record "dsieve" "dsieve" "go"
 fi
 
 if command -v dnsvalidator >/dev/null 2>&1; then
   skip "DNSValidator" "$(command -v dnsvalidator)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing DNSValidator (dnsvalidator)"
-  pip install dnsvalidator
+  _mt_install 'pip' 'dnsvalidator'
+  _mt_record "DNSValidator" "dnsvalidator" "pip"
 fi
 
 # ── Vulnerability ───────────────────────────────────────────────
 if command -v nikto >/dev/null 2>&1; then
   skip "Nikto" "$(command -v nikto)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing Nikto (nikto)"
-  apt install nikto  # or brew install nikto
+  _mt_install 'pm' 'nikto'
+  _mt_record "Nikto" "nikto" "pm"
 fi
 
 if command -v wpscan >/dev/null 2>&1; then
   skip "WPScan" "$(command -v wpscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "gem" ]]; then
   log "Installing WPScan (wpscan)"
-  gem install wpscan  # or apt install wpscan
+  _mt_install 'gem' 'wpscan'
+  _mt_record "WPScan" "wpscan" "gem"
 fi
 
 if command -v sqlmap >/dev/null 2>&1; then
   skip "SQLMap" "$(command -v sqlmap)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing SQLMap (sqlmap)"
-  pip install sqlmap
+  _mt_install 'pip' 'sqlmap'
+  _mt_record "SQLMap" "sqlmap" "pip"
 fi
 
 if command -v xsstrike >/dev/null 2>&1; then
   skip "XSStrike" "$(command -v xsstrike)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing XSStrike (xsstrike)"
-  pip install XSStrike
+  _mt_install 'pip' 'XSStrike'
+  _mt_record "XSStrike" "xsstrike" "pip"
 fi
 
 if command -v dalfox >/dev/null 2>&1; then
   skip "Dalfox" "$(command -v dalfox)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Dalfox (dalfox)"
-  go install -v github.com/hahwul/dalfox/v2@latest
+  _mt_install 'go' 'go install -v github.com/hahwul/dalfox/v2@latest'
+  _mt_record "Dalfox" "dalfox" "go"
 fi
 
 if command -v ghauri >/dev/null 2>&1; then
   skip "Ghauri" "$(command -v ghauri)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pipx" ]]; then
   log "Installing Ghauri (ghauri)"
-  pipx install ghauri  # or pipx install git+https://github.com/r0oth3x49/ghauri
+  _mt_install 'pipx' 'ghauri'
+  _mt_record "Ghauri" "ghauri" "pipx"
 fi
 
 if command -v commix >/dev/null 2>&1; then
   skip "Commix" "$(command -v commix)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Commix (commix)"
-  pip install commix
+  _mt_install 'pip' 'commix'
+  _mt_record "Commix" "commix" "pip"
 fi
 
 if command -v jaeles >/dev/null 2>&1; then
   skip "Jaeles" "$(command -v jaeles)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Jaeles (jaeles)"
-  go install github.com/jaeles-project/jaeles@latest
+  _mt_install 'go' 'go install github.com/jaeles-project/jaeles@latest'
+  _mt_record "Jaeles" "jaeles" "go"
 fi
 
 if command -v joomscan >/dev/null 2>&1; then
   skip "JoomScan" "$(command -v joomscan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pm" ]]; then
   log "Installing JoomScan (joomscan)"
-  apt install joomscan  # or git clone https://github.com/OWASP/joomscan
+  _mt_install 'pm' 'joomscan'
+  _mt_record "JoomScan" "joomscan" "pm"
 fi
 
 if command -v droopescan >/dev/null 2>&1; then
   skip "Droopescan" "$(command -v droopescan)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Droopescan (droopescan)"
-  pip install droopescan
+  _mt_install 'pip' 'droopescan'
+  _mt_record "Droopescan" "droopescan" "pip"
 fi
 
 if command -v oralyzer >/dev/null 2>&1; then
   skip "Oralyzer" "$(command -v oralyzer)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing Oralyzer (oralyzer)"
-  git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt
+  _mt_install 'git' 'git clone https://github.com/r0075h3ll/Oralyzer && pip install -r Oralyzer/requirements.txt'
+  _mt_record "Oralyzer" "oralyzer" "git"
 fi
 
 if command -v Gxss >/dev/null 2>&1; then
   skip "Gxss" "$(command -v Gxss)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing Gxss (Gxss)"
-  go install github.com/KathanP19/Gxss@latest
+  _mt_install 'go' 'go install github.com/KathanP19/Gxss@latest'
+  _mt_record "Gxss" "Gxss" "go"
 fi
 
 if command -v kxss >/dev/null 2>&1; then
   skip "kxss" "$(command -v kxss)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
   log "Installing kxss (kxss)"
-  go install github.com/tomnomnom/hacks/kxss@latest
+  _mt_install 'go' 'go install github.com/tomnomnom/hacks/kxss@latest'
+  _mt_record "kxss" "kxss" "go"
 fi
 
 if command -v smuggler >/dev/null 2>&1; then
   skip "Smuggler" "$(command -v smuggler)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "git" ]]; then
   log "Installing Smuggler (smuggler)"
-  git clone https://github.com/defparam/smuggler && cd smuggler  # run: python3 smuggler.py
+  _mt_install 'git' 'git clone https://github.com/defparam/smuggler && cd smuggler'
+  _mt_record "Smuggler" "smuggler" "git"
 fi
 
 if command -v retire >/dev/null 2>&1; then
   skip "Retire.js" "$(command -v retire)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "npm" ]]; then
   log "Installing Retire.js (retire)"
-  npm install -g retire
+  _mt_install 'npm' 'retire'
+  _mt_record "Retire.js" "retire" "npm"
 fi
 
 if command -v ppfuzz >/dev/null 2>&1; then
   skip "ppfuzz" "$(command -v ppfuzz)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "cargo" ]]; then
   log "Installing ppfuzz (ppfuzz)"
-  cargo install ppfuzz
+  _mt_install 'cargo' 'ppfuzz'
+  _mt_record "ppfuzz" "ppfuzz" "cargo"
 fi
 
 if command -v wapiti >/dev/null 2>&1; then
   skip "Wapiti" "$(command -v wapiti)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Wapiti (wapiti)"
-  pip install wapiti3
+  _mt_install 'pip' 'wapiti3'
+  _mt_record "Wapiti" "wapiti" "pip"
 fi
 
 if command -v zap-baseline.py >/dev/null 2>&1; then
   skip "OWASP ZAP" "$(command -v zap-baseline.py)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]]; then
   log "Installing OWASP ZAP (zap-baseline.py)"
-  docker pull ghcr.io/zaproxy/zaproxy:stable  # provides zap-baseline.py
+  _mt_install 'sh' 'docker pull ghcr.io/zaproxy/zaproxy:stable'
+  _mt_record "OWASP ZAP" "zap-baseline.py" "sh"
 fi
 
 # ── Wordlist ────────────────────────────────────────────────────
 if command -v cewl >/dev/null 2>&1; then
   skip "CeWL" "$(command -v cewl)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "gem" ]]; then
   log "Installing CeWL (cewl)"
-  gem install cewl  # or apt install cewl
+  _mt_install 'gem' 'cewl'
+  _mt_record "CeWL" "cewl" "gem"
 fi
 
 if command -v wordlister >/dev/null 2>&1; then
   skip "Wordlister" "$(command -v wordlister)"
-else
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "pip" ]]; then
   log "Installing Wordlister (wordlister)"
-  pip install wordlister
+  _mt_install 'pip' 'wordlister'
+  _mt_record "Wordlister" "wordlister" "pip"
 fi
-
-log "All done. Run 'npm run dev' or launch the desktop app."

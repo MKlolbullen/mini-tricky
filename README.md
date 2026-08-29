@@ -128,7 +128,28 @@ Bootstrap supported tools with:
 bash scripts/install-tools.sh
 ```
 
-or use **Settings → Tool Manager → Copy install script** in the app.
+The installer is **idempotent** (every tool is guarded by `command -v`, so
+re-running only installs what is still missing) and **non-fatal** (one tool
+failing never aborts the run). It detects the host package manager
+(`apt`/`dnf`/`yum`/`pacman`/`zypper`/`apk`/`brew`) and bootstraps the language
+toolchains it needs (`go`, `pipx`, `cargo`, `npm`, `gem`) on demand, then prints
+a summary of what was installed, already present, built from source, or failed.
+
+```bash
+bash scripts/install-tools.sh --dry-run        # show what would be installed
+bash scripts/install-tools.sh --only go        # only Go-based tools (go|pip|pipx|cargo|npm|gem|pm|git|sh)
+bash scripts/install-tools.sh --skip-prereqs   # never auto-install toolchains
+bash scripts/install-tools.sh -h               # usage
+```
+
+Python tools are installed in isolation with `pipx` (falling back to
+`pip --user`), and Go tools land in `$(go env GOPATH)/bin` — add that,
+`~/.local/bin`, and `~/.cargo/bin` to your `PATH`. Tools installed from source
+are checked out under `~/.mini-tricky/src` (override with `MINI_TRICKY_HOME`).
+
+You can also use **Settings → Tool Manager → Copy install script** in the app,
+which serves the same installer for the full composed catalog (core plus every
+`tools.d` pack) via `GET /api/tools/install-script`.
 
 > Beta installers are currently unsigned. Expect the normal macOS Gatekeeper / Windows SmartScreen warning for an unsigned application. Only install artifacts from this repository's release page and verify release provenance when available.
 
