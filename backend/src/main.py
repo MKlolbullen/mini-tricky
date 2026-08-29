@@ -2854,6 +2854,7 @@ ensure_git() {
 
 mt_pip() {
   ensure_pipx && pipx install "$1" >/dev/null 2>&1 && return 0
+  export PATH="$PATH:$HOME/.local/bin"
   python3 -m pip install --user "$1" >/dev/null 2>&1 && return 0
   python3 -m pip install --user --break-system-packages "$1" >/dev/null 2>&1 && return 0
   return 1
@@ -2890,7 +2891,7 @@ _mt_record() {
   [[ -n "$MT_DRY_RUN" ]] && return 0
   if command -v "$2" >/dev/null 2>&1; then
     MT_OK+=("$1")
-  elif [[ "$3" == "git" || "$3" == "sh" || "$3" == "manual" ]]; then
+  elif [[ "$MT_LAST_RC" -eq 0 && ( "$3" == "git" || "$3" == "sh" || "$3" == "manual" ) ]]; then
     MT_SRC+=("$1 ($2)")
   else
     MT_FAIL+=("$1 ($2)")

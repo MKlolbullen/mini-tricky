@@ -22,6 +22,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 EXTENSION_DIR="$SCRIPT_DIR/install-tools.d"
 
+# Handle help before running any fragment, so `install-tools.sh -h` never
+# installs anything: hand off to the core runtime's usage and exit.
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) exec bash "$SCRIPT_DIR/install-tools-core.sh" --help ;;
+  esac
+done
+
 if [[ -d "$EXTENSION_DIR" ]]; then
   shopt -s nullglob
   fragments=("$EXTENSION_DIR"/*.sh)

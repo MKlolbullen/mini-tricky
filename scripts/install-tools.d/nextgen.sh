@@ -6,11 +6,13 @@ set -uo pipefail
 
 MT_DRY_RUN=""
 MT_ONLY=""
+MT_SKIP_PREREQS=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) MT_DRY_RUN=1 ;;
     --only) MT_ONLY="${2:-}"; shift ;;
     --only=*) MT_ONLY="${1#*=}" ;;
+    --skip-prereqs) MT_SKIP_PREREQS=1 ;;
     *) ;;
   esac
   shift
@@ -20,11 +22,13 @@ log()  { printf "\033[1;36m[install-tools]\033[0m %s\n" "$*"; }
 warn() { printf "\033[1;33m[install-tools]\033[0m %s\n" "$*" >&2; }
 skip() { printf "\033[2m[install-tools] %s already installed at %s\033[0m\n" "$1" "$2"; }
 run()  { if [[ -n "$MT_DRY_RUN" ]]; then printf '   (dry-run) %s\n' "$1"; else eval "$1" || warn "install step failed"; fi; }
+# With --skip-prereqs, only install when the required base toolchain is present.
+need_base() { [[ -z "$MT_SKIP_PREREQS" ]] || command -v "$1" >/dev/null 2>&1; }
 
 # ── OSINT extension ──────────────────────────────────────────────
 if command -v uncover >/dev/null 2>&1; then
   skip "Uncover" "$(command -v uncover)"
-elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]]; then
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "go" ]] && need_base go; then
   log "Installing Uncover (uncover)"
   run 'go install -v github.com/projectdiscovery/uncover/cmd/uncover@latest'
 fi
@@ -32,14 +36,14 @@ fi
 # ── Supply Chain extension ───────────────────────────────────────
 if command -v syft >/dev/null 2>&1; then
   skip "Syft" "$(command -v syft)"
-elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]]; then
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]] && need_base curl; then
   log "Installing Syft (syft)"
   run 'curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin'
 fi
 
 if command -v grype >/dev/null 2>&1; then
   skip "Grype" "$(command -v grype)"
-elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]]; then
+elif [[ -z "$MT_ONLY" || "$MT_ONLY" == "sh" ]] && need_base curl; then
   log "Installing Grype (grype)"
   run 'curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin'
 fi
