@@ -123,7 +123,7 @@ jobs:
         run: ls -lh dist-electron || true
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist-electron/*.dmg
