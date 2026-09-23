@@ -133,7 +133,7 @@ jobs:
             dist-electron/*.deb
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}-dist
           if-no-files-found: error
