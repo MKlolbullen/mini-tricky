@@ -1,6 +1,6 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.0
-pydantic==2.9.2
+pydantic==2.13.4
 PyYAML==6.0.2
 websockets==14.1
 apscheduler==3.10.4
